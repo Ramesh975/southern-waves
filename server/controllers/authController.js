@@ -3,19 +3,18 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const sendEmail = require('../utils/sendEmail');
 
-// Helper to get cookie options
 const getAccessCookieOptions = () => ({
   expires: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',
-  sameSite: 'strict',
+  sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
 });
 
 const getRefreshCookieOptions = () => ({
   expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',
-  sameSite: 'strict',
+  sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
 });
 
 // Generate and set tokens in cookies
@@ -155,14 +154,14 @@ exports.logout = async (req, res, next) => {
       expires: new Date(Date.now() + 5 * 1000), // expire in 5 seconds
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
     });
 
     res.cookie('refresh_token', 'none', {
       expires: new Date(Date.now() + 5 * 1000),
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
     });
 
     res.status(200).json({ success: true, message: 'Logged out successfully' });
