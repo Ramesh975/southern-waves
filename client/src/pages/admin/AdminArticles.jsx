@@ -77,7 +77,7 @@ const AdminArticles = () => {
 
       {/* Filter & Search Bar */}
       <div className="admin-card" style={{ padding: '20px', display: 'flex', gap: '16px', marginBottom: '24px', flexWrap: 'wrap', alignItems: 'center' }}>
-        <div style={{ display: 'flex', gap: 8, flex: 1, minWidth: '250px' }}>
+        <div style={{ display: 'flex', gap: 8, flex: 1, minWidth: 0, flexWrap: 'wrap' }}>
           {['', 'published', 'draft', 'archived'].map((s) => (
             <button
               key={s}
@@ -117,10 +117,10 @@ const AdminArticles = () => {
               <tr>
                 <th>Title</th>
                 <th>Category</th>
-                <th>Author</th>
+                <th className="hide-mobile">Author</th>
                 <th>Status</th>
-                <th>Views</th>
-                <th>Date</th>
+                <th className="hide-mobile">Views</th>
+                <th className="hide-mobile">Date</th>
                 {isAdmin && <th>Spotlight Pushed</th>}
                 <th>Actions</th>
               </tr>
@@ -139,14 +139,14 @@ const AdminArticles = () => {
                       {a.category}
                     </span>
                   </td>
-                  <td style={{ fontSize: 12 }}>{a.author?.name}</td>
+                  <td className="hide-mobile" style={{ fontSize: 12 }}>{a.author?.name}</td>
                   <td>
                     <span className={`admin-badge ${a.status === 'published' ? 'badge-success' : a.status === 'draft' ? 'badge-warning' : 'badge-neutral'}`}>
                       {a.status}
                     </span>
                   </td>
-                  <td style={{ fontSize: 13 }}>{a.views.toLocaleString()}</td>
-                  <td style={{ fontSize: 11, color: 'var(--color-gray-500)' }}>
+                  <td className="hide-mobile" style={{ fontSize: 13 }}>{a.views.toLocaleString()}</td>
+                  <td className="hide-mobile" style={{ fontSize: 11, color: 'var(--color-gray-500)' }}>
                     {a.publishedAt ? new Date(a.publishedAt).toLocaleDateString() : new Date(a.createdAt).toLocaleDateString()}
                   </td>
                   {isAdmin && (

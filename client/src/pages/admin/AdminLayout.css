@@ -321,7 +321,8 @@
   background: var(--admin-card-bg);
   border: 1px solid var(--admin-border);
   border-radius: 16px;
-  overflow-x: auto;
+  overflow: auto;
+  max-height: 70vh;
   -webkit-overflow-scrolling: touch;
   box-shadow: var(--admin-shadow-sm);
 }
@@ -330,6 +331,9 @@
   border-collapse: collapse;
 }
 .data-table th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
   background: var(--admin-hover-bg);
   color: var(--admin-text-muted);
   padding: 16px 20px;
@@ -615,48 +619,177 @@
   }
 }
 
+
+/* ============================================================
+   EDITOR FORM GRID — Responsive 2-col → 1-col
+   ============================================================ */
+.editor-form-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 40px;
+}
+@media (max-width: 900px) {
+  .editor-form-grid {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  .admin-card { padding: 20px !important; }
+}
+
+/* ============================================================
+   MOBILE BREAKPOINT — 768px
+   ============================================================ */
 @media (max-width: 768px) {
+  /* Page title on mobile — hide brand label, truncate title */
+  .ad-brand-label-desktop {
+    display: none !important;
+  }
+  .nav-dynamic-title {
+    font-size: 15px !important;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .nav-title-group {
+    flex-direction: column;
+    gap: 0 !important;
+    justify-content: center;
+  }
+
+  /* Admin page header */
   .admin-header {
     flex-direction: column;
-    gap: 16px;
+    gap: 12px;
     align-items: stretch;
+    margin-bottom: 20px;
   }
   .admin-header .btn-admin-primary {
     justify-content: center;
     width: 100%;
   }
   .admin-title {
-    font-size: 24px !important;
+    font-size: 22px !important;
+    letter-spacing: -0.5px;
   }
   .admin-subtitle {
     font-size: 13px !important;
   }
+
+  /* Stats Grid — 2 columns on mobile instead of 1 */
+  .stats-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .stat-card { padding: 16px; }
+  .stat-value { font-size: 28px !important; }
+  .stat-label { font-size: 10px; }
+  .stat-icon { padding: 8px; font-size: 18px; }
+
+  /* Mid row — already collapses at 1024, but also fix padding */
+  .ad-mid-row { gap: 16px; }
+
+  /* Quick actions — 2-col on mobile */
   .ad-quick-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
     padding: 16px;
+    gap: 10px;
   }
-  .ad-health-body {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 16px;
-  }
+  .ad-quick-item { padding: 12px 8px; }
+
+  /* List rows stack */
   .ad-list-row {
     flex-direction: column;
     align-items: stretch;
-    gap: 12px;
-    padding: 16px;
+    gap: 10px;
+    padding: 14px 16px;
   }
   .ad-article-actions {
     margin-left: 0;
     justify-content: flex-end;
     width: 100%;
   }
+  .ad-article-footer {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* Notifications popover — shift left to not overflow */
+  .notifications-popover {
+    width: auto !important;
+    min-width: 280px !important;
+    right: -8px !important;
+    left: auto !important;
+  }
+
+  /* Tables — more compact on mobile */
+  .data-table th {
+    padding: 10px 12px;
+    font-size: 10px;
+  }
+  .data-table td {
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+  .hide-mobile {
+    display: none !important;
+  }
+
+  /* Health Card */
+  .ad-health-body {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 16px;
+  }
+
+  /* Admin card padding */
+  .admin-card { padding: 18px; }
+  .admin-card-header { margin-bottom: 14px; padding-bottom: 12px; }
 }
 
+/* ============================================================
+   MOBILE BREAKPOINT — 480px (small phones)
+   ============================================================ */
 @media (max-width: 480px) {
+  /* Page content padding */
+  .ad-page-content { padding: 12px; }
+  .admin-card { padding: 14px; border-radius: 12px; }
+
+  /* Stats — single column on very small phones */
   .stats-grid {
     grid-template-columns: 1fr;
-    gap: 12px;
-    margin-bottom: 20px;
+    gap: 10px;
+  }
+  .stat-value { font-size: 24px !important; }
+
+  /* Quick actions — 2-col even on small phones */
+  .ad-quick-grid {
+    grid-template-columns: 1fr 1fr;
+    padding: 12px;
+    gap: 8px;
+  }
+
+  /* Editor form grid — single column */
+  .editor-form-grid { gap: 16px; }
+
+  /* Topbar */
+  .ad-topbar {
+    padding: 0 12px !important;
+    height: 52px !important;
+  }
+  .nav-dynamic-title {
+    font-size: 13px !important;
+    max-width: 140px;
+  }
+
+  /* Admin badge smaller */
+  .admin-badge { font-size: 9px; padding: 3px 7px; }
+
+  /* Mid row tighter */
+  .ad-mid-row { gap: 12px; margin-bottom: 16px; }
+  .hide-xs {
+    display: none !important;
   }
 }

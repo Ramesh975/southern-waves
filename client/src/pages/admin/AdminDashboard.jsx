@@ -9,23 +9,89 @@ import {
 } from 'react-icons/fi';
 
 /* ── tiny sparkline bar chart ── */
-const SparkBar = ({ values = [], color = '#c8102e' }) => {
+const SparkBar = ({ values = [], color = '#c8102e', labels = [] }) => {
   const max = Math.max(...values, 1);
+  const [hoveredIndex, setHoveredIndex] = useState(null);
+  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+
+  const handleInteraction = (e, index) => {
+    const target = e.currentTarget;
+    const parent = target.parentElement;
+    if (!parent) return;
+    
+    const targetRect = target.getBoundingClientRect();
+    const parentRect = parent.getBoundingClientRect();
+    
+    // Calculate tooltip coordinates relative to parent
+    setTooltipPos({
+      x: targetRect.left - parentRect.left + targetRect.width / 2,
+      y: targetRect.top - parentRect.top - 28
+    });
+    setHoveredIndex(index);
+  };
+
+  const handleLeave = () => {
+    setHoveredIndex(null);
+  };
+
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 40 }}>
-      {values.map((v, i) => (
-        <div
-          key={i}
-          style={{
-            flex: 1,
-            height: `${(v / max) * 100}%`,
-            background: color,
-            borderRadius: 3,
-            opacity: 0.6 + (i / values.length) * 0.4,
-            transition: 'height 0.5s ease',
-          }}
-        />
-      ))}
+    <div style={{ position: 'relative', width: '100%' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 40 }}>
+        {values.map((v, i) => (
+          <div
+            key={i}
+            onMouseEnter={(e) => handleInteraction(e, i)}
+            onMouseMove={(e) => handleInteraction(e, i)}
+            onMouseLeave={handleLeave}
+            onTouchStart={(e) => handleInteraction(e, i)}
+            onTouchMove={(e) => handleInteraction(e, i)}
+            onTouchEnd={handleLeave}
+            style={{
+              flex: 1,
+              height: `${(v / max) * 100}%`,
+              background: color,
+              borderRadius: 3,
+              opacity: hoveredIndex === i ? 1 : 0.6 + (i / values.length) * 0.4,
+              transition: 'height 0.5s ease, opacity 0.15s ease',
+              cursor: 'pointer',
+            }}
+          />
+        ))}
+      </div>
+      
+      {/* Tooltip Overlay */}
+      {hoveredIndex !== null && (
+        <div style={{
+          position: 'absolute',
+          left: tooltipPos.x,
+          top: tooltipPos.y,
+          transform: 'translateX(-50%)',
+          background: 'rgba(17, 17, 17, 0.95)',
+          color: '#ffffff',
+          padding: '3px 8px',
+          borderRadius: '6px',
+          fontSize: '10px',
+          fontWeight: 700,
+          whiteSpace: 'nowrap',
+          pointerEvents: 'none',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+          zIndex: 100,
+          border: '1px solid rgba(255,255,255,0.08)'
+        }}>
+          {labels[hoveredIndex] ? `${labels[hoveredIndex]}: ` : ''}{typeof values[hoveredIndex] === 'number' ? values[hoveredIndex].toLocaleString() : values[hoveredIndex]}
+          <div style={{
+            position: 'absolute',
+            bottom: -4,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            borderWidth: '4px 4px 0',
+            borderStyle: 'solid',
+            borderColor: 'rgba(17, 17, 17, 0.95) transparent transparent',
+            width: 0,
+            height: 0
+          }} />
+        </div>
+      )}
     </div>
   );
 };
@@ -76,6 +142,9 @@ const timeAgo = (date) => {
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
   return `${Math.floor(diff / 86400)}d ago`;
 };
+
+const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 /* ────────────────────────────────────────────── */
 
@@ -180,7 +249,7 @@ const AdminDashboard = () => {
             <div className="stat-value">{loading ? '—' : s.value}</div>
             <div className="stat-label">{s.label}</div>
             <div style={{ marginTop: 16 }}>
-              <SparkBar values={s.spark} color={s.color} />
+              <SparkBar values={s.spark} color={s.color} labels={DAYS} />
             </div>
           </div>
         ))}
@@ -280,7 +349,7 @@ const AdminDashboard = () => {
               <span className="admin-badge badge-success">↑ 24%</span>
             </div>
             <div style={{ padding: '0 8px' }}>
-              <SparkBar values={weeklyViews} color="var(--accent-color)" />
+              <SparkBar values={weeklyViews} color="var(--accent-color)" labels={WEEKDAYS} />
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10 }}>
                 {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
                   <span key={i} style={{ fontSize: 11, color: 'var(--admin-text-muted)', fontWeight: 700 }}>{d}</span>

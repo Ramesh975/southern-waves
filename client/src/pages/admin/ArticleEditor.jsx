@@ -118,7 +118,7 @@ const ArticleEditor = () => {
 
       <form onSubmit={handleSubmit}>
         <div className="admin-card" style={{ padding: '32px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '40px' }}>
+          <div className="editor-form-grid">
             <div>
               {/* Title */}
               <div style={{ marginBottom: '24px' }}>

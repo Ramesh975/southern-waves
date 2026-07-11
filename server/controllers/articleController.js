@@ -541,11 +541,16 @@ exports.getTrending = async (req, res, next) => {
       const pubTime = article.publishedAt || article.createdAt || now;
       const hoursElapsed = Math.max(0.1, (now - new Date(pubTime)) / (1000 * 60 * 60));
 
+      // Admin isTrending flag gives a MASSIVE boost — always surfaces admin-curated trending articles first
+      const adminBoost = article.isTrending ? 10000 : 1;
+
       // Hype/Engagement score algorithm: Views + Shares*4 + Likes*3 + Comments*5 - Dislikes*2
       const hypeScore = viewsCount + (sharesCount * 4) + (likesCount * 3) + (commentsCount * 5) - (dislikesCount * 2);
 
-      // Trending score uses standard time decay gravity of 1.6
-      const trendingScore = hypeScore / Math.pow(hoursElapsed + 2, 1.6);
+      // Trending score uses standard time decay gravity of 1.6; admin-boosted articles skip decay
+      const trendingScore = article.isTrending
+        ? (hypeScore + 1) * adminBoost
+        : hypeScore / Math.pow(hoursElapsed + 2, 1.6);
 
       return {
         article,
@@ -576,10 +581,14 @@ exports.getTrending = async (req, res, next) => {
 // @access  Public
 exports.getMostRead = async (req, res, next) => {
   try {
-    const articles = await Article.find({ status: 'published' })
+    const limit = req.query.limit ? parseInt(req.query.limit, 10) : 6;
+    const category = req.query.category;
+    const query = { status: 'published' };
+    if (category) query.category = category;
+    const articles = await Article.find(query)
       .populate('author', 'name avatar')
       .sort({ views: -1 })
-      .limit(6);
+      .limit(limit);
     res.status(200).json({ success: true, data: articles });
   } catch (err) {
     next(err);

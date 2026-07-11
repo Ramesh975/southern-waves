@@ -132,7 +132,7 @@ const AdminUsers = () => {
           onChange={e => setSearchQuery(e.target.value)}
           placeholder="Search by name or email..."
           className="admin-input"
-          style={{ flex: 1, minWidth: '250px' }}
+          style={{ flex: 1, minWidth: '180px' }}
         />
         <select
           value={filterRole}
@@ -163,11 +163,11 @@ const AdminUsers = () => {
             <thead>
               <tr>
                 <th>Name</th>
-                <th>Email</th>
+                <th className="hide-mobile">Email</th>
                 <th>Role</th>
-                <th>Change Role</th>
+                <th className="hide-mobile">Change Role</th>
                 <th>Status</th>
-                <th>Joined</th>
+                <th className="hide-mobile">Joined</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -188,9 +188,9 @@ const AdminUsers = () => {
                         </span>
                       )}
                     </td>
-                    <td style={{ fontSize: 12, color: 'var(--color-gray-600)' }}>{u.email}</td>
+                    <td className="hide-mobile" style={{ fontSize: 12, color: 'var(--color-gray-600)' }}>{u.email}</td>
                     <td><span className="admin-badge" style={{ background: 'var(--admin-hover-bg)', color: 'var(--accent-color)', border: '1px solid var(--accent-color)' }}>{u.role}</span></td>
-                    <td>
+                    <td className="hide-mobile">
                       <select
                         className="admin-input"
                         style={{ width: '120px', padding: '6px 10px', fontSize: '12px', cursor: 'pointer' }}
@@ -221,7 +221,7 @@ const AdminUsers = () => {
                         </span>
                       )}
                     </td>
-                    <td style={{ fontSize: '13px', color: 'var(--admin-text-subtle)' }}>
+                    <td className="hide-mobile" style={{ fontSize: '13px', color: 'var(--admin-text-subtle)' }}>
                       {new Date(u.createdAt).toLocaleDateString()}
                     </td>
                     <td>

@@ -250,6 +250,23 @@ button, input, select, textarea { font-family: inherit; border: none; outline: n
 .article-body h3 { font-family: var(--font-serif); font-size: 1.2em; margin: 1.2em 0 0.4em; }
 .article-body blockquote { border-left: 3px solid var(--accent-color); padding: 8px 16px; margin: 16px 0; font-style: italic; color: var(--color-gray-700); background: var(--color-gray-100); break-inside: avoid; }
 .article-body ul, .article-body ol { padding-left: 1.5em; margin-bottom: 1em; list-style: initial; }
+.article-body img {
+  max-width: 100%;
+  height: auto;
+  cursor: zoom-in;
+  border-radius: 4px;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  display: block;
+  margin: 16px auto;
+}
+.article-body img:hover { opacity: 0.88; transform: scale(1.01); }
+
+/* ── Lightbox animation ── */
+@keyframes lightboxFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 
 .also-read-title { font-family: var(--font-sans); font-size: 13px; font-weight: 700; color: var(--accent-color); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px; font-style: italic; }
 .also-read-item { display: grid; grid-template-columns: 80px 1fr; gap: 10px; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--color-gray-200); }

@@ -9,6 +9,7 @@ import ShareRail from '../components/ShareRail';
 import toast from 'react-hot-toast';
 import io from 'socket.io-client';
 import { FiHeart, FiMessageCircle, FiCornerUpLeft, FiBookmark, FiThumbsDown, FiLock, FiSlash, FiUnlock, FiTrash2 } from 'react-icons/fi';
+import ImageLightbox from '../components/ImageLightbox';
 
 const SOCKET_URL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5000';
 
@@ -178,6 +179,7 @@ const ArticleDetailPage = () => {
   const [globalCommentLock, setGlobalCommentLock] = useState(false);
   const [commentsDisabled, setCommentsDisabled] = useState(false);
   const [chatDisabled, setChatDisabled] = useState(false);
+  const [lightboxSrc, setLightboxSrc] = useState(null);
 
   const handleReplyClick = () => {
     if (!article) return;
@@ -347,6 +349,31 @@ const ArticleDetailPage = () => {
 
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
+  }, [article]);
+
+  // Inject lightbox click handlers on images in article body
+  useEffect(() => {
+    if (!article) return;
+    // Small timeout to let dangerouslySetInnerHTML render
+    const timer = setTimeout(() => {
+      const articleBody = document.querySelector('.article-body');
+      if (!articleBody) return;
+      const imgs = articleBody.querySelectorAll('img');
+      imgs.forEach(img => {
+        img.style.cursor = 'zoom-in';
+        const handler = () => setLightboxSrc(img.src);
+        img.addEventListener('click', handler);
+        img._lightboxHandler = handler;
+      });
+      return () => {
+        imgs.forEach(img => {
+          if (img._lightboxHandler) {
+            img.removeEventListener('click', img._lightboxHandler);
+          }
+        });
+      };
+    }, 100);
+    return () => clearTimeout(timer);
   }, [article]);
 
   const handleComment = async (e) => {
@@ -570,7 +597,8 @@ const ArticleDetailPage = () => {
   const truncatedTitle = article.title.length > 35 ? article.title.substring(0, 35) + '...' : article.title;
 
   return (
-    <main className="article-detail-page-v2">
+    <>
+      <main className="article-detail-page-v2">
       {/* Reading progress bar */}
       <div className="reading-progress-container">
         <div className="reading-progress-bar" style={{ width: `${scrollProgress}%` }} />
@@ -1169,6 +1197,16 @@ const ArticleDetailPage = () => {
         </div>
       </div>
     </main>
+
+    {/* ── Image Lightbox ── */}
+    {lightboxSrc && (
+      <ImageLightbox
+        src={lightboxSrc}
+        alt="Article image"
+        onClose={() => setLightboxSrc(null)}
+      />
+    )}
+    </>
   );
 };
 

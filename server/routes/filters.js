@@ -29,7 +29,7 @@ router.post('/tags', ...modAuth, addBlockedTag);
 router.delete('/tags/:id', ...modAuth, deleteBlockedTag);
 
 // Global System settings (Security Locks)
-router.get('/settings', getSystemSettings);
+router.get('/settings', ...modAuth, getSystemSettings);
 router.put('/settings', protect, authorize('admin'), updateSystemSettings);
 
 // Custom filter word management

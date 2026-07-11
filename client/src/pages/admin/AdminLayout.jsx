@@ -404,7 +404,7 @@ const AdminLayout = () => {
               <div className="nav-accent-bar"></div>
 
               <div className="nav-title-group">
-                <Link to="/" className="nav-brand-label">Southern Waves.</Link>
+                <Link to="/" className="nav-brand-label ad-brand-label-desktop">Southern Waves.</Link>
                 <h1 className="nav-dynamic-title">
                   {location.pathname === '/admin' ? 'Dashboard'
                     : location.pathname.includes('articles') ? 'Articles'
@@ -787,7 +787,7 @@ const NotificationsPopover = ({ notifications, markNotificationRead, markAllNoti
   };
 
   return (
-    <div className="profile-popover notifications-popover" style={{ width: '360px', padding: '16px', gap: '12px', textAlign: 'left', right: 0 }}>
+    <div className="profile-popover notifications-popover" style={{ width: '360px', minWidth: '280px', padding: '16px', gap: '12px', textAlign: 'left', right: 0 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--color-gray-200)', paddingBottom: '8px' }}>
         <h4 style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--color-black)' }}>University Alerts</h4>
         {notifications.some(n => !n.isRead) && (

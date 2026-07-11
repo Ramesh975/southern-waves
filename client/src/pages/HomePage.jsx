@@ -29,6 +29,7 @@ const HomePage = () => {
   const [foryouLoading, setForyouLoading] = useState(true);
 
   const [trendingArticles, setTrendingArticles] = useState([]);
+  const [newsArticles, setNewsArticles] = useState([]);
   const [trendingTags, setTrendingTags] = useState([]);
   const [mostViewedArticles, setMostViewedArticles] = useState([]);
   const [mostLikedArticles, setMostLikedArticles] = useState([]);
@@ -46,33 +47,40 @@ const HomePage = () => {
   }, [pushedArticles.length]);
 
   useEffect(() => {
+    const fallback = { data: { data: [] } };
     Promise.all([
-      articleAPI.getAll({ status: 'published', limit: 12 }),
-      articleAPI.getAll({ category: 'editorial', status: 'published', limit: 1 }),
-      articleAPI.getAll({ category: 'features', status: 'published', limit: 4 }),
-      articleAPI.getAll({ category: 'kyp', status: 'published', limit: 6 }),
-      articleAPI.getAll({ category: 'tea-shop', status: 'published', limit: 3 }),
-      articleAPI.getAll({ category: 'pictures-speak', status: 'published', limit: 6 }),
-      articleAPI.getTrending(),
-      articleAPI.getTrendingTags(),
-      articleAPI.getMostRead({ limit: 6 }),
-      articleAPI.getMostLiked({ limit: 6 }),
-      articleAPI.getAll({ pushedToHome: 'true', status: 'published', limit: 5 }),
+      articleAPI.getAll({ status: 'published', limit: 12 }).catch(err => { console.error('Error fetching all articles:', err); return fallback; }),
+      articleAPI.getAll({ category: 'editorial', status: 'published', limit: 1 }).catch(err => { console.error('Error fetching editorial spotlight:', err); return fallback; }),
+      articleAPI.getAll({ category: 'features', status: 'published', limit: 4 }).catch(err => { console.error('Error fetching features articles:', err); return fallback; }),
+      articleAPI.getAll({ category: 'kyp', status: 'published', limit: 6 }).catch(err => { console.error('Error fetching kyp articles:', err); return fallback; }),
+      articleAPI.getAll({ category: 'tea-shop', status: 'published', limit: 3 }).catch(err => { console.error('Error fetching tea-shop articles:', err); return fallback; }),
+      articleAPI.getAll({ category: 'pictures-speak', status: 'published', limit: 6 }).catch(err => { console.error('Error fetching pictures-speak articles:', err); return fallback; }),
+      articleAPI.getTrending().catch(err => { console.error('Error fetching trending articles:', err); return fallback; }),
+      articleAPI.getTrendingTags().catch(err => { console.error('Error fetching trending tags:', err); return fallback; }),
+      articleAPI.getMostRead({ limit: 6 }).catch(err => { console.error('Error fetching most read articles:', err); return fallback; }),
+      articleAPI.getMostLiked({ limit: 6 }).catch(err => { console.error('Error fetching most liked articles:', err); return fallback; }),
+      articleAPI.getAll({ pushedToHome: 'true', status: 'published', limit: 5 }).catch(err => { console.error('Error fetching pushed spotlight articles:', err); return fallback; }),
+      articleAPI.getAll({ category: 'news', status: 'published', limit: 6 }).catch(err => { console.error('Error fetching news articles:', err); return fallback; }),
     ])
-      .then(([allRes, edSpotRes, featRes, kypRes, teaRes, picsRes, trendRes, tagsRes, mostReadRes, mostLikedRes, pushRes]) => {
-        setArticles(allRes.data.data);
-        setEditorialSpotlight(edSpotRes.data.data[0] || null);
-        setFeaturesArticles(featRes.data.data);
-        setKypArticles(kypRes.data.data);
-        setTeaShopArticles(teaRes.data.data);
-        setPicsArticles(picsRes.data.data);
-        setTrendingArticles(trendRes.data.data.slice(0, 6));
-        setTrendingTags(tagsRes.data.data.slice(0, 10));
-        setMostViewedArticles(mostReadRes.data.data);
-        setMostLikedArticles(mostLikedRes.data.data);
-        setPushedArticles(pushRes.data?.data || []);
+      .then(([allRes, edSpotRes, featRes, kypRes, teaRes, picsRes, trendRes, tagsRes, mostReadRes, mostLikedRes, pushRes, newsRes]) => {
+        const getArray = (res) => Array.isArray(res?.data?.data) ? res.data.data : [];
+        
+        setArticles(getArray(allRes));
+        setEditorialSpotlight(getArray(edSpotRes)[0] || null);
+        setFeaturesArticles(getArray(featRes));
+        setKypArticles(getArray(kypRes));
+        setTeaShopArticles(getArray(teaRes));
+        setPicsArticles(getArray(picsRes));
+        setTrendingArticles(getArray(trendRes).slice(0, 6));
+        setTrendingTags(getArray(tagsRes).slice(0, 10));
+        setMostViewedArticles(getArray(mostReadRes));
+        setMostLikedArticles(getArray(mostLikedRes));
+        setPushedArticles(getArray(pushRes));
+        setNewsArticles(getArray(newsRes));
       })
-      .catch((err) => console.error('Failed to load homepage data:', err))
+      .catch((err) => {
+        console.error('Failed to load homepage data:', err);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -107,7 +115,7 @@ const HomePage = () => {
     featuredArticles.push(...articles.slice(0, 5));
   }
   const currentHero = featuredArticles[currentSlideIndex] || articles[0];
-  const recentArticles = articles.slice(0, 6);
+  const recentArticles = newsArticles.slice(0, 6);
 
   // Helper to extract first 200 chars of HTML content
   const getExcerpt = (htmlContent) => {
