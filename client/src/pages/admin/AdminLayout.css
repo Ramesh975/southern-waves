@@ -640,6 +640,17 @@
     align-items: flex-start;
     gap: 16px;
   }
+  .ad-list-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 16px;
+  }
+  .ad-article-actions {
+    margin-left: 0;
+    justify-content: flex-end;
+    width: 100%;
+  }
 }
 
 @media (max-width: 480px) {

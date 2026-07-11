@@ -1196,6 +1196,17 @@
     animation: slideUpModal 0.25s ease-out !important;
     box-shadow: 0 10px 30px rgba(0,0,0,0.15) !important;
   }
+  .profile-popover {
+    position: fixed !important;
+    top: 70px !important;
+    right: 16px !important;
+    left: 16px !important;
+    width: auto !important;
+    max-width: none !important;
+    transform: none !important;
+    animation: slideUpModal 0.25s ease-out !important;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15) !important;
+  }
 }
 
 /* Navbar mini spinner */

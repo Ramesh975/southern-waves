@@ -95,7 +95,7 @@ const AdminArticles = () => {
             </button>
           ))}
         </div>
-        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: '300px' }}>
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: '100%', maxWidth: '300px' }}>
           <FiSearch style={{ position: 'absolute', left: 12, color: 'var(--admin-text-subtle)' }} size={16} />
           <input
             type="text"

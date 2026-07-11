@@ -158,7 +158,7 @@ const AdminUsers = () => {
       {loading ? (
         <div className="loading-spinner"><div className="spinner" /></div>
       ) : (
-        <div style={{ overflowX: 'auto' }}>
+        <div className="admin-table-container">
           <table className="data-table">
             <thead>
               <tr>
