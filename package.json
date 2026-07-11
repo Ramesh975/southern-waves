@@ -1,0 +1,13 @@
+{
+  "name": "southern-waves",
+  "version": "1.0.0",
+  "description": "Southern Waves - MERN Stack Student Media Platform",
+  "private": true,
+  "scripts": {
+    "dev:server": "cd server && npm run dev",
+    "dev:client": "cd client && npm run dev",
+    "dev": "start /B npm run dev:server && npm run dev:client",
+    "install:all": "cd server && npm install && cd ../client && npm install",
+    "seed": "cd server && npm run seed"
+  }
+}
