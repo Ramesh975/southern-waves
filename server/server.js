@@ -60,9 +60,9 @@ app.use(cors({
   credentials: true,
 }));
 
-// Apply rate limiting
-app.use('/api/auth/login', authLimiter);
-app.use('/api/auth/register', authLimiter);
+// Apply rate limiting (Disabled to prevent lockouts during deployment/testing)
+// app.use('/api/auth/login', authLimiter);
+// app.use('/api/auth/register', authLimiter);
 
 // Logger (dev mode)
 if (process.env.NODE_ENV === 'development') {
