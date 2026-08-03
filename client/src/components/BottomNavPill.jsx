@@ -317,10 +317,9 @@ const BottomNavPill = ({
       });
 
   const canPublish = user && (
-    user.role === 'admin' ||
-    user.role === 'editor' ||
-    category === 'tea-shop' ||
-    category === 'pictures-speak'
+    category === 'tea-shop'
+      ? user.role === 'student'
+      : (user.role === 'admin' || user.role === 'editor' || category === 'pictures-speak')
   );
 
   const tabsToRender = customTabs || visibleTabs;

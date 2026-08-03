@@ -227,7 +227,7 @@ const GenericCategoryPage = ({ category, title: displayTitle }) => {
 
   // Role Gate: only editors/admins can publish in news/editorial/features, etc.
   // Student can write in tea-shop only.
-  const canPost = category === 'tea-shop' ? !!user : (user && isEditor);
+  const canPost = category === 'tea-shop' ? (user && user.role === 'student') : (user && isEditor);
 
   return (
     <div className="tea-shop-mockup-wrapper">

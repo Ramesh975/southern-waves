@@ -57,6 +57,11 @@ const LoginPage = () => {
               required
             />
           </div>
+          <div style={{ textAlign: 'right', marginTop: '-8px', marginBottom: '16px' }}>
+            <Link to="/forgot-password" style={{ fontSize: '12px', color: 'var(--color-red, #c8102e)', fontWeight: 700, textDecoration: 'none' }}>
+              Forgot Password or Account ID?
+            </Link>
+          </div>
           <button type="submit" className="btn-primary" disabled={submitting}>
             {submitting ? 'Signing in...' : 'Log In'}
           </button>

@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FiZap, FiEye, FiArrowRight, FiCornerUpLeft, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+import { useAuth } from '../context/AuthContext';
+import { getDisplayName } from '../utils/userUtils';
 import NewsArticleCard, { getImgSrc, timeAgo } from './NewsArticleCard';
 import TraditionalBoard from './TraditionalBoard';
 
 // ─── FEATURED CAROUSEL ──────────────────────────────────────────────
 const FeaturedCarousel = ({ articles, onReply }) => {
+  const { user } = useAuth();
   const [idx, setIdx] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const timerRef = useRef(null);
@@ -54,7 +57,7 @@ const FeaturedCarousel = ({ articles, onReply }) => {
                   alt={art.author?.name}
                   className="nm-carousel-avatar"
                 />
-                <span>By {art.author?.name}</span>
+                <span>By {getDisplayName(art.author, user)}</span>
                 <span className="nm-carousel-dot">·</span>
                 <span>{timeAgo(art.publishedAt)}</span>
               </div>

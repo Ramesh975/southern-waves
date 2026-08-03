@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
 import { FiHeart, FiCornerUpLeft, FiMessageCircle, FiShare2 } from 'react-icons/fi';
 import { articleAPI } from '../services/api';
+import { getDisplayName } from '../utils/userUtils';
 import toast from 'react-hot-toast';
 
 const SOCKET_URL = import.meta.env.VITE_API_URL
@@ -94,7 +95,7 @@ const NewsArticleCard = ({ article, onReply, onComment, highlight }) => {
               alt={article.author?.name}
               className="nm-card-author-avatar"
             />
-            <span>By {article.author?.name}</span>
+            <span>By {getDisplayName(article.author, user)}</span>
           </div>
         </div>
       </Link>

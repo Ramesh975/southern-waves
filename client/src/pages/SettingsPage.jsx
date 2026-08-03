@@ -8,7 +8,7 @@ import {
   FiEdit3, FiSettings, FiCamera, FiPlus, FiTrash2, FiSearch, 
   FiCheck, FiSend, FiClock, FiCalendar, FiAlertTriangle, 
   FiCheckCircle, FiUnlock, FiLock, FiInfo, FiHash, FiPhone, FiBookOpen,
-  FiChevronRight, FiArrowLeft
+  FiChevronRight, FiArrowLeft, FiEye, FiEyeOff, FiX
 } from 'react-icons/fi';
 import { IoContrast } from 'react-icons/io5';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -79,6 +79,24 @@ const SettingsPage = () => {
   const { user, refreshUser, isBlocked, isAdmin, isModerator, isEditor } = useAuth();
   const { theme, setTheme, styleMode, setStyleMode, accent, setAccent, ACCENT_COLORS } = useTheme();
   
+  // Security Questions State & Password Confirmation Modal
+  const [sq1, setSq1] = useState(user?.securityQuestions?.[0]?.question || "What was the name of your first pet?");
+  const [sq2, setSq2] = useState(user?.securityQuestions?.[1]?.question || "What is your mother's maiden name?");
+  const [sa1, setSa1] = useState('');
+  const [sa2, setSa2] = useState('');
+  const [showSa1, setShowSa1] = useState(false);
+  const [showSa2, setShowSa2] = useState(false);
+  const [secAuthModalOpen, setSecAuthModalOpen] = useState(false);
+  const [confirmPasswordInput, setConfirmPasswordInput] = useState('');
+  const [updatingSecQ, setUpdatingSecQ] = useState(false);
+
+  useEffect(() => {
+    if (user?.securityQuestions && user.securityQuestions.length >= 2) {
+      setSq1(user.securityQuestions[0].question);
+      setSq2(user.securityQuestions[1].question);
+    }
+  }, [user]);
+  
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -137,6 +155,11 @@ const SettingsPage = () => {
   // ==========================================
   const [firstName, setFirstName] = useState(user?.firstName || '');
   const [lastName, setLastName] = useState(user?.lastName || '');
+  const [username, setUsername] = useState(user?.username || '');
+  const [age, setAge] = useState(user?.age || '');
+  const [gender, setGender] = useState(user?.gender || 'male');
+  const [educationLevel, setEducationLevel] = useState(user?.educationLevel || 'Undergraduate Degree');
+  const [showRealNamePublicly, setShowRealNamePublicly] = useState(!!user?.showRealNamePublicly);
   const [bio, setBio] = useState(user?.bio || '');
   const [phone, setPhone] = useState(user?.phone || '');
   const [university, setUniversity] = useState(user?.university || '');
@@ -151,6 +174,11 @@ const SettingsPage = () => {
     if (user) {
       setFirstName(user.firstName || '');
       setLastName(user.lastName || '');
+      setUsername(user.username || '');
+      setAge(user.age || '');
+      setGender(user.gender || 'male');
+      setEducationLevel(user.educationLevel || 'Undergraduate Degree');
+      setShowRealNamePublicly(!!user.showRealNamePublicly);
       setBio(user.bio || '');
       setPhone(user.phone || '');
       setUniversity(user.university || '');
@@ -247,6 +275,11 @@ const SettingsPage = () => {
       const formData = new FormData();
       formData.append('firstName', firstName.trim());
       formData.append('lastName', lastName.trim());
+      formData.append('username', username.trim());
+      formData.append('age', age ? String(age) : '');
+      formData.append('gender', gender);
+      formData.append('educationLevel', educationLevel);
+      formData.append('showRealNamePublicly', showRealNamePublicly ? 'true' : 'false');
       formData.append('bio', bio.trim());
       formData.append('phone', phone.trim());
       formData.append('university', university.trim());
@@ -628,6 +661,11 @@ const SettingsPage = () => {
   const [appealResponseText, setAppealResponseText] = useState({});
   const [resolvingAppealId, setResolvingAppealId] = useState(null);
 
+  // Registration Governance Settings
+  const [adminDefaultUniv, setAdminDefaultUniv] = useState('University of Madras');
+  const [adminRestrictUniv, setAdminRestrictUniv] = useState(false);
+  const [adminStrictPhone, setAdminStrictPhone] = useState(true);
+
   const fetchLocks = async () => {
     if (!isAdmin) return;
     setLoadingLocks(true);
@@ -636,12 +674,28 @@ const SettingsPage = () => {
       if (res.data?.success) {
         setGlobalCommentLock(res.data.data.globalCommentLock || false);
         setGlobalChatLock(res.data.data.globalChatLock || false);
+        setAdminDefaultUniv(res.data.data.defaultUniversity || 'University of Madras');
+        setAdminRestrictUniv(!!res.data.data.restrictToDefaultUniversity);
+        setAdminStrictPhone(res.data.data.strictIndianPhone !== undefined ? res.data.data.strictIndianPhone : true);
       }
     } catch (err) {
       console.error(err);
       toast.error('Failed to load global locks');
     } finally {
       setLoadingLocks(false);
+    }
+  };
+
+  const handleSaveRegSettings = async () => {
+    try {
+      await filterAPI.updateSettings({
+        defaultUniversity: adminDefaultUniv,
+        restrictToDefaultUniversity: adminRestrictUniv,
+        strictIndianPhone: adminStrictPhone,
+      });
+      toast.success('Registration settings updated!');
+    } catch (err) {
+      toast.error('Failed to update registration settings');
     }
   };
 
@@ -1066,9 +1120,37 @@ const SettingsPage = () => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
                   <div>
                     <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '12.5px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--accent-color)', borderBottom: '1px solid rgba(0,0,0,0.06)', paddingBottom: '6px', marginBottom: '14px' }}>
-                      1. Identity Credentials
+                      1. Identity & Handle Settings
                     </h3>
                     <div className="settings-form-grid">
+                      <div className="settings-group">
+                        <label className="settings-label">System Username Handle</label>
+                        <div className="input-with-icon-wrapper">
+                          <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', fontWeight: 800, color: 'var(--color-gray-400)' }}>@</span>
+                          <input 
+                            type="text" 
+                            className="settings-input" 
+                            style={{ paddingLeft: '30px' }}
+                            placeholder="username_handle"
+                            value={username} 
+                            onChange={e => { setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_')); clearError('username'); }}
+                            required
+                          />
+                        </div>
+                        {errors.username && <span style={{ color: 'var(--color-red)', fontSize: '11px', marginTop: '4px', fontWeight: 600 }}>{errors.username}</span>}
+                      </div>
+
+                      <div className="settings-group">
+                        <label className="settings-label">Age</label>
+                        <input 
+                          type="number" 
+                          className="settings-input" 
+                          placeholder="e.g. 21"
+                          value={age} 
+                          onChange={e => setAge(e.target.value)}
+                        />
+                      </div>
+
                       <div className="settings-group">
                         <label className="settings-label">First Name</label>
                         <div className="input-with-icon-wrapper">
@@ -1099,6 +1181,36 @@ const SettingsPage = () => {
                         </div>
                         {errors.lastName && <span style={{ color: 'var(--color-red)', fontSize: '11px', marginTop: '4px', fontWeight: 600 }}>{errors.lastName}</span>}
                       </div>
+
+                      <div className="settings-group">
+                        <label className="settings-label">Gender</label>
+                        <select 
+                          className="settings-select"
+                          value={gender}
+                          onChange={e => setGender(e.target.value)}
+                        >
+                          <option value="male">Male</option>
+                          <option value="female">Female</option>
+                          <option value="other">Other</option>
+                          <option value="prefer_not_to_say">Prefer not to say</option>
+                        </select>
+                      </div>
+
+                      <div className="settings-group">
+                        <label className="settings-label">Education Level</label>
+                        <select 
+                          className="settings-select"
+                          value={educationLevel}
+                          onChange={e => setEducationLevel(e.target.value)}
+                        >
+                          <option value="Undergraduate Degree">Undergraduate Degree</option>
+                          <option value="Postgraduate / Master Degree">Postgraduate / Master Degree</option>
+                          <option value="Doctorate / PhD">Doctorate / PhD</option>
+                          <option value="Diploma / Associate Degree">Diploma / Associate Degree</option>
+                          <option value="High School">High School</option>
+                        </select>
+                      </div>
+
                       <div className="settings-group form-grid-full">
                         <label className="settings-label">Short Biography</label>
                         <textarea 
@@ -1114,6 +1226,22 @@ const SettingsPage = () => {
                           <span style={{ fontSize: '11px', color: 'var(--color-gray-400)', marginLeft: 'auto' }}>{bio.length}/300 chars</span>
                         </div>
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Public Name Privacy Control Box */}
+                  <div style={{ background: 'var(--color-gray-100)', padding: '16px 20px', borderRadius: '12px', border: '1px solid var(--color-gray-200)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div>
+                        <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--color-black)' }}>Show Real Name Publicly</span>
+                        <p style={{ fontSize: '12px', color: 'var(--color-gray-500)', margin: '2px 0 0 0' }}>
+                          When enabled, your real name ({firstName} {lastName}) will be visible alongside @{username} on posts & comments.
+                        </p>
+                      </div>
+                      <ToggleSwitch 
+                        checked={showRealNamePublicly} 
+                        onChange={() => setShowRealNamePublicly(!showRealNamePublicly)}
+                      />
                     </div>
                   </div>
 
@@ -1178,7 +1306,7 @@ const SettingsPage = () => {
 
                   <div>
                     <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '12.5px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--accent-color)', borderBottom: '1px solid rgba(0,0,0,0.06)', paddingBottom: '6px', marginBottom: '14px' }}>
-                      3. Contact Credentials
+                      3. Contact Credentials & Admin Access Notice
                     </h3>
                     <div className="settings-form-grid">
                       <div className="settings-group">
@@ -1208,6 +1336,10 @@ const SettingsPage = () => {
                           />
                         </div>
                       </div>
+                    </div>
+
+                    <div style={{ marginTop: '12px', padding: '12px 14px', background: 'rgba(200,16,46,0.05)', borderRadius: '8px', borderLeft: '3px solid var(--color-red, #c8102e)', fontSize: '11px', color: 'var(--color-gray-700)', lineHeight: '1.5' }}>
+                      <strong>Terms & Governance Notice:</strong> In accordance with Platform Terms & Conditions, System Administrators and Moderators retain full access to view contact information (Email, Mobile) and real identity details for safety governance and policy enforcement.
                     </div>
                   </div>
                 </div>
@@ -1393,10 +1525,9 @@ const SettingsPage = () => {
 
                 <div>
                   <span className="settings-label">3. Platform Styling Framework</span>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginTop: '8px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px', marginTop: '8px' }}>
                     {[
-                      { id: 'modern', label: 'Modern iOS System', desc: 'Soft card shapes, glass overlays, modern fluid layouts' },
-                      { id: 'traditional', label: 'Magazine Editorial', desc: 'Structured layouts, high-contrast framing lines, bold headers' },
+                      { id: 'modern', label: 'Modern Executive System', desc: 'Sleek glassmorphic cards, modern fluid typography, elegant data presentation' },
                     ].map(item => {
                       const isActive = styleMode === item.id;
                       return (
@@ -1504,14 +1635,194 @@ const SettingsPage = () => {
                     )}
                   </div>
                 ) : (
-                  <div style={{ textAlign: 'center', padding: '40px 0' }}>
-                    <FiCheckCircle size={56} color="#16a34a" style={{ marginBottom: '16px' }} />
-                    <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '18px', fontWeight: 800, color: 'var(--color-black)', margin: '0 0 8px 0' }}>Account is Active</h3>
-                    <p style={{ fontSize: '13px', color: 'var(--color-gray-500)', maxWidth: '440px', margin: '0 auto', lineHeight: 1.6 }}>
-                      Your account wave is in active standing. You have full editorial publication rights and commenting privileges. Thank you for making Southern Waves constructive!
+                  <div style={{ textAlign: 'center', padding: '24px 0 12px' }}>
+                    <FiCheckCircle size={48} color="#16a34a" style={{ marginBottom: '12px' }} />
+                    <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '17px', fontWeight: 800, color: 'var(--color-black)', margin: '0 0 6px 0' }}>Account is Active</h3>
+                    <p style={{ fontSize: '12.5px', color: 'var(--color-gray-500)', maxWidth: '440px', margin: '0 auto', lineHeight: 1.5 }}>
+                      Your account wave is in active standing with full editorial publication and commenting privileges.
                     </p>
                   </div>
                 )}
+
+                {/* Manage Security Questions Section */}
+                <div style={{ marginTop: '24px', background: 'var(--color-gray-50)', padding: '24px', borderRadius: '14px', border: '1px solid var(--color-gray-200)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--color-black)', margin: 0 }}>
+                      🛡️ Manage Account Recovery Security Questions
+                    </h3>
+                  </div>
+
+                  {/* Active Questions Badge */}
+                  {user?.securityQuestions && user.securityQuestions.length >= 2 ? (
+                    <div style={{ background: 'rgba(22,163,74,0.08)', border: '1px solid rgba(22,163,74,0.2)', padding: '10px 14px', borderRadius: '8px', marginBottom: '16px', fontSize: '12px', color: '#15803d' }}>
+                      ✓ <strong>Configured Security Questions Active:</strong>
+                      <ul style={{ margin: '4px 0 0 16px', padding: 0 }}>
+                        <li>1. {user.securityQuestions[0]?.question}</li>
+                        <li>2. {user.securityQuestions[1]?.question}</li>
+                      </ul>
+                    </div>
+                  ) : (
+                    <p style={{ fontSize: '12px', color: 'var(--color-gray-500)', margin: '0 0 16px 0' }}>
+                      Update your 2 Security Questions to prevent email misuse and protect password/ID recovery.
+                    </p>
+                  )}
+
+                  <form onSubmit={(e) => {
+                    e.preventDefault();
+                    if (!sa1.trim() || !sa2.trim()) return toast.error('Answers for both Security Questions are required');
+                    if (sq1 === sq2) return toast.error('Please choose 2 different Security Questions');
+                    
+                    // Open password authorization modal
+                    setSecAuthModalOpen(true);
+                  }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                      <div>
+                        <label className="settings-label">Security Question 1</label>
+                        <select className="settings-select" style={{ marginBottom: '8px' }} value={sq1} onChange={(e) => setSq1(e.target.value)}>
+                          <option value="What was the name of your first pet?">What was the name of your first pet?</option>
+                          <option value="What is your mother's maiden name?">What is your mother's maiden name?</option>
+                          <option value="What was the name of your elementary / primary school?">What was the name of your elementary / primary school?</option>
+                          <option value="In what city or town were you born?">In what city or town were you born?</option>
+                          <option value="What was your favorite food as a child?">What was your favorite food as a child?</option>
+                          <option value="What was the make of your first car or bicycle?">What was the make of your first car or bicycle?</option>
+                          <option value="What is your favorite book or movie?">What is your favorite book or movie?</option>
+                        </select>
+                        <div style={{ position: 'relative' }}>
+                          <input
+                            type={showSa1 ? "text" : "password"}
+                            className="settings-input"
+                            placeholder="•••••••• (Answer 1)"
+                            value={sa1}
+                            onChange={(e) => setSa1(e.target.value)}
+                            required
+                            style={{ paddingRight: '40px' }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowSa1(!showSa1)}
+                            style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--color-gray-500)', cursor: 'pointer' }}
+                            title={showSa1 ? "Hide Answer" : "Show Answer"}
+                          >
+                            {showSa1 ? <FiEyeOff size={16} /> : <FiEye size={16} />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="settings-label">Security Question 2</label>
+                        <select className="settings-select" style={{ marginBottom: '8px' }} value={sq2} onChange={(e) => setSq2(e.target.value)}>
+                          <option value="What is your mother's maiden name?">What is your mother's maiden name?</option>
+                          <option value="What was the name of your first pet?">What was the name of your first pet?</option>
+                          <option value="What was the name of your elementary / primary school?">What was the name of your elementary / primary school?</option>
+                          <option value="In what city or town were you born?">In what city or town were you born?</option>
+                          <option value="What was your favorite book or movie?">What was your favorite book or movie?</option>
+                          <option value="What was your childhood nickname?">What was your childhood nickname?</option>
+                        </select>
+                        <div style={{ position: 'relative' }}>
+                          <input
+                            type={showSa2 ? "text" : "password"}
+                            className="settings-input"
+                            placeholder="•••••••• (Answer 2)"
+                            value={sa2}
+                            onChange={(e) => setSa2(e.target.value)}
+                            required
+                            style={{ paddingRight: '40px' }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowSa2(!showSa2)}
+                            style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--color-gray-500)', cursor: 'pointer' }}
+                            title={showSa2 ? "Hide Answer" : "Show Answer"}
+                          >
+                            {showSa2 ? <FiEyeOff size={16} /> : <FiEye size={16} />}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button type="submit" className="settings-btn-primary" style={{ padding: '10px 20px', fontSize: '12px' }}>
+                      Update Security Questions
+                    </button>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* Password Authorization Modal Popup */}
+            {secAuthModalOpen && (
+              <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, padding: '20px' }}>
+                <div style={{ maxWidth: '440px', width: '100%', background: 'var(--color-white)', color: 'var(--color-black)', borderRadius: '16px', padding: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.25)', border: '1px solid var(--color-gray-200)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: 'var(--accent-color)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <FiLock size={18} /> Password Authorization Required
+                    </h3>
+                    <button onClick={() => setSecAuthModalOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-gray-500)' }}>
+                      <FiX size={20} />
+                    </button>
+                  </div>
+
+                  <p style={{ fontSize: '12.5px', color: 'var(--color-gray-600)', marginBottom: '16px', lineHeight: 1.5 }}>
+                    Enter your current account password to authorize saving your updated <strong>Security Questions</strong>.
+                  </p>
+
+                  <form onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (!confirmPasswordInput) return toast.error('Please enter your current password');
+
+                    setUpdatingSecQ(true);
+                    try {
+                      await authAPI.updateProfile({
+                        securityQuestions: [
+                          { question: sq1, answer: sa1.trim() },
+                          { question: sq2, answer: sa2.trim() },
+                        ],
+                        currentPassword: confirmPasswordInput
+                      });
+                      await refreshUser();
+                      toast.success('Security Questions updated successfully! 🛡️');
+                      setSecAuthModalOpen(false);
+                      setConfirmPasswordInput('');
+                      setSa1('');
+                      setSa2('');
+                    } catch (err) {
+                      toast.error(err.response?.data?.message || 'Password authorization failed. Questions not updated.');
+                    } finally {
+                      setUpdatingSecQ(false);
+                    }
+                  }}>
+                    <div className="settings-group" style={{ marginBottom: '20px' }}>
+                      <label className="settings-label">Current Account Password</label>
+                      <input
+                        type="password"
+                        className="settings-input"
+                        placeholder="••••••••"
+                        value={confirmPasswordInput}
+                        onChange={(e) => setConfirmPasswordInput(e.target.value)}
+                        autoFocus
+                        required
+                      />
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <button
+                        type="button"
+                        onClick={() => setSecAuthModalOpen(false)}
+                        className="settings-btn-secondary"
+                        style={{ flex: 1, padding: '10px' }}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={updatingSecQ || !confirmPasswordInput}
+                        className="settings-btn-primary"
+                        style={{ flex: 1, padding: '10px', fontSize: '13px' }}
+                      >
+                        {updatingSecQ ? 'Verifying...' : 'Confirm & Save'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
               </div>
             )}
 
@@ -1854,6 +2165,74 @@ const SettingsPage = () => {
                             onChange={() => handleToggleLock('chat', globalChatLock)}
                             activeColor="var(--color-red)"
                           />
+                        </div>
+
+                        {/* Registration & University Governance Section */}
+                        <div style={{ marginTop: '16px', background: 'var(--color-gray-100)', padding: '20px', borderRadius: '12px', border: '1px solid var(--color-gray-200)' }}>
+                          <h4 style={{ margin: '0 0 16px', fontSize: '14px', fontWeight: 800, color: 'var(--color-black)' }}>
+                            Academic Registration & University Governance
+                          </h4>
+
+                          <div className="settings-form-grid" style={{ marginBottom: '16px' }}>
+                            <div className="settings-group form-grid-full">
+                              <label className="settings-label">Default University on Registration</label>
+                              <div style={{ display: 'flex', gap: '8px' }}>
+                                <input
+                                  type="text"
+                                  className="settings-input"
+                                  style={{ flex: 1 }}
+                                  value={adminDefaultUniv}
+                                  onChange={(e) => setAdminDefaultUniv(e.target.value)}
+                                  placeholder="e.g. University of Madras"
+                                />
+                                <select
+                                  className="settings-select"
+                                  style={{ width: 'auto', maxWidth: '180px' }}
+                                  value={adminDefaultUniv}
+                                  onChange={(e) => setAdminDefaultUniv(e.target.value)}
+                                >
+                                  <option value="University of Madras">University of Madras</option>
+                                  <option value="Anna University">Anna University</option>
+                                  <option value="Indian Institute of Technology (IIT) Madras">IIT Madras</option>
+                                  <option value="SRM Institute of Science and Technology">SRM Institute</option>
+                                  <option value="VIT University">VIT University</option>
+                                </select>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="settings-toggle-row" style={{ background: '#fff', marginBottom: '12px' }}>
+                            <div className="toggle-info">
+                              <span className="toggle-title">Strict Indian Mobile Phone Validation (+91)</span>
+                              <span className="toggle-desc">Require 10-digit Indian Mobile Numbers starting with 6-9 for registration & OTP.</span>
+                            </div>
+                            <ToggleSwitch 
+                              checked={adminStrictPhone}
+                              onChange={() => setAdminStrictPhone(!adminStrictPhone)}
+                              activeColor="var(--color-red)"
+                            />
+                          </div>
+
+                          <div className="settings-toggle-row" style={{ background: '#fff', marginBottom: '16px' }}>
+                            <div className="toggle-info">
+                              <span className="toggle-title">Restrict Registration strictly to Default University</span>
+                              <span className="toggle-desc">When enabled, students can only register under {adminDefaultUniv}.</span>
+                            </div>
+                            <ToggleSwitch 
+                              checked={adminRestrictUniv}
+                              onChange={() => setAdminRestrictUniv(!adminRestrictUniv)}
+                              activeColor="var(--color-red)"
+                            />
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={handleSaveRegSettings}
+                            className="settings-btn-primary"
+                            style={{ padding: '10px 20px', fontSize: '13px' }}
+                          >
+                            Save Academic Governance Settings
+                          </button>
                         </div>
                       </>
                     )}

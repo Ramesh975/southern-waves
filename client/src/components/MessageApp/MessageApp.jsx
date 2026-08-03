@@ -88,7 +88,7 @@ const MessageApp = ({ isFullPage = false }) => {
   const [globalChatLock, setGlobalChatLock] = useState(false);
 
   useEffect(() => {
-    filterAPI.getSettings()
+    filterAPI.getPublicSettings()
       .then((res) => {
         if (res.data?.success) {
           setGlobalChatLock(res.data.data.globalChatLock || false);

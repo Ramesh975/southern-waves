@@ -36,6 +36,7 @@ const ArticleEditor = () => {
   });
   const [coverImage, setCoverImage] = useState(null);
   const [previewUrl, setPreviewUrl] = useState('');
+  const [multipleImages, setMultipleImages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [fetchLoading, setFetchLoading] = useState(isEdit);
 
@@ -58,6 +59,15 @@ const ArticleEditor = () => {
             isPushedToHome: article.isPushedToHome || false,
           });
           if (article.coverImage) setPreviewUrl(getImageUrl(article.coverImage));
+          // Load existing story images
+          if (article.images && article.images.length > 0) {
+            setMultipleImages(article.images.map(img => ({
+              url: img.url || img,
+              previewUrl: getImageUrl(img.url || img),
+              caption: img.caption || '',
+              isNew: false
+            })));
+          }
         }
         setFetchLoading(false);
       });
@@ -81,6 +91,20 @@ const ArticleEditor = () => {
       const formData = new FormData();
       Object.entries(form).forEach(([k, v]) => formData.append(k, v));
       if (coverImage) formData.append('coverImage', coverImage);
+
+      // Append story images (new uploads only)
+      if (multipleImages.length > 0) {
+        multipleImages.forEach(img => {
+          if (img.file) formData.append('images', img.file);
+        });
+        const captionsArray = multipleImages.map(img => img.caption || '');
+        formData.append('captions', JSON.stringify(captionsArray));
+        const imagesMeta = multipleImages.map(img => {
+          if (img.isNew && img.file) return { isNew: true, caption: img.caption || '' };
+          return { url: img.url || '', caption: img.caption || '' };
+        });
+        formData.set('imagesMeta', JSON.stringify(imagesMeta));
+      }
 
       if (isEdit) {
         await articleAPI.update(id, formData);
@@ -162,6 +186,8 @@ const ArticleEditor = () => {
                     value={form.body}
                     onChange={(val) => setForm({ ...form, body: val })}
                     placeholder="Write your article body here..."
+                    images={multipleImages}
+                    onImagesChange={setMultipleImages}
                   />
                 </div>
               </div>
@@ -186,9 +212,10 @@ const ArticleEditor = () => {
                   {previewUrl ? (
                     <img src={previewUrl} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
                   ) : (
-                    <div style={{ color: 'var(--admin-text-muted)', fontSize: '13px', textAlign: 'center' }}>
+                    <div style={{ color: 'var(--admin-text-muted)', fontSize: '13px', textAlign: 'center', padding: '12px' }}>
                       <div style={{ fontSize: '24px', marginBottom: '8px' }}>📷</div>
-                      Click to upload cover image
+                      <div>Click to upload cover image</div>
+                      <div style={{ fontSize: '11px', marginTop: '4px', opacity: 0.7 }}>Supported formats: JPEG, PNG, GIF, WebP, SVG</div>
                     </div>
                   )}
                   <input
@@ -221,15 +248,18 @@ const ArticleEditor = () => {
               {form.category === 'kyp' && (
                 <div style={{ marginBottom: '24px' }}>
                   <label style={{ display: 'block', fontWeight: 700, fontSize: '12px', textTransform: 'uppercase', marginBottom: '8px', color: 'var(--admin-text-main)' }}>Historical Event Year *</label>
-                  <input
-                    type="number"
+                  <select
                     className="admin-input"
-                    style={{ width: '100%' }}
-                    placeholder="e.g. 1965"
-                    value={form.historicalYear}
+                    style={{ width: '100%', cursor: 'pointer' }}
+                    value={form.historicalYear || ''}
                     onChange={(e) => setForm({ ...form, historicalYear: e.target.value })}
                     required
-                  />
+                  >
+                    <option value="" disabled>Select Event Year...</option>
+                    {Array.from({ length: 2026 - 1800 + 1 }, (_, i) => 2026 - i).map(y => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+                  </select>
                 </div>
               )}
 

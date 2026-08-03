@@ -52,6 +52,7 @@ const MyUploadsPage = () => {
   const [editorLoading, setEditorLoading] = useState(false);
   const [coverImage, setCoverImage] = useState(null);
   const [imagePreview, setImagePreview] = useState('');
+  const [multipleImages, setMultipleImages] = useState([]);
   const [form, setForm] = useState({
     title: '',
     lead: '',
@@ -193,6 +194,7 @@ const MyUploadsPage = () => {
     });
     setCoverImage(null);
     setImagePreview('');
+    setMultipleImages([]);
     setModalOpen(true);
   };
 
@@ -218,6 +220,17 @@ const MyUploadsPage = () => {
       setImagePreview(getImageUrl(article.coverImage));
     } else {
       setImagePreview('');
+    }
+    // Load existing story images
+    if (article.images && article.images.length > 0) {
+      setMultipleImages(article.images.map(img => ({
+        url: img.url || img,
+        previewUrl: getImageUrl(img.url || img),
+        caption: img.caption || '',
+        isNew: false
+      })));
+    } else {
+      setMultipleImages([]);
     }
     setModalOpen(true);
   };
@@ -255,6 +268,21 @@ const MyUploadsPage = () => {
 
       if (coverImage) {
         formData.append('coverImage', coverImage);
+      }
+
+      // Append story images (new file uploads)
+      if (multipleImages.length > 0) {
+        multipleImages.forEach(img => {
+          if (img.file) formData.append('images', img.file);
+        });
+        const captionsArray = multipleImages.map(img => img.caption || '');
+        formData.append('captions', JSON.stringify(captionsArray));
+        // Also send the full images meta (for preserving existing URLs)
+        const imagesMeta = multipleImages.map(img => {
+          if (img.isNew && img.file) return { isNew: true, caption: img.caption || '' };
+          return { url: img.url || '', caption: img.caption || '' };
+        });
+        formData.set('imagesMeta', JSON.stringify(imagesMeta));
       }
 
       let res;
@@ -955,6 +983,8 @@ const MyUploadsPage = () => {
                   value={form.body}
                   onChange={(val) => setForm({ ...form, body: val })}
                   placeholder="Tell your story. Include background information, student opinions, or event logs..."
+                  images={multipleImages}
+                  onImagesChange={setMultipleImages}
                 />
               </div>
 
@@ -1009,14 +1039,17 @@ const MyUploadsPage = () => {
               {form.category === 'kyp' && (
                 <div>
                   <label className="form-label">Historical Event Year *</label>
-                  <input
-                    type="number"
-                    placeholder="e.g. 1968"
+                  <select
                     className="form-input"
-                    value={form.historicalYear}
+                    value={form.historicalYear || ''}
                     onChange={(e) => setForm({ ...form, historicalYear: e.target.value })}
                     required
-                  />
+                  >
+                    <option value="" disabled>Select Event Year...</option>
+                    {Array.from({ length: 2026 - 1800 + 1 }, (_, i) => 2026 - i).map(y => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+                  </select>
                 </div>
               )}
 
@@ -1047,7 +1080,7 @@ const MyUploadsPage = () => {
                     <FiCamera size={24} className="icon-upload" />
                     <div>
                       <span style={{ fontWeight: 700, color: 'var(--accent-color)' }}>Upload a cover image</span> or drag and drop
-                      <p style={{ fontSize: 11, color: 'var(--color-gray-500)', marginTop: 4 }}>PNG, JPG, JPEG up to 10MB</p>
+                      <p style={{ fontSize: 11, color: 'var(--color-gray-500)', marginTop: 4 }}>Supported formats: JPEG, PNG, GIF, WebP, SVG &bull; Max 10MB</p>
                     </div>
                     <input
                       type="file"

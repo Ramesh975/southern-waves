@@ -65,7 +65,7 @@ exports.addComment = async (req, res, next) => {
       isApproved: true,
     });
 
-    await comment.populate('author', 'name avatar');
+    await comment.populate('author', 'name username showRealNamePublicly avatar role');
 
     // Broadcast to everyone viewing this article via socket
     const io = req.app.get('io');
@@ -88,7 +88,7 @@ exports.getComments = async (req, res, next) => {
     const comments = await Comment.find({
       article: req.params.articleId,
     })
-      .populate('author', 'name avatar')
+      .populate('author', 'name username showRealNamePublicly avatar role')
       .sort({ createdAt: 1 });
 
     res.status(200).json({ success: true, count: comments.length, data: comments });

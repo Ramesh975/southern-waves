@@ -396,8 +396,7 @@ const Navbar = () => {
                     <span className="section-label">UI Mode</span>
                     <div className="ui-mode-row">
                       {[
-                        { id: 'modern', label: 'Modern iOS' },
-                        { id: 'traditional', label: 'Traditional' }
+                        { id: 'modern', label: 'Modern Executive' },
                       ].map((mode) => {
                         const isSelected = styleMode === mode.id;
                         return (
@@ -405,7 +404,6 @@ const Navbar = () => {
                             key={mode.id}
                             className={`ui-mode-btn ${isSelected ? 'selected' : ''}`}
                             onClick={() => setStyleMode(mode.id)}
-                            style={{ border: styleMode === 'traditional' ? '2px solid var(--color-black)' : undefined }}
                           >
                             <span>{mode.label}</span>
                           </button>
@@ -1069,7 +1067,7 @@ const Navbar = () => {
                     <span className="section-label" style={{ display: 'block', marginBottom: '6px' }}>UI Mode</span>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
                       {[
-                        { id: 'modern', label: 'Modern iOS' },
+                        { id: 'modern', label: 'Modern Executive' },
                         { id: 'traditional', label: 'Traditional' }
                       ].map((mode) => {
                         const isSelected = styleMode === mode.id;
@@ -1079,8 +1077,8 @@ const Navbar = () => {
                             onClick={() => setStyleMode(mode.id)}
                             style={{
                               padding: '8px',
-                              borderRadius: styleMode === 'modern' ? '8px' : '4px',
-                              border: styleMode === 'traditional' ? '2px solid var(--color-black)' : '1.5px solid var(--color-gray-300)',
+                              borderRadius: '8px',
+                              border: '1.5px solid var(--color-gray-300)',
                               background: isSelected ? 'var(--accent-color)' : 'var(--color-white)',
                               color: isSelected ? '#fff' : 'var(--color-black)',
                               fontSize: '11px',
@@ -1088,7 +1086,6 @@ const Navbar = () => {
                               textTransform: 'uppercase',
                               textAlign: 'center',
                               cursor: 'pointer',
-                              transition: 'all 0.25s ease'
                             }}
                           >
                             <span>{mode.label}</span>

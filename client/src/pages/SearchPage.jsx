@@ -3,6 +3,8 @@ import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { articleAPI } from '../services/api';
 import TrendingWidget from '../components/TrendingWidget';
 import { getImageUrl } from '../components/ArticleComponents';
+import { useAuth } from '../context/AuthContext';
+import { getDisplayName } from '../utils/userUtils';
 import { FiFilter, FiShield, FiEye, FiEyeOff, FiX } from 'react-icons/fi';
 
 // Client-side bad word categories for safe search filtering
@@ -45,6 +47,7 @@ const checkArticleAgainstFilters = (article, activeFilters, personalList) => {
 };
 
 const SearchPage = () => {
+  const { user } = useAuth();
   const [articles, setArticles] = useState([]);
   const [loading, setLoading] = useState(true);
   const location = useLocation();
@@ -349,7 +352,7 @@ const SearchPage = () => {
                           <p className="apple-card-lead">{art.lead}</p>
                         </div>
                         <div className="apple-card-meta">
-                          {new Date(art.publishedAt || art.createdAt).toLocaleDateString()} • By {art.author?.name}
+                          {new Date(art.publishedAt || art.createdAt).toLocaleDateString()} • By {getDisplayName(art.author, user)}
                         </div>
                       </div>
                     </div>

@@ -10,6 +10,7 @@ import toast from 'react-hot-toast';
 import io from 'socket.io-client';
 import { FiHeart, FiMessageCircle, FiCornerUpLeft, FiBookmark, FiThumbsDown, FiLock, FiSlash, FiUnlock, FiTrash2 } from 'react-icons/fi';
 import ImageLightbox from '../components/ImageLightbox';
+import { getDisplayName } from '../utils/userUtils';
 
 const SOCKET_URL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5000';
 
@@ -70,7 +71,7 @@ const CommentNode = ({ comment, allComments, user, onReply, onDelete, isBlocked,
             : comment.author?.name?.[0]?.toUpperCase()}
         </div>
         <div className="cn-meta">
-          <span className="cn-author">{comment.author?.name || 'Anonymous'}</span>
+          <span className="cn-author">{getDisplayName(comment.author, user)}</span>
           <span className="cn-dot">·</span>
           <span className="cn-time">{format(new Date(comment.createdAt), 'MMM d · h:mm a')}</span>
         </div>
@@ -719,7 +720,7 @@ const ArticleDetailPage = () => {
                 )}
               </div>
               <div className="author-meta-info">
-                <span className="author-name">By <strong>{article.author?.name}</strong></span>
+                <span className="author-name">By <strong>{getDisplayName(article.author, user)}</strong></span>
                 <div className="publish-date-read">
                   <span>{format(new Date(article.publishedAt || article.createdAt), 'MMMM dd, yyyy')}</span>
                   <span className="meta-dot">•</span>
@@ -810,14 +811,98 @@ const ArticleDetailPage = () => {
               </div>
             )}
 
-            {/* Body Content */}
-            <div
-              className="article-body"
-              style={{ lineHeight: 1.6, fontSize: '16px' }}
-              dangerouslySetInnerHTML={{ __html: article.body }}
-            />
+            {/* Body Content — with inline [image-N] tag rendering */}
+            {(() => {
+              const storyImages = article.images || [];
+              const tagPattern = /\[image-(\d+)\]/gi;
+              
+              // Find which image indices are explicitly tagged
+              const taggedIndices = new Set();
+              let testMatch;
+              const testBody = article.body || '';
+              while ((testMatch = tagPattern.exec(testBody)) !== null) {
+                const idx = parseInt(testMatch[1], 10) - 1;
+                if (idx >= 0 && idx < storyImages.length) taggedIndices.add(idx);
+              }
 
+              // Untagged story images (go to gallery at bottom)
+              const untaggedImages = storyImages.filter((_, i) => !taggedIndices.has(i));
 
+              // Build rendered body HTML by replacing [image-N] with image figure HTML
+              let renderedBody = article.body || '';
+              if (storyImages.length > 0) {
+                renderedBody = renderedBody.replace(/\[image-(\d+)\]/gi, (match, numStr) => {
+                  const idx = parseInt(numStr, 10) - 1;
+                  if (idx >= 0 && idx < storyImages.length) {
+                    const img = storyImages[idx];
+                    const src = getImageUrl(img.url || img);
+                    const cap = img.caption || '';
+                    return `<figure class="article-inline-image" style="margin: 28px 0; text-align: center;">
+                      <img src="${src}" alt="${cap || `Story image ${numStr}`}" style="max-width: 100%; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.12); display: block; margin: 0 auto;" />
+                      ${cap ? `<figcaption style="margin-top: 8px; font-size: 13px; color: #6b7280; font-style: italic;">${cap}</figcaption>` : ''}
+                    </figure>`;
+                  }
+                  return match;
+                });
+              }
+
+              return (
+                <>
+                  <div
+                    className="article-body"
+                    style={{
+                      lineHeight: 1.8,
+                      fontSize: `${17 * fontScale}px`,
+                      color: 'var(--color-black)',
+                      margin: '28px 0',
+                      letterSpacing: '-0.01em',
+                    }}
+                    dangerouslySetInnerHTML={{ __html: renderedBody }}
+                  />
+
+                  {/* Untagged story images — automatic gallery at bottom */}
+                  {untaggedImages.length > 0 && (
+                    <div className="story-gallery-section" style={{ margin: '32px 0' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+                        <div style={{ flex: 1, height: '2px', background: 'var(--color-black)' }} />
+                        <span style={{ fontFamily: 'var(--font-display)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--color-gray-600)', whiteSpace: 'nowrap' }}>
+                          Story Gallery
+                        </span>
+                        <div style={{ flex: 1, height: '2px', background: 'var(--color-black)' }} />
+                      </div>
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: untaggedImages.length === 1 ? '1fr' : untaggedImages.length === 2 ? 'repeat(2, 1fr)' : 'repeat(auto-fill, minmax(280px, 1fr))',
+                        gap: '12px'
+                      }}>
+                        {untaggedImages.map((img, i) => {
+                          const src = getImageUrl(img.url || img);
+                          const cap = img.caption || '';
+                          return (
+                            <figure key={i} style={{ margin: 0, cursor: 'pointer' }} onClick={() => setLightboxSrc(src)}>
+                              <div style={{ aspectRatio: '4/3', overflow: 'hidden', borderRadius: '8px', background: '#000', boxShadow: '0 4px 16px rgba(0,0,0,0.1)' }}>
+                                <img
+                                  src={src}
+                                  alt={cap || `Gallery image ${i + 1}`}
+                                  style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.3s ease' }}
+                                  onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.04)'}
+                                  onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                                />
+                              </div>
+                              {cap && (
+                                <figcaption style={{ marginTop: '6px', fontSize: '12px', color: 'var(--color-gray-600)', fontStyle: 'italic', textAlign: 'center' }}>
+                                  {cap}
+                                </figcaption>
+                              )}
+                            </figure>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
 
             {/* Tags row */}
             {article.tags?.length > 0 && (
@@ -932,7 +1017,7 @@ const ArticleDetailPage = () => {
                   </div>
                   <div className="author-card-details">
                     <span className="author-card-label">ABOUT THE AUTHOR</span>
-                    <h4 className="author-card-name">{article.author.name}</h4>
+                    <h4 className="author-card-name">{getDisplayName(article.author, user)}</h4>
                     <p className="author-card-role">{article.author.role}</p>
                     {article.author.bio && <p className="author-card-bio">{article.author.bio}</p>}
                   </div>

@@ -55,6 +55,51 @@ const UserSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
+    username: {
+      type: String,
+      unique: true,
+      sparse: true,
+      trim: true,
+      lowercase: true,
+    },
+    age: {
+      type: Number,
+      default: null,
+    },
+    gender: {
+      type: String,
+      enum: ['male', 'female', 'other', 'prefer_not_to_say', ''],
+      default: '',
+    },
+    educationLevel: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    showRealNamePublicly: {
+      type: Boolean,
+      default: false,
+    },
+    phoneVerified: {
+      type: Boolean,
+      default: false,
+    },
+    emailVerified: {
+      type: Boolean,
+      default: false,
+    },
+    securityQuestions: [
+      {
+        question: { type: String },
+        answer: { type: String },
+      }
+    ],
+    emailOtp: String,
+    emailOtpExpire: Date,
+    phoneOtp: String,
+    phoneOtpExpire: Date,
+    resetOtp: String,
+    resetOtpExpire: Date,
     academicMajor: {
       type: String,
       trim: true,

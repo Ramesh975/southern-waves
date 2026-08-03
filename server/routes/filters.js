@@ -19,9 +19,13 @@ const {
   getSystemSettings,
   updateSystemSettings,
   toggleContentSecurity,
+  getPublicSettings,
 } = require('../controllers/filterController');
 
 const modAuth = [protect, authorize('admin', 'moderator')];
+
+// Public system & registration settings
+router.get('/public-settings', getPublicSettings);
 
 // Blocked tags management
 router.get('/tags', ...modAuth, getBlockedTags);

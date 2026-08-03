@@ -19,6 +19,16 @@ const {
   submitAppeal,
   getAppeals,
   rejectAppeal,
+  checkUsernameAvailability,
+  sendEmailOtp,
+  verifyEmailOtp,
+  sendPhoneOtp,
+  verifyPhoneOtp,
+  forgotRequest,
+  verifyResetOtp,
+  resetPassword,
+  getUserSecurityQuestions,
+  verifySecurityQuestions,
 } = require('../controllers/authController');
 
 router.post('/register', register);
@@ -26,6 +36,20 @@ router.post('/login', login);
 router.post('/logout', protect, logout);
 router.post('/refresh', refreshToken);
 router.get('/verify/:token', verifyEmail);
+
+// Username availability & OTP verification
+router.get('/check-username/:username', checkUsernameAvailability);
+router.post('/send-email-otp', sendEmailOtp);
+router.post('/verify-email-otp', verifyEmailOtp);
+router.post('/send-phone-otp', sendPhoneOtp);
+router.post('/verify-phone-otp', verifyPhoneOtp);
+
+// Recovery (Forgot Password / Account ID) & Security Questions Challenge
+router.post('/forgot-request', forgotRequest);
+router.post('/verify-reset-otp', verifyResetOtp);
+router.post('/reset-password', resetPassword);
+router.post('/get-user-security-questions', getUserSecurityQuestions);
+router.post('/verify-security-questions', verifySecurityQuestions);
 router.get('/me', protect, getMe);
 router.put('/me', protect, upload.single('avatar'), updateProfile);
 router.post('/me/saved/:articleId', protect, saveArticle);

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { commentAPI } from '../services/api';
+import { getDisplayName } from '../utils/userUtils';
 import { FiX } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import { getImgSrc, timeAgo } from './NewsArticleCard';
@@ -177,7 +178,7 @@ const CommentsPopupModal = ({ article, onClose }) => {
                   />
                   <div className="nm-comments-modal-item-content">
                     <div className="nm-comments-modal-item-meta">
-                      <span className="nm-comments-modal-item-author">{comment.author?.name}</span>
+                      <span className="nm-comments-modal-item-author">{getDisplayName(comment.author, user)}</span>
                       <span className="nm-comments-modal-item-date">{timeAgo(comment.createdAt)}</span>
                     </div>
                     <p className="nm-comments-modal-item-text">{comment.text}</p>

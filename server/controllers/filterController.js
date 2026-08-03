@@ -269,6 +269,30 @@ exports.deleteBlockedTag = async (req, res, next) => {
   }
 };
 
+// @desc    Get public system settings (registration defaults)
+// @route   GET /api/filters/public-settings
+// @access  Public
+exports.getPublicSettings = async (req, res, next) => {
+  try {
+    const SystemSetting = require('../models/SystemSetting');
+    let settings = await SystemSetting.findOne({ key: 'global_settings' });
+    if (!settings) {
+      settings = await SystemSetting.create({ key: 'global_settings' });
+    }
+    res.status(200).json({
+      success: true,
+      data: {
+        defaultUniversity: settings.defaultUniversity || 'University of Madras',
+        restrictToDefaultUniversity: !!settings.restrictToDefaultUniversity,
+        strictIndianPhone: settings.strictIndianPhone !== undefined ? settings.strictIndianPhone : true,
+        allowedUniversities: settings.allowedUniversities || [],
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 // @desc    Get global content security settings
 // @route   GET /api/filters/settings
 // @access  Private (admin, moderator)
@@ -291,10 +315,13 @@ exports.getSystemSettings = async (req, res, next) => {
 exports.updateSystemSettings = async (req, res, next) => {
   try {
     if (req.user.role !== 'admin') {
-      return res.status(403).json({ success: false, message: 'Only admins can modify overall lock settings.' });
+      return res.status(403).json({ success: false, message: 'Only admins can modify overall settings.' });
     }
     const SystemSetting = require('../models/SystemSetting');
-    const { globalCommentLock, globalChatLock } = req.body;
+    const {
+      globalCommentLock, globalChatLock, defaultUniversity,
+      restrictToDefaultUniversity, strictIndianPhone, allowedUniversities
+    } = req.body;
     
     let settings = await SystemSetting.findOne({ key: 'global_settings' });
     if (!settings) {
@@ -303,9 +330,15 @@ exports.updateSystemSettings = async (req, res, next) => {
     
     if (globalCommentLock !== undefined) settings.globalCommentLock = globalCommentLock;
     if (globalChatLock !== undefined) settings.globalChatLock = globalChatLock;
+    if (defaultUniversity !== undefined) settings.defaultUniversity = defaultUniversity;
+    if (restrictToDefaultUniversity !== undefined) settings.restrictToDefaultUniversity = restrictToDefaultUniversity;
+    if (strictIndianPhone !== undefined) settings.strictIndianPhone = strictIndianPhone;
+    if (allowedUniversities !== undefined && Array.isArray(allowedUniversities)) {
+      settings.allowedUniversities = allowedUniversities;
+    }
     
     await settings.save();
-    res.status(200).json({ success: true, data: settings, message: 'Overall security settings updated.' });
+    res.status(200).json({ success: true, data: settings, message: 'System and registration settings updated.' });
   } catch (err) {
     next(err);
   }

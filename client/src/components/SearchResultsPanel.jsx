@@ -1,6 +1,7 @@
-import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FiHash, FiArrowRight, FiClock } from 'react-icons/fi';
+import { useAuth } from '../context/AuthContext';
+import { getDisplayName } from '../utils/userUtils';
 import { getImgSrc, timeAgo } from './NewsArticleCard';
 
 const SUGGESTED_TAGS = ['fee hike', 'protest', 'campus', 'admissions', 'education', 'cultural fest', 'politics', 'exam', 'research'];
@@ -19,6 +20,7 @@ const SearchResultsPanel = ({
   category,
   onTagClick
 }) => {
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const handleTagClick = (tag) => {
@@ -134,7 +136,7 @@ const SearchResultsPanel = ({
                                 </span>
                                 <span className="nm-search-suggestion-title">{art.title}</span>
                                 <span className="nm-search-suggestion-meta">
-                                  {isKyp ? `Year: ${art.historicalYear || 'N/A'} · By {art.author?.name || 'Staff'}` : `By ${art.author?.name || 'Staff'}`}
+                                  {isKyp ? `Year: ${art.historicalYear || 'N/A'} · By ${getDisplayName(art.author, user)}` : `By ${getDisplayName(art.author, user)}`}
                                 </span>
                               </div>
                             </Link>
@@ -175,8 +177,8 @@ const SearchResultsPanel = ({
                         <span className="nm-search-result-title">{art.title}</span>
                         <span className="nm-search-result-meta">
                           {isKyp 
-                            ? `Year: ${art.historicalYear || 'N/A'} · By ${art.author?.name || 'Staff'}` 
-                            : `By ${art.author?.name} · ${timeAgo(art.publishedAt)}`}
+                            ? `Year: ${art.historicalYear || 'N/A'} · By ${getDisplayName(art.author, user)}` 
+                            : `By ${getDisplayName(art.author, user)} · ${timeAgo(art.publishedAt)}`}
                         </span>
                       </div>
                       <FiArrowRight size={14} className="nm-search-result-arrow" />

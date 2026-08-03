@@ -9,6 +9,7 @@ import { BiHeart, BiTime, BiComment, BiShareAlt, BiChat, BiX, BiCategory, BiHome
 import io from 'socket.io-client';
 import toast from 'react-hot-toast';
 import BottomNavPill from '../components/BottomNavPill';
+import { getDisplayName } from '../utils/userUtils';
 import '../NewsTag.css';
 
 const SOCKET_URL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5000';
@@ -77,6 +78,7 @@ const TeaShopPage = () => {
   const handlePostSubmit = async (e) => {
     e.preventDefault();
     if (!user) return toast.error('Please login to post.');
+    if (user.role !== 'student') return toast.error('Only students can post in Tea Shop.');
     if (!title || !lead) return toast.error('Please fill in required fields');
 
     setSubmittingPost(true);
@@ -204,7 +206,7 @@ const TeaShopPage = () => {
         <div className="newstag-feed">
           
           {/* Ground Tab Specific: Create Post Form */}
-          {activeTab === 'ground' && user && user.role !== 'admin' && user.role !== 'editor' && (
+          {activeTab === 'ground' && user && user.role === 'student' && (
             <div style={{ background: 'var(--color-gray-100)', padding: 20, borderRadius: 8, marginBottom: 24, border: '1px solid var(--color-gray-200)' }}>
               <form onSubmit={handlePostSubmit}>
                 <input
@@ -264,7 +266,7 @@ const TeaShopPage = () => {
                   <h4 className="newstag-hyped-title">{article.title}</h4>
                 </Link>
                 <div className="newstag-hyped-meta">
-                  <span className="newstag-author-name">By {article.author?.name}</span>
+                  <span className="newstag-author-name">By {getDisplayName(article.author, user)}</span>
                   <Link to={`/article/${article.slug}`} className="newstag-view-btn">View</Link>
                 </div>
               </div>
@@ -360,7 +362,7 @@ const PostCard = ({ post, user, onReaction }) => {
           className="newstag-author-avatar"
         />
         <div>
-          <div className="newstag-author-name">By {post.author?.name}</div>
+          <div className="newstag-author-name">By {getDisplayName(post.author, user)}</div>
           <div className="newstag-date">
             {post.publishedAt ? format(new Date(post.publishedAt), 'MMM dd, yyyy') : 'Unknown Date'}
           </div>
@@ -434,7 +436,7 @@ const PostCard = ({ post, user, onReaction }) => {
                         <img src={c.author?.avatar ? getImageUrl(c.author.avatar) : 'https://placehold.co/30'} style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
                         <div style={{ flex: 1 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-black)' }}>{c.author?.name}</span>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-black)' }}>{getDisplayName(c.author, user)}</span>
                             <span style={{ fontSize: 10, color: 'var(--color-gray-500)' }}>{new Date(c.createdAt).toLocaleDateString()}</span>
                           </div>
                           <p style={{ fontSize: 14, margin: 0, color: 'var(--color-gray-700)', lineHeight: 1.4 }}>{c.text}</p>

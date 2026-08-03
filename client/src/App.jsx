@@ -18,9 +18,9 @@ import GenericCategoryPage from './pages/GenericCategoryPage';
 import PicturesSpeakPage from './pages/PicturesSpeakPage';
 import SearchPage from './pages/SearchPage';
 
-// Auth Pages
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import NewsTagPage from './pages/NewsTagPage';
 import NewsMenuPage from './pages/NewsMenuPage';
 import SavedArticlesPage from './pages/SavedArticlesPage';
@@ -182,6 +182,8 @@ const AppInner = () => {
         className={showBlockedOverlay ? 'restricted-view-container' : ''}
         style={showBlockedOverlay ? { pointerEvents: 'none', userSelect: 'none' } : {}}
       >
+        <div className="nm-ambient-blur-left" />
+        <div className="nm-ambient-blur-right" />
         {!isOverlayRoute && (
           <Navbar />
         )}
@@ -203,6 +205,7 @@ const AppInner = () => {
           {/* Auth */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
           {/* Protected Saved Articles & Onboarding Route */}
           <Route element={<ProtectedRoute allowedRoles={['student', 'moderator', 'editor', 'admin']} />}>

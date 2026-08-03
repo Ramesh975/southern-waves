@@ -2,6 +2,10 @@ const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const sendEmail = require('../utils/sendEmail');
+const { generateOtp, sendEmailOtpCode, sendPhoneOtpCode } = require('../utils/otpService');
+
+// In-memory OTP storage for registration / unauthenticated verification flows
+const tempOtpStore = new Map();
 
 const getAccessCookieOptions = () => ({
   expires: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes
@@ -34,10 +38,17 @@ const sendTokenResponse = async (user, statusCode, res) => {
     user: {
       _id: user._id,
       name: user.name,
+      username: user.username || user.email?.split('@')[0] || 'student',
       email: user.email,
       role: user.role,
       avatar: user.avatar,
       bio: user.bio,
+      age: user.age,
+      gender: user.gender,
+      educationLevel: user.educationLevel,
+      showRealNamePublicly: !!user.showRealNamePublicly,
+      emailVerified: !!user.emailVerified,
+      phoneVerified: !!user.phoneVerified,
       isVerified: user.isVerified,
       firstName: user.firstName || '',
       lastName: user.lastName || '',
@@ -50,61 +61,198 @@ const sendTokenResponse = async (user, statusCode, res) => {
   });
 };
 
-// @desc    Register user
+// @desc    Check Username Availability
+// @route   GET /api/auth/check-username/:username
+// @access  Public
+exports.checkUsernameAvailability = async (req, res, next) => {
+  try {
+    const { username } = req.params;
+    if (!username) return res.status(400).json({ success: false, available: false, message: 'Username is required' });
+    
+    const cleanUsername = username.toLowerCase().trim();
+    if (cleanUsername.length < 3) {
+      return res.status(400).json({ success: false, available: false, message: 'Username must be at least 3 characters long' });
+    }
+    
+    if (!/^[a-z0-9_]+$/.test(cleanUsername)) {
+      return res.status(400).json({ success: false, available: false, message: 'Username can only contain letters, numbers, and underscores' });
+    }
+
+    const existing = await User.findOne({ username: cleanUsername });
+    res.status(200).json({ success: true, available: !existing });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// @desc    Send Email OTP Code
+// @route   POST /api/auth/send-email-otp
+// @access  Public
+exports.sendEmailOtp = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ success: false, message: 'Email address is required' });
+    
+    const cleanEmail = email.toLowerCase().trim();
+    const otp = generateOtp();
+    const expiresAt = Date.now() + 10 * 60 * 1000; // 10 mins
+
+    tempOtpStore.set(`email_${cleanEmail}`, { otp, expiresAt });
+
+    try {
+      await sendEmailOtpCode(cleanEmail, otp, 'Email Verification');
+    } catch (e) {
+      console.warn('Email OTP sending fallback (dev print):', e.message);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Verification OTP generated for ${cleanEmail}`,
+      otp: otp
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// @desc    Verify Email OTP Code
+// @route   POST /api/auth/verify-email-otp
+// @access  Public
+exports.verifyEmailOtp = async (req, res, next) => {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) return res.status(400).json({ success: false, message: 'Email and OTP code are required' });
+
+    const cleanEmail = email.toLowerCase().trim();
+    const stored = tempOtpStore.get(`email_${cleanEmail}`);
+
+    if (!stored || stored.expiresAt < Date.now()) {
+      return res.status(400).json({ success: false, message: 'OTP has expired or was not requested. Please click resend.' });
+    }
+
+    if (stored.otp !== otp.trim()) {
+      return res.status(400).json({ success: false, message: 'Invalid OTP code. Please check and try again.' });
+    }
+
+    // Success
+    tempOtpStore.delete(`email_${cleanEmail}`);
+    res.status(200).json({ success: true, message: 'Email verified successfully!' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// @desc    Send Phone OTP Code
+// @route   POST /api/auth/send-phone-otp
+// @access  Public
+exports.sendPhoneOtp = async (req, res, next) => {
+  try {
+    const { phone } = req.body;
+    if (!phone) return res.status(400).json({ success: false, message: 'Mobile phone number is required' });
+
+    const cleanPhone = phone.replace(/\D/g, '');
+    const otp = generateOtp();
+    const expiresAt = Date.now() + 10 * 60 * 1000;
+
+    tempOtpStore.set(`phone_${cleanPhone}`, { otp, expiresAt });
+    await sendPhoneOtpCode(phone, otp, 'Mobile Verification');
+
+    res.status(200).json({
+      success: true,
+      message: `Mobile OTP code generated for ${phone}`,
+      otp: otp
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// @desc    Verify Phone OTP Code
+// @route   POST /api/auth/verify-phone-otp
+// @access  Public
+exports.verifyPhoneOtp = async (req, res, next) => {
+  try {
+    const { phone, otp } = req.body;
+    if (!phone || !otp) return res.status(400).json({ success: false, message: 'Phone number and OTP code are required' });
+
+    const cleanPhone = phone.replace(/\D/g, '');
+    const stored = tempOtpStore.get(`phone_${cleanPhone}`);
+
+    if (!stored || stored.expiresAt < Date.now()) {
+      return res.status(400).json({ success: false, message: 'Mobile OTP has expired or was not requested. Please click resend.' });
+    }
+
+    if (stored.otp !== otp.trim()) {
+      return res.status(400).json({ success: false, message: 'Invalid Mobile OTP code.' });
+    }
+
+    tempOtpStore.delete(`phone_${cleanPhone}`);
+    res.status(200).json({ success: true, message: 'Mobile phone verified successfully!' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// @desc    Register user (4-Step Flow)
 // @route   POST /api/auth/register
 // @access  Public
 exports.register = async (req, res, next) => {
   try {
-    const { firstName, lastName, email, phone, university, academicMajor, yearOfStudy, password, role } = req.body;
+    const {
+      firstName, lastName, email, phone, university, academicMajor,
+      yearOfStudy, password, username, age, gender, educationLevel,
+      showRealNamePublicly, emailVerified, phoneVerified, securityQuestions
+    } = req.body;
 
-    const name = `${firstName || ''} ${lastName || ''}`.trim() || 'Student';
+    if (!email || !password) {
+      return res.status(400).json({ success: false, message: 'Email and password are required' });
+    }
 
-    // Default to student role for all registrations
+    const cleanEmail = email.toLowerCase().trim();
+    const cleanUsername = (username || cleanEmail.split('@')[0]).toLowerCase().trim().replace(/[^a-z0-9_]/g, '_');
+
+    // Check uniqueness
+    const existingEmail = await User.findOne({ email: cleanEmail });
+    if (existingEmail) {
+      return res.status(400).json({ success: false, message: 'An account with this email already exists' });
+    }
+
+    const existingUsername = await User.findOne({ username: cleanUsername });
+    if (existingUsername) {
+      return res.status(400).json({ success: false, message: 'Username is already taken. Please choose another.' });
+    }
+
+    const name = `${firstName || ''} ${lastName || ''}`.trim() || cleanUsername || 'Student';
     const safeRole = 'student';
 
-    // Generate email verification token
-    const rawVerificationToken = crypto.randomBytes(32).toString('hex');
-    const verificationToken = crypto.createHash('sha256').update(rawVerificationToken).digest('hex');
-    const verificationTokenExpire = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
+    const formattedSecurityQuestions = Array.isArray(securityQuestions) ? securityQuestions.map(q => ({
+      question: q.question,
+      answer: q.answer ? q.answer.trim().toLowerCase() : ''
+    })) : [];
 
     const user = await User.create({
       name,
-      email,
+      username: cleanUsername,
+      email: cleanEmail,
+      phone: phone || '',
       password,
       role: safeRole,
-      isVerified: false,
-      verificationToken,
-      verificationTokenExpire,
-      firstName: firstName || '',
-      lastName: lastName || '',
+      age: age ? Number(age) : null,
+      gender: gender || '',
+      educationLevel: educationLevel || '',
       university: university || '',
-      phone: phone || '',
       academicMajor: academicMajor || '',
       yearOfStudy: yearOfStudy || '',
+      firstName: firstName || '',
+      lastName: lastName || '',
+      showRealNamePublicly: !!showRealNamePublicly,
+      emailVerified: !!emailVerified,
+      phoneVerified: !!phoneVerified,
+      isVerified: !!emailVerified,
+      securityQuestions: formattedSecurityQuestions,
       recommendationSettings: { preferredCategories: [], preferredTags: [] }
     });
 
-    // Send verification email
-    const verifyUrl = `${req.protocol}://${req.get('host')}/api/auth/verify/${rawVerificationToken}`;
-    const emailBody = `
-      <h1>Welcome to Southern Waves!</h1>
-      <p>Please click the link below to verify your email address and activate your account:</p>
-      <a href="${verifyUrl}" target="_blank">${verifyUrl}</a>
-      <p>This verification link will expire in 24 hours.</p>
-    `;
-
-    try {
-      await sendEmail({
-        email: user.email,
-        subject: 'Verify your Southern Waves email address',
-        html: emailBody,
-      });
-    } catch (emailErr) {
-      console.error('Email could not be sent:', emailErr);
-      // Don't fail registration if email fails (for dev, print link), but indicate it
-    }
-
-    // Still send token response so they are registered/logged in (as unverified)
     sendTokenResponse(user, 201, res);
   } catch (err) {
     next(err);
@@ -261,7 +409,11 @@ exports.getMe = async (req, res, next) => {
 // @access  Private
 exports.updateProfile = async (req, res, next) => {
   try {
-    const { name, bio, firstName, lastName, university, phone, academicMajor, yearOfStudy, recommendationSettings } = req.body;
+    const {
+      name, bio, firstName, lastName, university, phone, academicMajor,
+      yearOfStudy, recommendationSettings, username, age, gender,
+      educationLevel, showRealNamePublicly, securityQuestions, currentPassword
+    } = req.body;
     
     const updateData = {};
     if (name !== undefined) updateData.name = name;
@@ -272,6 +424,39 @@ exports.updateProfile = async (req, res, next) => {
     if (phone !== undefined) updateData.phone = phone;
     if (academicMajor !== undefined) updateData.academicMajor = academicMajor;
     if (yearOfStudy !== undefined) updateData.yearOfStudy = yearOfStudy;
+    if (age !== undefined) updateData.age = age ? Number(age) : null;
+    if (gender !== undefined) updateData.gender = gender;
+    if (educationLevel !== undefined) updateData.educationLevel = educationLevel;
+    if (showRealNamePublicly !== undefined) updateData.showRealNamePublicly = showRealNamePublicly === true || showRealNamePublicly === 'true';
+
+    // Handle security questions update (requires current password verification for safety)
+    if (securityQuestions !== undefined) {
+      let parsedQuestions = securityQuestions;
+      if (typeof securityQuestions === 'string') {
+        try { parsedQuestions = JSON.parse(securityQuestions); } catch (e) {}
+      }
+
+      if (Array.isArray(parsedQuestions) && parsedQuestions.length >= 2) {
+        const currentUser = await User.findById(req.user.id).select('+password');
+        if (!currentPassword || !(await currentUser.matchPassword(currentPassword))) {
+          return res.status(401).json({ success: false, message: 'Incorrect Current Password. Security Questions were NOT updated.' });
+        }
+
+        updateData.securityQuestions = parsedQuestions.map(q => ({
+          question: q.question,
+          answer: q.answer ? q.answer.trim().toLowerCase() : ''
+        }));
+      }
+    }
+
+    if (username !== undefined && username.trim()) {
+      const cleanUsername = username.toLowerCase().trim().replace(/[^a-z0-9_]/g, '_');
+      const existing = await User.findOne({ username: cleanUsername, _id: { $ne: req.user.id } });
+      if (existing) {
+        return res.status(400).json({ success: false, message: 'Username is already in use' });
+      }
+      updateData.username = cleanUsername;
+    }
 
     // Handle recommendationSettings
     if (recommendationSettings !== undefined) {
@@ -570,5 +755,267 @@ exports.rejectAppeal = async (req, res, next) => {
     next(err);
   }
 };
+
+// @desc    Request Password or Username Recovery OTP (via Email or Mobile Phone)
+// @route   POST /api/auth/forgot-request
+// @access  Public
+exports.forgotRequest = async (req, res, next) => {
+  try {
+    const { recoveryType, contactMethod, contactValue } = req.body;
+    if (!contactValue) {
+      return res.status(400).json({ success: false, message: 'Please provide registered Email address or Phone number' });
+    }
+
+    const cleanVal = contactValue.trim().toLowerCase();
+    const cleanPhone = contactValue.replace(/\D/g, '');
+    const user = await User.findOne({
+      $or: [
+        { email: cleanVal },
+        { phone: cleanVal },
+        { phone: cleanPhone },
+        { username: cleanVal }
+      ]
+    });
+    const isEmail = contactMethod === 'email' || contactMethod === 'username' || contactValue.includes('@');
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'No account found associated with this detail.' });
+    }
+
+    const otp = generateOtp();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
+
+    user.resetOtp = otp;
+    user.resetOtpExpire = expiresAt;
+    await user.save({ validateBeforeSave: false });
+
+    const purposeLabel = recoveryType === 'id' ? 'Account ID Recovery' : 'Password Reset';
+
+    if (isEmail) {
+      try {
+        await sendEmailOtpCode(user.email, otp, purposeLabel);
+      } catch (e) {
+        console.warn('Email OTP Error:', e.message);
+      }
+    } else {
+      await sendPhoneOtpCode(user.phone, otp, purposeLabel);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `OTP code generated for your ${isEmail ? 'email address' : 'mobile phone'}.`,
+      otp: otp,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// @desc    Verify Recovery OTP & Retrieve Account ID (Username)
+// @route   POST /api/auth/verify-reset-otp
+// @access  Public
+exports.verifyResetOtp = async (req, res, next) => {
+  try {
+    const { contactValue, otp, recoveryType } = req.body;
+    if (!contactValue || !otp) {
+      return res.status(400).json({ success: false, message: 'Contact detail and OTP code are required' });
+    }
+
+    const isEmail = contactValue.includes('@');
+    const query = isEmail
+      ? { email: contactValue.toLowerCase().trim() }
+      : { phone: contactValue.trim() };
+
+    const user = await User.findOne({
+      ...query,
+      resetOtp: otp.trim(),
+      resetOtpExpire: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired OTP code.' });
+    }
+
+    if (recoveryType === 'id') {
+      // Clear OTP after successful retrieval
+      user.resetOtp = undefined;
+      user.resetOtpExpire = undefined;
+      await user.save({ validateBeforeSave: false });
+
+      return res.status(200).json({
+        success: true,
+        message: 'Account ID recovered successfully!',
+        username: user.username || user.email.split('@')[0],
+        email: user.email,
+        name: user.name,
+      });
+    }
+
+    res.status(200).json({ success: true, message: 'OTP verified. You can now set your new password.' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// @desc    Reset Password with verified OTP
+exports.resetPassword = async (req, res, next) => {
+  try {
+    const { contactValue, newPassword, answers } = req.body;
+    if (!contactValue || !newPassword) {
+      return res.status(400).json({ success: false, message: 'Contact detail and new password are required' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
+    }
+
+    const cleanVal = contactValue.trim().toLowerCase();
+    const cleanPhone = contactValue.replace(/\D/g, '');
+
+    const user = await User.findOne({
+      $or: [
+        { email: cleanVal },
+        { phone: cleanVal },
+        { phone: cleanPhone },
+        { username: cleanVal }
+      ]
+    });
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'No registered user found with provided contact detail.' });
+    }
+
+    if (!user.securityQuestions || user.securityQuestions.length < 2) {
+      return res.status(400).json({ success: false, message: 'Security Recovery Not Configured: This account has not set up 2 Security Questions. Password reset is blocked.' });
+    }
+
+    if (!answers || !Array.isArray(answers) || answers.length < 2) {
+      return res.status(400).json({ success: false, message: '2 verified Security Question answers are strictly required to reset password.' });
+    }
+
+    let allMatch = true;
+    for (const item of answers) {
+      const match = user.securityQuestions.find(q => q.question === item.question);
+      if (!match || match.answer !== item.answer.trim().toLowerCase()) {
+        allMatch = false;
+        break;
+      }
+    }
+
+    if (!allMatch) {
+      return res.status(400).json({ success: false, message: 'Security Question Answers do not match. Password reset blocked.' });
+    }
+
+    user.password = newPassword;
+    user.resetOtp = undefined;
+    user.resetOtpExpire = undefined;
+    await user.save();
+
+    res.status(200).json({ success: true, message: 'Password updated successfully! You can now log in.' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// @desc    Get user's configured security questions for recovery challenge
+// @route   POST /api/auth/get-user-security-questions
+// @access  Public
+exports.getUserSecurityQuestions = async (req, res, next) => {
+  try {
+    const { contactValue } = req.body;
+    if (!contactValue) return res.status(400).json({ success: false, message: 'Contact detail is required' });
+
+    const cleanVal = contactValue.trim().toLowerCase();
+    const cleanPhone = contactValue.replace(/\D/g, '');
+
+    const user = await User.findOne({
+      $or: [
+        { email: cleanVal },
+        { phone: cleanVal },
+        { phone: cleanPhone },
+        { username: cleanVal }
+      ]
+    });
+
+    if (!user) return res.status(404).json({ success: false, message: 'No registered user found with this email or mobile phone.' });
+
+    if (!user.securityQuestions || user.securityQuestions.length < 2) {
+      return res.status(400).json({
+        success: false,
+        hasSecurityQuestions: false,
+        message: 'Security Recovery Not Configured: This account has not set up 2 Security Questions. Account recovery is blocked.'
+      });
+    }
+
+    const questions = user.securityQuestions.map(q => q.question);
+    res.status(200).json({
+      success: true,
+      hasSecurityQuestions: true,
+      questions
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// @desc    Verify answers to security questions for recovery
+// @route   POST /api/auth/verify-security-questions
+// @access  Public
+exports.verifySecurityQuestions = async (req, res, next) => {
+  try {
+    const { contactValue, answers } = req.body;
+    if (!contactValue) {
+      return res.status(400).json({ success: false, message: 'Contact detail is required.' });
+    }
+
+    const cleanVal = contactValue.trim().toLowerCase();
+    const cleanPhone = contactValue.replace(/\D/g, '');
+
+    const user = await User.findOne({
+      $or: [
+        { email: cleanVal },
+        { phone: cleanVal },
+        { phone: cleanPhone },
+        { username: cleanVal }
+      ]
+    });
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'No registered user found with provided contact detail.' });
+    }
+
+    if (!user.securityQuestions || user.securityQuestions.length < 2) {
+      return res.status(400).json({ success: false, message: 'Security Recovery Not Configured: This account has not set up 2 Security Questions. Recovery is blocked.' });
+    }
+
+    if (!answers || !Array.isArray(answers) || answers.length < 2) {
+      return res.status(400).json({ success: false, message: '2 security question answers are required.' });
+    }
+
+    let allMatch = true;
+    for (const item of answers) {
+      const match = user.securityQuestions.find(q => q.question === item.question);
+      if (!match || match.answer !== item.answer.trim().toLowerCase()) {
+        allMatch = false;
+        break;
+      }
+    }
+
+    if (!allMatch) {
+      return res.status(400).json({ success: false, message: 'Security Question Answers do not match. Recovery blocked.' });
+    }
+
+    res.status(200).json({
+      success: true,
+      verified: true,
+      username: user.username || user.email.split('@')[0],
+      email: user.email,
+      name: user.name,
+      message: 'Identity verified successfully!'
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 
 

@@ -50,11 +50,20 @@ exports.getArticles = async (req, res, next) => {
     if (pushedToHome === 'true') query.isPushedToHome = true;
     if (tag) query.tags = { $in: [tag.toLowerCase()] };
     if (search) {
-      const escapedSearch = search.trim().replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+      const cleanTerm = search.trim().replace(/^@/, '');
+      const escapedSearch = cleanTerm.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
       const searchRegex = new RegExp(escapedSearch, 'i');
 
       const User = require('../models/User');
-      const matchedUsers = await User.find({ name: searchRegex }).select('_id');
+      const matchedUsers = await User.find({
+        $or: [
+          { username: searchRegex },
+          { name: searchRegex },
+          { firstName: searchRegex },
+          { lastName: searchRegex },
+          { email: searchRegex },
+        ]
+      }).select('_id');
       const authorIds = matchedUsers.map(u => u._id);
 
       query.$or = [
@@ -83,7 +92,7 @@ exports.getArticles = async (req, res, next) => {
     }
 
     const articles = await Article.find(query)
-      .populate('author', 'name avatar role')
+      .populate('author', 'name username showRealNamePublicly avatar role firstName lastName')
       .populate('references.article', 'title slug category coverImage')
       .populate('securityChangedBy', 'name role')
       .sort(sortQuery)
@@ -109,7 +118,7 @@ exports.getArticles = async (req, res, next) => {
 exports.getArticleBySlug = async (req, res, next) => {
   try {
     const article = await Article.findOne({ slug: req.params.slug })
-      .populate('author', 'name avatar bio role')
+      .populate('author', 'name username showRealNamePublicly avatar bio role firstName lastName')
       .populate('references.article', 'title slug category coverImage author')
       .populate('securityChangedBy', 'name role');
     if (!article) return res.status(404).json({ success: false, message: 'Article not found' });
@@ -328,7 +337,7 @@ exports.createArticle = async (req, res, next) => {
     // ──────────────────────────────────────────────────────────────────────
 
     const article = await Article.create(req.body);
-    await article.populate('author', 'name avatar role');
+    await article.populate('author', 'name username showRealNamePublicly avatar role');
 
     // Emit real-time breaking news event via Socket.io
     if (article.status === 'published' && article.isBreaking) {
@@ -516,7 +525,7 @@ exports.getTrending = async (req, res, next) => {
     }
 
     const articles = await Article.find(query)
-      .populate('author', 'name avatar');
+      .populate('author', 'name username showRealNamePublicly avatar role');
 
     // Aggregate comment counts
     const Comment = require('../models/Comment');
@@ -586,7 +595,7 @@ exports.getMostRead = async (req, res, next) => {
     const query = { status: 'published' };
     if (category) query.category = category;
     const articles = await Article.find(query)
-      .populate('author', 'name avatar')
+      .populate('author', 'name username showRealNamePublicly avatar role')
       .sort({ views: -1 })
       .limit(limit);
     res.status(200).json({ success: true, data: articles });
@@ -912,7 +921,7 @@ exports.getRecommendations = async (req, res, next) => {
         status: 'published',
         category: { $ne: 'tea-shop' },
         _id: { $nin: excludeIds }
-      }).populate('author', 'name avatar role');
+      }).populate('author', 'name username showRealNamePublicly avatar role');
 
       const scoredCandidates = candidates.map(article => {
         const { hypeScore, trendingScore, hoursElapsed } = getArticleStats(article);
@@ -964,7 +973,7 @@ exports.getRecommendations = async (req, res, next) => {
           category: { $ne: 'tea-shop' },
           _id: { $nin: [...excludeIds, ...currentIds] }
         })
-          .populate('author', 'name avatar role')
+          .populate('author', 'name username showRealNamePublicly avatar role')
           .limit(8 - recommendations.length);
 
         extraArticles.forEach(article => {
@@ -978,7 +987,7 @@ exports.getRecommendations = async (req, res, next) => {
       const articles = await Article.find({
         status: 'published',
         category: { $ne: 'tea-shop' }
-      }).populate('author', 'name avatar role');
+      }).populate('author', 'name username showRealNamePublicly avatar role');
 
       const scored = articles.map(article => {
         const { hypeScore, trendingScore, hoursElapsed } = getArticleStats(article);
