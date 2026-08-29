@@ -163,7 +163,7 @@ const GenericCategoryPage = ({ category, title: displayTitle }) => {
       await chatAPI.sendMessage({ text: newMessage.trim(), category });
       setNewMessage('');
     } catch (err) {
-      toast.error('Failed to send message');
+      toast.error(err.response?.data?.message || 'Failed to send message');
     } finally {
       setSendingMessage(false);
     }

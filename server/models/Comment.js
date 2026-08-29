@@ -27,6 +27,14 @@ const CommentSchema = new mongoose.Schema(
       default: null,
     },
     likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    isEdited: {
+      type: Boolean,
+      default: false,
+    },
+    editedAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );

@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { authAPI } from '../services/api';
 import { useTheme } from '../context/ThemeContext';
 import toast from 'react-hot-toast';
-import { FiMail, FiPhone, FiLock, FiKey, FiUser, FiArrowLeft, FiCheckCircle, FiShield, FiClock, FiHelpCircle } from 'react-icons/fi';
+import { FiMail, FiPhone, FiLock, FiKey, FiUser, FiArrowLeft, FiCheckCircle, FiShield, FiClock, FiHelpCircle, FiEye, FiEyeOff } from 'react-icons/fi';
 
 const ForgotPasswordPage = () => {
   const navigate = useNavigate();
@@ -20,6 +20,11 @@ const ForgotPasswordPage = () => {
   const [contactValue, setContactValue] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // Account identity retrieved from backend
+  const [accountIdentity, setAccountIdentity] = useState({ name: '', username: '' });
 
   // Security Questions Challenge State
   const [userQuestions, setUserQuestions] = useState([]);
@@ -27,6 +32,25 @@ const ForgotPasswordPage = () => {
   const [secAnswer2, setSecAnswer2] = useState('');
 
   const [loading, setLoading] = useState(false);
+
+  // Strong password generator
+  const generateStrongPassword = () => {
+    const chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789!@#$%&*';
+    let pwd = '';
+    pwd += 'ABCDEFGHJKMNPQRSTUVWXYZ'[Math.floor(Math.random() * 24)];
+    pwd += 'abcdefghjkmnpqrstuvwxyz'[Math.floor(Math.random() * 24)];
+    pwd += '23456789'[Math.floor(Math.random() * 8)];
+    pwd += '!@#$%&*'[Math.floor(Math.random() * 7)];
+    for (let i = 4; i < 14; i++) {
+      pwd += chars[Math.floor(Math.random() * chars.length)];
+    }
+    pwd = pwd.split('').sort(() => 0.5 - Math.random()).join('');
+    setNewPassword(pwd);
+    setConfirmPassword(pwd);
+    setShowPassword(true);
+    setShowConfirmPassword(true);
+    toast.success('Strong password generated! 🔐');
+  };
 
   // Outcome details for ID recovery
   const [recoveredId, setRecoveredId] = useState(null);
@@ -58,8 +82,12 @@ const ForgotPasswordPage = () => {
       const qRes = await authAPI.getUserSecurityQuestions({ contactValue: contactValue.trim() });
       if (qRes.data?.success && qRes.data?.hasSecurityQuestions && qRes.data?.questions?.length >= 2) {
         setUserQuestions(qRes.data.questions);
+        setAccountIdentity({
+          name: qRes.data.name || '',
+          username: qRes.data.username || ''
+        });
         setStep(2);
-        toast.success('Account located! Please answer your 2 Security Questions.');
+        toast.success(`Account located! Answer security questions for ${qRes.data.name || contactValue}`);
       } else {
         toast.error(qRes.data?.message || 'Security Recovery Not Configured: This account has not set up 2 Security Questions.');
       }
@@ -277,7 +305,7 @@ const ForgotPasswordPage = () => {
               <input
                 type={contactMethod === 'email' ? 'email' : 'text'}
                 className="form-input"
-                placeholder={contactMethod === 'email' ? 'student@university.edu' : contactMethod === 'username' ? 'e.g. london_morries' : '+91 9876543210'}
+                placeholder={contactMethod === 'email' ? 'student@university.edu' : contactMethod === 'username' ? 'e.g. alex_morgan' : '+91 9876543210'}
                 value={contactValue}
                 onChange={(e) => setContactValue(e.target.value)}
                 required
@@ -301,8 +329,8 @@ const ForgotPasswordPage = () => {
         {/* STEP 2: Security Questions Challenge */}
         {step === 2 && (
           <form onSubmit={handleVerifySecurityQuestions}>
-            <div style={{ background: 'var(--color-gray-100)', border: '1px solid var(--color-gray-200)', padding: '12px 16px', borderRadius: '10px', marginBottom: '20px', fontSize: '12px', color: 'var(--color-black)' }}>
-              🛡️ <strong>Identity Challenge:</strong> Please answer your 2 Security Questions for account <strong>{contactValue}</strong>.
+            <div style={{ background: 'var(--color-gray-100)', border: '1px solid var(--color-gray-200)', padding: '14px 16px', borderRadius: '10px', marginBottom: '20px', fontSize: '13px', color: 'var(--color-black)' }}>
+              🛡️ <strong>Identity Challenge:</strong> Answering for <strong>{accountIdentity.name || contactValue}</strong> {accountIdentity.username && <span style={{ color: 'var(--accent-color)' }}>@{accountIdentity.username}</span>}
             </div>
 
             <div className="form-group" style={{ marginBottom: '16px' }}>
@@ -359,28 +387,97 @@ const ForgotPasswordPage = () => {
         {/* STEP 3: Password Reset OR Account ID Display */}
         {step === 3 && recoveryType === 'password' && (
           <form onSubmit={handleResetPassword}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--color-black)' }}>Enter New Password</span>
+              <button
+                type="button"
+                onClick={generateStrongPassword}
+                style={{
+                  background: 'rgba(0,85,164,0.08)',
+                  color: 'var(--accent-color)',
+                  border: '1px solid var(--accent-color)',
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  fontSize: '11.5px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px'
+                }}
+              >
+                <FiKey size={13} /> Suggest Strong Password
+              </button>
+            </div>
+
             <div className="form-group" style={{ marginBottom: '16px' }}>
               <label className="form-label">New Password</label>
-              <input
-                type="password"
-                className="form-input"
-                placeholder="••••••••"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                required
-              />
+              <div style={{ position: 'relative' }}>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  className="form-input"
+                  placeholder="••••••••"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  style={{ paddingRight: '38px' }}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(prev => !prev)}
+                  style={{
+                    position: 'absolute',
+                    right: '10px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    border: 'none',
+                    background: 'none',
+                    cursor: 'pointer',
+                    color: 'var(--color-gray-500)',
+                    padding: '4px',
+                    display: 'flex',
+                    alignItems: 'center'
+                  }}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <FiEyeOff size={16} /> : <FiEye size={16} />}
+                </button>
+              </div>
             </div>
 
             <div className="form-group" style={{ marginBottom: '24px' }}>
               <label className="form-label">Confirm New Password</label>
-              <input
-                type="password"
-                className="form-input"
-                placeholder="••••••••"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-              />
+              <div style={{ position: 'relative' }}>
+                <input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  className="form-input"
+                  placeholder="••••••••"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  style={{ paddingRight: '38px' }}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(prev => !prev)}
+                  style={{
+                    position: 'absolute',
+                    right: '10px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    border: 'none',
+                    background: 'none',
+                    cursor: 'pointer',
+                    color: 'var(--color-gray-500)',
+                    padding: '4px',
+                    display: 'flex',
+                    alignItems: 'center'
+                  }}
+                  aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showConfirmPassword ? <FiEyeOff size={16} /> : <FiEye size={16} />}
+                </button>
+              </div>
             </div>
 
             <button

@@ -29,6 +29,11 @@ const {
   resetPassword,
   getUserSecurityQuestions,
   verifySecurityQuestions,
+  changePassword,
+  deactivateAccount,
+  adminSwitchAccount,
+  adminRevertAccount,
+  getAuthorProfile,
 } = require('../controllers/authController');
 
 router.post('/register', register);
@@ -36,6 +41,17 @@ router.post('/login', login);
 router.post('/logout', protect, logout);
 router.post('/refresh', refreshToken);
 router.get('/verify/:token', verifyEmail);
+
+// Author Public/Studio Profile
+router.get('/author/:identifier', getAuthorProfile);
+
+// Password change & Deactivate
+router.put('/change-password', protect, changePassword);
+router.put('/me/deactivate', protect, deactivateAccount);
+
+// Admin account switcher / impersonation
+router.post('/admin/switch-account/:userId', protect, authorize('admin'), adminSwitchAccount);
+router.post('/admin/revert-account', protect, adminRevertAccount);
 
 // Username availability & OTP verification
 router.get('/check-username/:username', checkUsernameAvailability);

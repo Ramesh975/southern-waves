@@ -8,7 +8,7 @@ import {
   FiEdit3, FiSettings, FiCamera, FiPlus, FiTrash2, FiSearch, 
   FiCheck, FiSend, FiClock, FiCalendar, FiAlertTriangle, 
   FiCheckCircle, FiUnlock, FiLock, FiInfo, FiHash, FiPhone, FiBookOpen,
-  FiChevronRight, FiArrowLeft, FiEye, FiEyeOff, FiX
+  FiChevronRight, FiArrowLeft, FiEye, FiEyeOff, FiX, FiKey
 } from 'react-icons/fi';
 import { IoContrast } from 'react-icons/io5';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -19,7 +19,7 @@ const SECTIONS = [
   { id: 'news', label: 'News', icon: '📰', desc: 'Campus issues, student initiatives' },
   { id: 'editorial', label: 'Editorial', icon: '✍️', desc: 'In-depth reviews and opinion pieces' },
   { id: 'features', label: 'Features', icon: '🎬', desc: 'Art reviews, culture, human interest' },
-  { id: 'kyp', label: 'Know Our Past', icon: '📖', desc: 'Historical movements and archives' },
+  { id: 'kyp', label: 'Know Your Past', icon: '📖', desc: 'Historical movements and archives' },
   { id: 'tea-shop', label: 'Tea Shop', icon: '☕', desc: 'University circulars and student vibes' },
   { id: 'pictures-speak', label: 'Pictures Speak', icon: '📷', desc: 'Narrative storytelling through photos' }
 ];
@@ -28,9 +28,9 @@ const FILTER_CATEGORIES = [
   { value: 'all', label: 'All Categories' },
   { value: 'profanity', label: '🤬 Profanity' },
   { value: 'hate-speech', label: '☠️ Hate Speech' },
-  { value: 'scam', label: '💸 Scam' },
-  { value: 'cyberbullying', label: '🥊 Cyberbullying' },
-  { value: 'spam', label: '📧 Spam' },
+  { value: 'scam', label: '⚠️ Scam' },
+  { value: 'cyberbullying', label: '🚫 Cyberbullying' },
+  { value: 'spam', label: '📢 Spam' },
 ];
 
 const BLOCK_DURATIONS = [
@@ -44,7 +44,7 @@ const BLOCK_DURATIONS = [
   { label: 'Indefinite', value: 'forever' },
 ];
 
-const ToggleSwitch = ({ checked, onChange, disabled, activeColor = 'var(--accent-color)' }) => {
+const IOSSwitch = ({ checked, onChange, activeColor = 'var(--accent-color)', disabled = false }) => {
   return (
     <div 
       onClick={() => !disabled && onChange()}
@@ -75,10 +75,27 @@ const ToggleSwitch = ({ checked, onChange, disabled, activeColor = 'var(--accent
   );
 };
 
+const ToggleSwitch = IOSSwitch;
+
 const SettingsPage = () => {
-  const { user, refreshUser, isBlocked, isAdmin, isModerator, isEditor } = useAuth();
+  const { user, refreshUser, isBlocked, isAdmin, isModerator, isEditor, changePassword, deactivateAccount, switchAccount } = useAuth();
   const { theme, setTheme, styleMode, setStyleMode, accent, setAccent, ACCENT_COLORS } = useTheme();
   
+  // Password change state
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
+
+  // Deactivation state
+  const [deactivatePassword, setDeactivatePassword] = useState('');
+  const [deactivateReason, setDeactivateReason] = useState('');
+  const [deactivating, setDeactivating] = useState(false);
+  const [showDeactivateModal, setShowDeactivateModal] = useState(false);
+
   // Security Questions State & Password Confirmation Modal
   const [sq1, setSq1] = useState(user?.securityQuestions?.[0]?.question || "What was the name of your first pet?");
   const [sq2, setSq2] = useState(user?.securityQuestions?.[1]?.question || "What is your mother's maiden name?");
@@ -305,12 +322,18 @@ const SettingsPage = () => {
   };
 
   // ==========================================
-  // STATE 2: Feed Preferences / Recommendation Settings
+  // STATE 2: Feed Preferences / Recommendation Settings & Auto-Scroll
   // ==========================================
   const [preferredCategories, setPreferredCategories] = useState(user?.recommendationSettings?.preferredCategories || []);
   const [preferredTags, setPreferredTags] = useState(user?.recommendationSettings?.preferredTags || []);
   const [customTagInput, setCustomTagInput] = useState('');
   const [savingPrefs, setSavingPrefs] = useState(false);
+
+  // Story Feed Auto-Scroll & Interaction Settings
+  const [storyAutoScroll, setStoryAutoScroll] = useState(() => localStorage.getItem('sw_story_autoscroll') !== 'false');
+  const [storyDuration, setStoryDuration] = useState(() => parseInt(localStorage.getItem('sw_story_duration') || '6500', 10));
+  const [storyAnimation, setStoryAnimation] = useState(() => localStorage.getItem('sw_story_animation') || '3d-cube');
+  const [storyLongPressHold, setStoryLongPressHold] = useState(() => localStorage.getItem('sw_story_hold') !== 'false');
 
   useEffect(() => {
     if (user?.recommendationSettings) {
@@ -376,8 +399,15 @@ const SettingsPage = () => {
           preferredTags
         }
       });
+      
+      // Save client-side Story Feed & Auto-Scroll Preferences
+      localStorage.setItem('sw_story_autoscroll', storyAutoScroll ? 'true' : 'false');
+      localStorage.setItem('sw_story_duration', storyDuration.toString());
+      localStorage.setItem('sw_story_animation', storyAnimation);
+      localStorage.setItem('sw_story_hold', storyLongPressHold ? 'true' : 'false');
+
       await refreshUser();
-      toast.success('Recommendation settings saved!');
+      toast.success('Feed & Story playback settings saved! ⚡');
       if (isMobile) {
         handleTabChange('menu');
       }
@@ -430,6 +460,61 @@ const SettingsPage = () => {
       toast.error(err.response?.data?.message || 'Failed to submit appeal.');
     } finally {
       setAppealing(false);
+    }
+  };
+
+  const generateSettingsStrongPassword = () => {
+    const chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789!@#$%&*';
+    let pwd = '';
+    pwd += 'ABCDEFGHJKMNPQRSTUVWXYZ'[Math.floor(Math.random() * 24)];
+    pwd += 'abcdefghjkmnpqrstuvwxyz'[Math.floor(Math.random() * 24)];
+    pwd += '23456789'[Math.floor(Math.random() * 8)];
+    pwd += '!@#$%&*'[Math.floor(Math.random() * 7)];
+    for (let i = 4; i < 14; i++) {
+      pwd += chars[Math.floor(Math.random() * chars.length)];
+    }
+    pwd = pwd.split('').sort(() => 0.5 - Math.random()).join('');
+    setNewPassword(pwd);
+    setConfirmNewPassword(pwd);
+    setShowNewPassword(true);
+    setShowConfirmNewPassword(true);
+    toast.success('Generated strong password! 🔐');
+  };
+
+  const handleChangePasswordSubmit = async (e) => {
+    e.preventDefault();
+    if (!currentPassword) return toast.error('Please enter your current password');
+    if (!newPassword || newPassword.length < 6) return toast.error('New password must be at least 6 characters');
+    if (newPassword !== confirmNewPassword) return toast.error('New passwords do not match');
+
+    setChangingPassword(true);
+    try {
+      await changePassword(currentPassword, newPassword);
+      toast.success('Password updated successfully! 🔒');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmNewPassword('');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to change password');
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
+  const handleDeactivateSubmit = async (e) => {
+    e.preventDefault();
+    if (!deactivatePassword) return toast.error('Please enter your password to confirm deactivation');
+
+    setDeactivating(true);
+    try {
+      await deactivateAccount(deactivatePassword, deactivateReason);
+      toast.success('Account deactivated. You have been signed out.');
+      window.location.href = '/';
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to deactivate account');
+    } finally {
+      setDeactivating(false);
+      setShowDeactivateModal(false);
     }
   };
 
@@ -880,6 +965,7 @@ const SettingsPage = () => {
     { id: 'profile', label: 'Profile Settings', icon: <FiUser />, desc: 'Personal details & campus info' },
     { id: 'recommendations', label: 'Feed Preferences', icon: <FiSliders />, desc: 'Customize recommended topics' },
     { id: 'appearance', label: 'Appearance', icon: <FiSun />, desc: 'Themes, styling, and color accents' },
+    { id: 'security', label: 'Security & Password', icon: <FiLock />, desc: 'Change password & account deactivation' },
     { id: 'status', label: 'Account Standing', icon: <FiShield />, desc: 'Check restrictions & submit appeals', badge: isBlocked ? 'Restricted' : null },
   ];
 
@@ -1423,6 +1509,82 @@ const SettingsPage = () => {
                   </div>
                 </div>
 
+                {/* ── Story Auto-Scroll, Gestures & Card Animation Preferences ── */}
+                <div style={{
+                  background: 'var(--color-gray-50, #f8fafc)',
+                  border: '1.5px solid var(--color-gray-200, #e2e8f0)',
+                  borderRadius: '12px',
+                  padding: '20px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '18px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div>
+                      <span className="settings-label" style={{ display: 'block', marginBottom: '2px' }}>
+                        ⚡ 2D Stories Auto-Scroll
+                      </span>
+                      <span style={{ fontSize: '12px', color: 'var(--color-gray-500)' }}>
+                        Automatically progress to the next story and transition to recommended authors on story completion.
+                      </span>
+                    </div>
+                    <IOSSwitch
+                      checked={storyAutoScroll}
+                      onChange={() => setStoryAutoScroll(prev => !prev)}
+                    />
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', paddingTop: '14px', borderTop: '1px solid var(--color-gray-200, #e2e8f0)' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--color-gray-700)', marginBottom: '6px' }}>
+                        ⏱️ Auto-Scroll Duration
+                      </label>
+                      <select
+                        value={storyDuration}
+                        onChange={(e) => setStoryDuration(parseInt(e.target.value, 10))}
+                        className="settings-input"
+                        style={{ width: '100%', fontSize: '13px' }}
+                      >
+                        <option value={5000}>5 Seconds (Fast)</option>
+                        <option value={6500}>6.5 Seconds (Default)</option>
+                        <option value={9000}>9 Seconds (Relaxed)</option>
+                        <option value={12000}>12 Seconds (Long Reads)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--color-gray-700)', marginBottom: '6px' }}>
+                        🎴 Horizontal Card Animation
+                      </label>
+                      <select
+                        value={storyAnimation}
+                        onChange={(e) => setStoryAnimation(e.target.value)}
+                        className="settings-input"
+                        style={{ width: '100%', fontSize: '13px' }}
+                      >
+                        <option value="3d-cube">3D Cube Perspective Flip</option>
+                        <option value="smooth-slide">Smooth Spring Carousel</option>
+                        <option value="scale-fade">Scale & Depth Shift</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '14px', borderTop: '1px solid var(--color-gray-200, #e2e8f0)' }}>
+                    <div>
+                      <span style={{ fontSize: '13px', fontWeight: 700, display: 'block', color: 'var(--color-gray-800)' }}>
+                        👆 Long-Press / Hold Gesture
+                      </span>
+                      <span style={{ fontSize: '11.5px', color: 'var(--color-gray-500)' }}>
+                        Press & hold anywhere on a story to freeze time and hide overlays to inspect images clearly.
+                      </span>
+                    </div>
+                    <IOSSwitch
+                      checked={storyLongPressHold}
+                      onChange={() => setStoryLongPressHold(prev => !prev)}
+                    />
+                  </div>
+                </div>
+
                 <div className="settings-btn-row">
                   <button type="submit" className="settings-btn-primary" disabled={savingPrefs}>
                     {savingPrefs ? 'Updating Preferences...' : 'Apply Feed Customizations'}
@@ -1522,27 +1684,173 @@ const SettingsPage = () => {
                     })}
                   </div>
                 </div>
+              </div>
+            )}
 
-                <div>
-                  <span className="settings-label">3. Platform Styling Framework</span>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px', marginTop: '8px' }}>
-                    {[
-                      { id: 'modern', label: 'Modern Executive System', desc: 'Sleek glassmorphic cards, modern fluid typography, elegant data presentation' },
-                    ].map(item => {
-                      const isActive = styleMode === item.id;
-                      return (
-                        <div
-                          key={item.id}
-                          className={`theme-card ${isActive ? 'active' : ''}`}
-                          style={{ alignItems: 'flex-start', textAlign: 'left', padding: '24px' }}
-                          onClick={() => setStyleMode(item.id)}
-                        >
-                          <span className="theme-card-label" style={{ fontSize: '14px', marginBottom: '4px', textTransform: 'uppercase' }}>{item.label}</span>
-                          <span style={{ fontSize: '11.5px', opacity: isActive ? 0.9 : 0.6, lineHeight: 1.4 }}>{item.desc}</span>
-                        </div>
-                      );
-                    })}
+            {/* ── TAB: Security & Password ── */}
+            {activeTab === 'security' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+                {/* Section 1: Change Password */}
+                <div style={{ background: 'var(--color-paper)', border: '1px solid rgba(0,0,0,0.08)', borderRadius: '14px', padding: '28px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
+                    <div>
+                      <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '16px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--color-black)', margin: '0 0 4px 0' }}>
+                        Change Password
+                      </h3>
+                      <p style={{ fontSize: '12px', color: 'var(--color-gray-500)', margin: 0 }}>
+                        Update your login credentials. Use a strong password with letters, numbers, and symbols.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={generateSettingsStrongPassword}
+                      style={{
+                        background: 'rgba(0,85,164,0.08)',
+                        color: 'var(--accent-color)',
+                        border: '1px solid var(--accent-color)',
+                        padding: '6px 12px',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      <FiKey size={14} /> Suggest Strong Password
+                    </button>
                   </div>
+
+                  <form onSubmit={handleChangePasswordSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '520px' }}>
+                    <div className="form-group">
+                      <label className="settings-label">Current Password</label>
+                      <div style={{ position: 'relative' }}>
+                        <input
+                          type={showCurrentPassword ? 'text' : 'password'}
+                          className="settings-input"
+                          placeholder="Enter current password"
+                          value={currentPassword}
+                          onChange={(e) => setCurrentPassword(e.target.value)}
+                          style={{ paddingRight: '40px' }}
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowCurrentPassword(prev => !prev)}
+                          style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'none', cursor: 'pointer', color: 'var(--color-gray-500)', display: 'flex' }}
+                        >
+                          {showCurrentPassword ? <FiEyeOff size={16} /> : <FiEye size={16} />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="form-group">
+                      <label className="settings-label">New Password</label>
+                      <div style={{ position: 'relative' }}>
+                        <input
+                          type={showNewPassword ? 'text' : 'password'}
+                          className="settings-input"
+                          placeholder="Enter new password (min. 6 chars)"
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          style={{ paddingRight: '40px' }}
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowNewPassword(prev => !prev)}
+                          style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'none', cursor: 'pointer', color: 'var(--color-gray-500)', display: 'flex' }}
+                        >
+                          {showNewPassword ? <FiEyeOff size={16} /> : <FiEye size={16} />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="form-group">
+                      <label className="settings-label">Confirm New Password</label>
+                      <div style={{ position: 'relative' }}>
+                        <input
+                          type={showConfirmNewPassword ? 'text' : 'password'}
+                          className="settings-input"
+                          placeholder="Re-enter new password"
+                          value={confirmNewPassword}
+                          onChange={(e) => setConfirmNewPassword(e.target.value)}
+                          style={{ paddingRight: '40px' }}
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmNewPassword(prev => !prev)}
+                          style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'none', cursor: 'pointer', color: 'var(--color-gray-500)', display: 'flex' }}
+                        >
+                          {showConfirmNewPassword ? <FiEyeOff size={16} /> : <FiEye size={16} />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={changingPassword}
+                      className="settings-btn-primary"
+                      style={{ padding: '12px 24px', alignSelf: 'flex-start', marginTop: '8px' }}
+                    >
+                      {changingPassword ? 'Updating Password...' : 'Save New Password'}
+                    </button>
+                  </form>
+                </div>
+
+                {/* Section 2: Account Deactivation */}
+                <div style={{ background: 'rgba(239, 68, 68, 0.04)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '14px', padding: '28px' }}>
+                  <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '16px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--color-red)', margin: '0 0 8px 0' }}>
+                    Danger Zone: Deactivate Account
+                  </h3>
+                  <p style={{ fontSize: '12.5px', color: 'var(--color-gray-600)', margin: '0 0 20px 0', lineHeight: 1.5 }}>
+                    Deactivating your account disables your profile, removes your active session, and marks your account inactive. Your previous articles will remain archived under your pseudonym.
+                  </p>
+
+                  <form onSubmit={handleDeactivateSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px', maxWidth: '520px' }}>
+                    <div className="form-group">
+                      <label className="settings-label" style={{ color: 'var(--color-red)' }}>Reason for Leaving (Optional)</label>
+                      <input
+                        type="text"
+                        className="settings-input"
+                        placeholder="e.g. Taking a break / Graduated"
+                        value={deactivateReason}
+                        onChange={(e) => setDeactivateReason(e.target.value)}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="settings-label" style={{ color: 'var(--color-red)' }}>Confirm Password to Deactivate</label>
+                      <input
+                        type="password"
+                        className="settings-input"
+                        placeholder="Enter your account password"
+                        value={deactivatePassword}
+                        onChange={(e) => setDeactivatePassword(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={deactivating || !deactivatePassword}
+                      style={{
+                        background: 'var(--color-red)',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '8px',
+                        padding: '12px 24px',
+                        fontWeight: 800,
+                        fontSize: '13px',
+                        cursor: (deactivating || !deactivatePassword) ? 'not-allowed' : 'pointer',
+                        opacity: (deactivating || !deactivatePassword) ? 0.6 : 1,
+                        alignSelf: 'flex-start',
+                        marginTop: '6px'
+                      }}
+                    >
+                      {deactivating ? 'Deactivating Account...' : 'Permanently Deactivate Account'}
+                    </button>
+                  </form>
                 </div>
               </div>
             )}
@@ -2371,15 +2679,30 @@ const SettingsPage = () => {
                                   </td>
                                   <td>
                                     {u._id !== user?._id && (
-                                      isRestricted ? (
-                                        <button className="settings-btn-secondary" style={{ padding: '6px 12px', fontSize: '11px', color: '#16a34a' }} onClick={() => handleUnblockUser(u)}>
-                                          <FiUnlock style={{ marginRight: '4px' }} /> Lift Restriction
-                                        </button>
-                                      ) : (
-                                        <button className="settings-btn-secondary" style={{ padding: '6px 12px', fontSize: '11px', color: 'var(--color-red)', borderColor: 'rgba(239, 68, 68, 0.15)' }} onClick={() => setSelectedUserToBlock(u)}>
-                                          <FiLock style={{ marginRight: '4px' }} /> Restrict Access
-                                        </button>
-                                      )
+                                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                        {isRestricted ? (
+                                          <button className="settings-btn-secondary" style={{ padding: '6px 10px', fontSize: '11px', color: '#16a34a' }} onClick={() => handleUnblockUser(u)}>
+                                            <FiUnlock style={{ marginRight: '4px' }} /> Lift
+                                          </button>
+                                        ) : (
+                                          <button className="settings-btn-secondary" style={{ padding: '6px 10px', fontSize: '11px', color: 'var(--color-red)', borderColor: 'rgba(239, 68, 68, 0.15)' }} onClick={() => setSelectedUserToBlock(u)}>
+                                            <FiLock style={{ marginRight: '4px' }} /> Restrict
+                                          </button>
+                                        )}
+                                        {isAdmin && (
+                                          <button
+                                            className="settings-btn-secondary"
+                                            style={{ padding: '6px 10px', fontSize: '11px', color: 'var(--accent-color)', borderColor: 'var(--accent-color)' }}
+                                            title="View platform as this user"
+                                            onClick={async () => {
+                                              await switchAccount(u._id);
+                                              window.location.href = '/';
+                                            }}
+                                          >
+                                            View As
+                                          </button>
+                                        )}
+                                      </div>
                                     )}
                                   </td>
                                 </tr>

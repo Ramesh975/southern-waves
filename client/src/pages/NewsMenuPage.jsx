@@ -123,7 +123,8 @@ const NewsMenuPage = ({ defaultCategory = 'news' }) => {
     ? `#${tag}`
     : defaultCategory === 'editorial' ? 'Editorial'
     : defaultCategory === 'features' ? 'Features'
-    : defaultCategory === 'kyp' ? 'Know Our Past'
+    : defaultCategory === 'university-row' ? 'University Row'
+    : defaultCategory === 'kyp' ? 'Know Your Past'
     : defaultCategory === 'tea-shop' ? 'Tea Shop'
     : 'News';
 
@@ -145,7 +146,9 @@ const NewsMenuPage = ({ defaultCategory = 'news' }) => {
             <p className="nm-page-subtitle">
               {tag
                 ? `Articles tagged with #${tag}`
-                : defaultCategory === 'tea-shop'
+                : defaultCategory === 'university-row'
+                   ? 'Exclusive university and campus news'
+                   : defaultCategory === 'tea-shop'
                    ? 'Students spoken by Future'
                    : 'Student-powered media coverage'}
             </p>

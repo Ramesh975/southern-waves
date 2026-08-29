@@ -7,17 +7,28 @@ const AuthContext = createContext(null);
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [impersonating, setImpersonating] = useState(() => {
+    return localStorage.getItem('sw_orig_admin') || null;
+  });
 
   useEffect(() => {
     authAPI.getMe()
-      .then((res) => setUser(res.data.data))
-      .catch(() => setUser(null))
+      .then((res) => {
+        setUser(res.data.data);
+      })
+      .catch(() => {
+        setUser(null);
+        localStorage.removeItem('sw_token');
+      })
       .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
     const handleAuthExpired = () => {
       setUser(null);
+      localStorage.removeItem('sw_token');
+      localStorage.removeItem('sw_orig_admin');
+      setImpersonating(null);
     };
     const handleStatusChange = (e) => {
       const data = e.detail;
@@ -49,6 +60,9 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const res = await authAPI.login({ email, password });
+    if (res.data.token) {
+      localStorage.setItem('sw_token', res.data.token);
+    }
     setUser(res.data.user);
     return res.data;
   };
@@ -61,6 +75,9 @@ export const AuthProvider = ({ children }) => {
       payload = { name: nameOrUserData, email, password };
     }
     const res = await authAPI.register(payload);
+    if (res.data.token) {
+      localStorage.setItem('sw_token', res.data.token);
+    }
     setUser(res.data.user);
     return res.data;
   };
@@ -71,6 +88,9 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       console.error('Logout error:', err);
     }
+    localStorage.removeItem('sw_token');
+    localStorage.removeItem('sw_orig_admin');
+    setImpersonating(null);
     setUser(null);
   };
 
@@ -82,6 +102,48 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       console.error('Error refreshing user:', err);
     }
+  };
+
+  const changePassword = async (currentPassword, newPassword) => {
+    const res = await authAPI.changePassword({ currentPassword, newPassword });
+    return res.data;
+  };
+
+  const deactivateAccount = async (password, reason) => {
+    const res = await authAPI.deactivateAccount({ password, reason });
+    localStorage.removeItem('sw_token');
+    localStorage.removeItem('sw_orig_admin');
+    setUser(null);
+    return res.data;
+  };
+
+  const switchAccount = async (targetUserId) => {
+    const currentAdminId = user?._id;
+    const res = await authAPI.switchAccount(targetUserId);
+    if (res.data.token) {
+      localStorage.setItem('sw_token', res.data.token);
+    }
+    if (currentAdminId) {
+      localStorage.setItem('sw_orig_admin', currentAdminId);
+      setImpersonating(currentAdminId);
+    }
+    setUser(res.data.user);
+    toast.success(`Switched account to @${res.data.user.username}`);
+    return res.data;
+  };
+
+  const revertToAdmin = async () => {
+    const origId = impersonating || localStorage.getItem('sw_orig_admin');
+    if (!origId) return;
+    const res = await authAPI.revertAccount(origId);
+    if (res.data.token) {
+      localStorage.setItem('sw_token', res.data.token);
+    }
+    localStorage.removeItem('sw_orig_admin');
+    setImpersonating(null);
+    setUser(res.data.user);
+    toast.success('Returned to Administrator account');
+    return res.data;
   };
 
   const isAdmin = user?.role === 'admin';
@@ -100,7 +162,8 @@ export const AuthProvider = ({ children }) => {
     <AuthContext.Provider value={{
       user, loading, login, register, logout,
       isAdmin, isModerator, isEditor, isStudent, isBlocked,
-      refreshUser,
+      refreshUser, changePassword, deactivateAccount,
+      impersonating, switchAccount, revertToAdmin
     }}>
       {children}
     </AuthContext.Provider>

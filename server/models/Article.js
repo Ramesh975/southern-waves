@@ -29,7 +29,26 @@ const ArticleSchema = new mongoose.Schema(
     category: {
       type: String,
       required: [true, 'Category is required'],
-      enum: ['news', 'editorial', 'features', 'kyp', 'tea-shop', 'pictures-speak'],
+      enum: ['news', 'editorial', 'features', 'kyp', 'tea-shop', 'pictures-speak', 'university-row'],
+    },
+    categories: {
+      type: [{
+        type: String,
+        enum: ['news', 'editorial', 'features', 'kyp', 'tea-shop', 'pictures-speak', 'university-row']
+      }],
+      validate: [
+        {
+          validator: function(val) {
+            if (!val || val.length === 0) return true;
+            if (val.some(c => ['tea-shop', 'pictures-speak'].includes(c))) {
+              return val.length === 1;
+            }
+            return val.length <= 3;
+          },
+          message: 'An article can belong to at most 3 sections (Tea Shop and Picture\'s Speak are standalone sections).'
+        }
+      ],
+      default: []
     },
     subCategory: {
       type: String,
@@ -57,6 +76,16 @@ const ArticleSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: true,
+    },
+    sourceUrl: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    sourceLabel: {
+      type: String,
+      trim: true,
+      default: '',
     },
     references: [
       {

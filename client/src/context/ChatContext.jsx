@@ -43,7 +43,11 @@ export const ChatProvider = ({ children }) => {
     }
 
     // Connect socket
-    socketRef.current = io(SOCKET_URL, { withCredentials: true });
+    const token = localStorage.getItem('sw_token');
+    socketRef.current = io(SOCKET_URL, { 
+      withCredentials: true,
+      auth: token ? { token } : {}
+    });
 
     socketRef.current.on('connect', () => {
       console.log('Chat socket connected:', socketRef.current.id);

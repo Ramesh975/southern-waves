@@ -7,7 +7,7 @@ const CATEGORIES = [
   { id: 'news', label: 'News' },
   { id: 'editorial', label: 'Editorial' },
   { id: 'features', label: 'Features' },
-  { id: 'kyp', label: 'Know Our Past' },
+  { id: 'kyp', label: 'Know Your Past' },
   { id: 'tea-shop', label: 'Tea Shop' },
   { id: 'pictures-speak', label: 'Pictures Speak' }
 ];
@@ -37,6 +37,15 @@ const AccountSettingsModal = ({ user, onClose, onSuccess }) => {
   const [appealText, setAppealText] = useState('');
   const [appealing, setAppealing] = useState(false);
   const [appealDone, setAppealDone] = useState(user?.appealRequested || false);
+
+  // Password change & deactivation states
+  const [currPwd, setCurrPwd] = useState('');
+  const [newPwd, setNewPwd] = useState('');
+  const [confirmNewPwd, setConfirmNewPwd] = useState('');
+  const [changingPwd, setChangingPwd] = useState(false);
+  const [deactPwd, setDeactPwd] = useState('');
+  const [deactReason, setDeactReason] = useState('');
+  const [deactivatingAcc, setDeactivatingAcc] = useState(false);
 
   const blockedUntil = user?.blockedUntil ? new Date(user.blockedUntil) : null;
   const isExpired = blockedUntil && new Date() > blockedUntil;
@@ -250,6 +259,19 @@ const AccountSettingsModal = ({ user, onClose, onSuccess }) => {
             }}
           >
             <FiSettings size={13} /> Feed Preferences
+          </button>
+          <button
+            onClick={() => setActiveTab('security')}
+            style={{
+              flex: 1, padding: '10px 0', border: 'none', background: 'none',
+              fontSize: '12px', fontWeight: 700, cursor: 'pointer',
+              color: activeTab === 'security' ? 'var(--accent-color, #0055a4)' : 'var(--color-gray-500)',
+              borderBottom: activeTab === 'security' ? '2.5px solid var(--accent-color, #0055a4)' : '2.5px solid transparent',
+              transition: 'all 0.15s ease',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
+            }}
+          >
+            <FiLock size={13} /> Security
           </button>
           <button
             onClick={() => setActiveTab('status')}
@@ -677,7 +699,134 @@ const AccountSettingsModal = ({ user, onClose, onSuccess }) => {
           </form>
         )}
 
-        {/* Tab 3: Account Status & Appeal */}
+        {/* Tab 3: Security & Password */}
+        {activeTab === 'security' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {/* Change Password */}
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              if (!currPwd) return toast.error('Current password is required');
+              if (!newPwd || newPwd.length < 6) return toast.error('New password must be at least 6 characters');
+              if (newPwd !== confirmNewPwd) return toast.error('New passwords do not match');
+              setChangingPwd(true);
+              try {
+                await authAPI.changePassword({ currentPassword: currPwd, newPassword: newPwd });
+                toast.success('Password updated successfully! 🔒');
+                setCurrPwd('');
+                setNewPwd('');
+                setConfirmNewPwd('');
+              } catch (err) {
+                toast.error(err.response?.data?.message || 'Failed to change password');
+              } finally {
+                setChangingPwd(false);
+              }
+            }} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <h3 style={{ fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--color-black)', margin: 0 }}>
+                Change Account Password
+              </h3>
+              <input
+                type="password"
+                placeholder="Current Password"
+                value={currPwd}
+                onChange={(e) => setCurrPwd(e.target.value)}
+                style={{
+                  padding: '10px', border: '2px solid var(--color-black)', borderRadius: '4px',
+                  fontSize: '13px', background: 'var(--color-white)', color: 'var(--color-black)', outline: 'none'
+                }}
+                required
+              />
+              <input
+                type="password"
+                placeholder="New Password (min 6 chars)"
+                value={newPwd}
+                onChange={(e) => setNewPwd(e.target.value)}
+                style={{
+                  padding: '10px', border: '2px solid var(--color-black)', borderRadius: '4px',
+                  fontSize: '13px', background: 'var(--color-white)', color: 'var(--color-black)', outline: 'none'
+                }}
+                required
+              />
+              <input
+                type="password"
+                placeholder="Confirm New Password"
+                value={confirmNewPwd}
+                onChange={(e) => setConfirmNewPwd(e.target.value)}
+                style={{
+                  padding: '10px', border: '2px solid var(--color-black)', borderRadius: '4px',
+                  fontSize: '13px', background: 'var(--color-white)', color: 'var(--color-black)', outline: 'none'
+                }}
+                required
+              />
+              <button
+                type="submit"
+                disabled={changingPwd}
+                style={{
+                  padding: '10px', background: 'var(--color-black)', border: '2px solid var(--color-black)',
+                  borderRadius: '4px', color: '#fff', fontWeight: 700, fontSize: '13px', cursor: 'pointer'
+                }}
+              >
+                {changingPwd ? 'Updating Password...' : 'Update Password'}
+              </button>
+            </form>
+
+            <hr style={{ border: 'none', borderTop: '1px solid var(--color-gray-200)', margin: '8px 0' }} />
+
+            {/* Deactivate Account */}
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              if (!deactPwd) return toast.error('Password is required to deactivate');
+              if (!window.confirm('Are you sure you want to deactivate your account? This will log you out.')) return;
+              setDeactivatingAcc(true);
+              try {
+                await authAPI.deactivateAccount({ password: deactPwd, reason: deactReason });
+                toast.success('Account deactivated');
+                window.location.href = '/';
+              } catch (err) {
+                toast.error(err.response?.data?.message || 'Failed to deactivate');
+              } finally {
+                setDeactivatingAcc(false);
+              }
+            }} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <h3 style={{ fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--color-red)', margin: 0 }}>
+                Deactivate Account
+              </h3>
+              <input
+                type="text"
+                placeholder="Reason for leaving (Optional)"
+                value={deactReason}
+                onChange={(e) => setDeactReason(e.target.value)}
+                style={{
+                  padding: '8px 10px', border: '1px solid var(--color-gray-300)', borderRadius: '4px',
+                  fontSize: '12px', background: 'var(--color-white)', color: 'var(--color-black)', outline: 'none'
+                }}
+              />
+              <input
+                type="password"
+                placeholder="Confirm with Password"
+                value={deactPwd}
+                onChange={(e) => setDeactPwd(e.target.value)}
+                style={{
+                  padding: '8px 10px', border: '1px solid var(--color-gray-300)', borderRadius: '4px',
+                  fontSize: '12px', background: 'var(--color-white)', color: 'var(--color-black)', outline: 'none'
+                }}
+                required
+              />
+              <button
+                type="submit"
+                disabled={deactivatingAcc || !deactPwd}
+                style={{
+                  padding: '8px 12px', background: 'var(--color-red)', border: 'none',
+                  borderRadius: '4px', color: '#fff', fontWeight: 700, fontSize: '12px', cursor: 'pointer',
+                  opacity: (!deactPwd || deactivatingAcc) ? 0.6 : 1
+                }}
+              >
+                {deactivatingAcc ? 'Deactivating...' : 'Confirm Deactivation'}
+              </button>
+            </form>
+          </div>
+        )}
+
+        {/* Tab 4: Account Status & Appeal */}
         {activeTab === 'status' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {user?.isBlocked ? (

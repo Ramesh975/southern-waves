@@ -214,6 +214,16 @@ router.post('/', protect, checkBlocked, async (req, res, next) => {
     // ─── Content Filter ─────────────────────────────────────────────
     const scanResult = await scanText(text.trim());
     if (scanResult.isFlagged) {
+      // If user is admin/moderator, give warning without restricting account
+      if (['admin', 'moderator'].includes(req.user.role)) {
+        return res.status(400).json({
+          success: false,
+          warning: true,
+          message: `Warning: Your message contains restricted content (${scanResult.reason}). It was not sent, but admin accounts are not restricted.`,
+          reason: scanResult.reason,
+        });
+      }
+
       // Auto-block the user for 1 hour
       const blockedUntil = new Date(Date.now() + 60 * 60 * 1000);
       await User.findByIdAndUpdate(req.user.id, {
@@ -378,6 +388,16 @@ router.put('/:id', protect, checkBlocked, async (req, res, next) => {
     // ─── Content Filter ─────────────────────────────────────────────
     const scanResult = await scanText(text.trim());
     if (scanResult.isFlagged) {
+      // If user is admin/moderator, give warning without restricting account
+      if (['admin', 'moderator'].includes(req.user.role)) {
+        return res.status(400).json({
+          success: false,
+          warning: true,
+          message: `Warning: Edited message contains restricted content (${scanResult.reason}). It was not saved, but admin accounts are not restricted.`,
+          reason: scanResult.reason,
+        });
+      }
+
       // Auto-block the user for 1 hour
       const blockedUntil = new Date(Date.now() + 60 * 60 * 1000);
       await User.findByIdAndUpdate(req.user.id, {

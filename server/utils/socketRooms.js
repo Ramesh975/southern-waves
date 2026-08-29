@@ -6,6 +6,7 @@ const CHAT_CATEGORIES = new Set([
   'know-your-past',
   'tea-shop',
   'pictures-speak',
+  'university-row',
 ]);
 
 const TAG_PATTERN = /^[a-z0-9][a-z0-9_-]{0,49}$/;

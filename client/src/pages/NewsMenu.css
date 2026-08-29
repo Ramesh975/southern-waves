@@ -5568,4 +5568,312 @@
   }
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   PURE BLACK (OLED) & DARK THEME INTEGRATION
+   ══════════════════════════════════════════════════════════════════ */
+
+/* Page & Layout */
+[data-theme="black"] .nm-page {
+  background: #000000;
+  color: #ffffff;
+}
+
+[data-theme="dark"] .nm-page {
+  background: #0d0d11;
+  color: #f1f5f9;
+}
+
+/* Page Header */
+[data-theme="black"] .nm-page-header {
+  background: rgba(0, 0, 0, 0.9);
+  border-bottom-color: #171717;
+}
+
+[data-theme="dark"] .nm-page-header {
+  background: rgba(13, 13, 17, 0.9);
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="black"] .nm-page-title,
+[data-theme="dark"] .nm-page-title {
+  color: #ffffff;
+}
+
+[data-theme="black"] .nm-page-subtitle,
+[data-theme="dark"] .nm-page-subtitle {
+  color: #94a3b8;
+}
+
+/* Tab Switcher */
+[data-theme="black"] .nm-tab-switcher {
+  background: #0e0e11;
+  border: 1px solid #1a1a20;
+}
+
+[data-theme="dark"] .nm-tab-switcher {
+  background: #17171d;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="black"] .nm-tab-btn,
+[data-theme="dark"] .nm-tab-btn {
+  color: #94a3b8;
+}
+
+[data-theme="black"] .nm-tab-btn:hover,
+[data-theme="dark"] .nm-tab-btn:hover {
+  color: #ffffff;
+}
+
+[data-theme="black"] .nm-tab-btn.active {
+  background: #1c1c22;
+  color: #ffffff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="dark"] .nm-tab-btn.active {
+  background: #24242c;
+  color: #ffffff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+}
+
+/* Article Cards */
+[data-theme="black"] .nm-article-card {
+  background: #08080a;
+  border-color: #18181d;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
+}
+
+[data-theme="dark"] .nm-article-card {
+  background: #141418;
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="black"] .nm-article-card:hover {
+  border-color: var(--nm-accent);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.95), 0 0 15px color-mix(in srgb, var(--nm-accent) 25%, transparent);
+}
+
+[data-theme="dark"] .nm-article-card:hover {
+  border-color: var(--nm-accent);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="black"] .nm-card-thumb,
+[data-theme="dark"] .nm-card-thumb {
+  background: #0f0f14;
+}
+
+[data-theme="black"] .nm-card-title,
+[data-theme="dark"] .nm-card-title {
+  color: #ffffff;
+}
+
+[data-theme="black"] .nm-card-lead,
+[data-theme="dark"] .nm-card-lead {
+  color: #94a3b8;
+}
+
+[data-theme="black"] .nm-card-author,
+[data-theme="dark"] .nm-card-author {
+  color: #64748b;
+}
+
+/* Card Actions Bar */
+[data-theme="black"] .nm-card-actions {
+  background: #040405;
+  border-top: 1px solid #141418;
+}
+
+[data-theme="dark"] .nm-card-actions {
+  background: #0f0f13;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="black"] .nm-action-btn,
+[data-theme="dark"] .nm-action-btn {
+  color: #94a3b8;
+}
+
+[data-theme="black"] .nm-action-btn:hover {
+  background: #17171d;
+  color: #ffffff;
+}
+
+[data-theme="dark"] .nm-action-btn:hover {
+  background: #202028;
+  color: #ffffff;
+}
+
+/* Card Tags */
+[data-theme="black"] .nm-tag-chip {
+  background: #111115;
+  border-color: #1f1f26;
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .nm-tag-chip {
+  background: #1a1a20;
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
+}
+
+[data-theme="black"] .nm-tag-chip:hover,
+[data-theme="dark"] .nm-tag-chip:hover {
+  background: var(--nm-accent-20);
+  color: #ffffff;
+  border-color: var(--nm-accent);
+}
+
+/* For You Sidebar Widget */
+[data-theme="black"] .nm-interests-widget {
+  background: #08080a;
+  border: 1px solid #18181e;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.8);
+}
+
+[data-theme="dark"] .nm-interests-widget {
+  background: #141419;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="black"] .nm-interests-widget .widget-title,
+[data-theme="dark"] .nm-interests-widget .widget-title {
+  color: #ffffff;
+}
+
+/* Feed Preferences Card */
+.nm-configured-preferences {
+  background: rgba(0, 0, 0, 0.03);
+  border: 1px solid var(--color-gray-200, #e2e8f0);
+  padding: 14px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+}
+
+[data-theme="black"] .nm-configured-preferences {
+  background: #040405;
+  border: 1px solid #1c1c22;
+}
+
+[data-theme="dark"] .nm-configured-preferences {
+  background: #0f0f13;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.nm-configured-pref-title {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--color-black, #000);
+  margin: 0 0 10px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+[data-theme="black"] .nm-configured-pref-title,
+[data-theme="dark"] .nm-configured-pref-title {
+  color: #ffffff;
+}
+
+.nm-configured-pref-tune {
+  background: none;
+  border: none;
+  color: var(--accent-color, #0055a4);
+  font-weight: 800;
+  font-size: 10px;
+  cursor: pointer;
+  text-transform: uppercase;
+  padding: 0;
+}
+
+.nm-pref-section-label {
+  font-size: 9.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--color-gray-500, #666);
+  display: block;
+  margin-bottom: 5px;
+}
+
+.nm-pref-tag-pill {
+  background: var(--color-gray-100, #f3f4f6);
+  border: 1px solid var(--color-gray-300, #d1d5db);
+  color: var(--color-black, #000);
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  display: inline-block;
+}
+
+[data-theme="black"] .nm-pref-tag-pill {
+  background: #141418;
+  border-color: #24242c;
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .nm-pref-tag-pill {
+  background: #1c1c24;
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #e2e8f0;
+}
+
+/* Category Progress Bars */
+[data-theme="black"] .nm-interest-block-title,
+[data-theme="dark"] .nm-interest-block-title {
+  color: #ffffff;
+}
+
+[data-theme="black"] .nm-bar-label,
+[data-theme="dark"] .nm-bar-label {
+  color: #e2e8f0;
+}
+
+[data-theme="black"] .nm-bar-value,
+[data-theme="dark"] .nm-bar-value {
+  color: #94a3b8;
+}
+
+[data-theme="black"] .nm-bar-container {
+  background: #141418;
+}
+
+/* Subscribed Tag Pills */
+[data-theme="black"] .nm-interest-tag-pill {
+  background: #0f0f13;
+  border-color: #1f1f26;
+  color: #cbd5e1;
+}
+
+[data-theme="black"] .nm-interest-tag-pill:hover {
+  background: var(--nm-accent-20);
+  border-color: var(--nm-accent);
+  color: #ffffff;
+}
+
+[data-theme="black"] .nm-interest-tag-pill .tag-weight {
+  background: #1a1a20;
+  color: #94a3b8;
+}
+
+/* Recommendation Rationale Callout */
+.nm-recommendation-rationale {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent-color, #0055a4);
+  margin-bottom: 6px;
+}
+
+[data-theme="black"] .nm-recommendation-rationale {
+  color: var(--accent-color-light, #38bdf8);
+}
+
+
 

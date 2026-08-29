@@ -8,7 +8,7 @@ import { getImageUrl, getCategoryLabel, getCategoryPath } from '../components/Ar
 import ShareRail from '../components/ShareRail';
 import toast from 'react-hot-toast';
 import io from 'socket.io-client';
-import { FiHeart, FiMessageCircle, FiCornerUpLeft, FiBookmark, FiThumbsDown, FiLock, FiSlash, FiUnlock, FiTrash2 } from 'react-icons/fi';
+import { FiHeart, FiMessageCircle, FiCornerUpLeft, FiBookmark, FiThumbsDown, FiLock, FiSlash, FiUnlock, FiTrash2, FiEdit2, FiExternalLink } from 'react-icons/fi';
 import ImageLightbox from '../components/ImageLightbox';
 import { getDisplayName } from '../utils/userUtils';
 
@@ -16,11 +16,16 @@ const SOCKET_URL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.r
 
 const MAX_DEPTH = 3;
 
-const CommentNode = ({ comment, allComments, user, onReply, onDelete, isBlocked, depth = 0 }) => {
+const CommentNode = ({ comment, allComments, user, onReply, onEdit, onDelete, isBlocked, depth = 0 }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showReplyForm, setShowReplyForm] = useState(false);
   const [replyText, setReplyText] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  // Edit state
+  const [isEditing, setIsEditing] = useState(false);
+  const [editText, setEditText] = useState(comment.text);
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const replies = allComments.filter(c => c.parentComment === comment._id);
 
@@ -34,6 +39,17 @@ const CommentNode = ({ comment, allComments, user, onReply, onDelete, isBlocked,
       setShowReplyForm(false);
     } catch (err) { /* handled by parent */ }
     finally { setSubmitting(false); }
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    if (!editText.trim()) return;
+    setSavingEdit(true);
+    try {
+      await onEdit(comment._id, editText);
+      setIsEditing(false);
+    } catch (err) { /* handled by parent */ }
+    finally { setSavingEdit(false); }
   };
 
   const isAuthor = user && (comment.author?._id === user._id || comment.author === user._id);
@@ -85,7 +101,47 @@ const CommentNode = ({ comment, allComments, user, onReply, onDelete, isBlocked,
         )}
 
         <div className="cn-content">
-          <p className="cn-text">{comment.text}</p>
+          {isEditing ? (
+            <form onSubmit={handleEditSubmit} style={{ marginBottom: '10px' }}>
+              <textarea
+                value={editText}
+                onChange={e => setEditText(e.target.value)}
+                style={{
+                  width: '100%', padding: '8px 12px', borderRadius: '6px',
+                  border: '1.5px solid var(--accent-color, #c8102e)',
+                  background: 'var(--color-white, #fff)', color: 'var(--color-black, #000)',
+                  fontSize: '13px', lineHeight: 1.5, boxSizing: 'border-box'
+                }}
+                rows={2}
+                required
+              />
+              <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(false)}
+                  style={{ padding: '4px 10px', fontSize: '11px', borderRadius: '4px', border: '1px solid #ccc', background: 'none', cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingEdit || !editText.trim()}
+                  style={{ padding: '4px 12px', fontSize: '11px', borderRadius: '4px', border: 'none', background: 'var(--accent-color, #c8102e)', color: '#fff', fontWeight: 700, cursor: 'pointer' }}
+                >
+                  {savingEdit ? 'Saving...' : 'Save Edit'}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <p className="cn-text">
+              {comment.text}
+              {comment.isEdited && (
+                <span style={{ fontSize: '10.5px', color: 'var(--color-gray-500)', marginLeft: '6px', fontStyle: 'italic' }}>
+                  (edited)
+                </span>
+              )}
+            </p>
+          )}
 
           {/* ── Action Bar ─────────────────────────────── */}
           <div className="cn-actions">
@@ -99,6 +155,12 @@ const CommentNode = ({ comment, allComments, user, onReply, onDelete, isBlocked,
                   <path d="M20 18v-2a4 4 0 0 0-4-4H4"/>
                 </svg>
                 {showReplyForm ? 'Cancel' : 'Reply'}
+              </button>
+            )}
+            {isAuthor && (
+              <button className="cn-action-btn" onClick={() => { setIsEditing(true); setEditText(comment.text); }}>
+                <FiEdit2 size={11} />
+                Edit
               </button>
             )}
             {showDelete && (
@@ -143,6 +205,7 @@ const CommentNode = ({ comment, allComments, user, onReply, onDelete, isBlocked,
                   allComments={allComments}
                   user={user}
                   onReply={onReply}
+                  onEdit={onEdit}
                   onDelete={onDelete}
                   isBlocked={isBlocked}
                   depth={depth + 1}
@@ -266,7 +329,7 @@ const ArticleDetailPage = () => {
         setChatDisabled(fetchedArticle.chatDisabled || false);
 
         // Fetch global lock settings
-        filterAPI.getSettings()
+        filterAPI.getPublicSettings()
           .then((settingsRes) => {
             if (settingsRes.data?.success) {
               setGlobalCommentLock(settingsRes.data.data.globalCommentLock || false);
@@ -282,7 +345,7 @@ const ArticleDetailPage = () => {
             setRecommendations(recRes.data.data || []);
           })
           .catch((err) => {
-            console.error('Failed to fetch recommendations', err);
+            // Silently ignore if unauthenticated or not found
           });
       })
       .catch(() => toast.error('Article not found'))
@@ -294,10 +357,12 @@ const ArticleDetailPage = () => {
     if (!article?._id) return;
 
     // Connect socket and join this article's room for real-time comments
+    const token = localStorage.getItem('sw_token');
     const socket = io(SOCKET_URL, { 
       withCredentials: true,
       forceNew: true,
-      multiplex: false 
+      multiplex: false,
+      auth: token ? { token } : {}
     });
     socketRef.current = socket;
 
@@ -313,6 +378,15 @@ const ArticleDetailPage = () => {
       });
     });
 
+    socket.on('comment:edited', (updatedComment) => {
+      setComments((prev) => prev.map(c => c._id === updatedComment._id ? { ...c, text: updatedComment.text, isEdited: true } : c));
+    });
+
+    socket.on('comment:deleted', (data) => {
+      const delId = data?.commentId || data;
+      setComments((prev) => prev.filter(c => c._id !== delId));
+    });
+
     socket.on('connect_error', (err) => {
       console.error('ArticleDetailPage socket connection error:', err);
     });
@@ -325,6 +399,19 @@ const ArticleDetailPage = () => {
       }
     };
   }, [article?._id]);
+
+  const handleEditComment = async (commentId, newText) => {
+    try {
+      const res = await commentAPI.edit(commentId, { text: newText });
+      if (res.data?.success) {
+        setComments(prev => prev.map(c => c._id === commentId ? { ...c, text: newText, isEdited: true } : c));
+        toast.success('Comment updated');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to edit comment');
+      throw err;
+    }
+  };
 
   useEffect(() => {
     const handleScroll = () => {
@@ -701,8 +788,37 @@ const ArticleDetailPage = () => {
               </div>
             )}
 
-            {/* Eyebrow category */}
-            <span className="article-eyebrow">{categoryLabel.toUpperCase()}</span>
+            {/* Eyebrow category badges (with multi-section support) */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px', alignItems: 'center' }}>
+              {article.categories && article.categories.length > 0 ? (
+                article.categories.map((cat, idx) => (
+                  <Link
+                    key={cat}
+                    to={getCategoryPath(cat)}
+                    className="article-eyebrow"
+                    style={{
+                      textDecoration: 'none',
+                      background: idx === 0 ? 'rgba(200, 16, 46, 0.1)' : 'rgba(0,0,0,0.05)',
+                      color: idx === 0 ? 'var(--accent-color, #c8102e)' : '#475569',
+                      padding: '3px 8px',
+                      borderRadius: '5px',
+                      fontSize: '11px',
+                      fontWeight: 800,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    {getCategoryLabel(cat).toUpperCase()}
+                    {idx === 0 && article.categories.length > 1 && (
+                      <span style={{ fontSize: '9px', opacity: 0.7, textTransform: 'none' }}>• Primary</span>
+                    )}
+                  </Link>
+                ))
+              ) : (
+                <span className="article-eyebrow">{categoryLabel.toUpperCase()}</span>
+              )}
+            </div>
 
             {/* Headline */}
             <h1 className="article-headline-v2">{article.title}</h1>
@@ -712,21 +828,26 @@ const ArticleDetailPage = () => {
 
             {/* Byline Row */}
             <div className="article-byline-v2">
-              <div className="author-avatar-circle">
-                {article.author?.avatar ? (
-                  <img src={getImageUrl(article.author.avatar)} alt={article.author.name} />
-                ) : (
-                  article.author?.name?.[0]?.toUpperCase()
-                )}
-              </div>
-              <div className="author-meta-info">
-                <span className="author-name">By <strong>{getDisplayName(article.author, user)}</strong></span>
-                <div className="publish-date-read">
-                  <span>{format(new Date(article.publishedAt || article.createdAt), 'MMMM dd, yyyy')}</span>
-                  <span className="meta-dot">•</span>
-                  <span>⏱️ {readingTime} min read</span>
+              <Link 
+                to={`/author/${article.author?.username || article.author?._id || ''}`}
+                style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none', color: 'inherit' }}
+              >
+                <div className="author-avatar-circle">
+                  {article.author?.avatar ? (
+                    <img src={getImageUrl(article.author.avatar)} alt={article.author.name} />
+                  ) : (
+                    article.author?.name?.[0]?.toUpperCase()
+                  )}
                 </div>
-              </div>
+                <div className="author-meta-info">
+                  <span className="author-name">By <strong>{getDisplayName(article.author, user)}</strong></span>
+                  <div className="publish-date-read">
+                    <span>{format(new Date(article.publishedAt || article.createdAt), 'MMMM dd, yyyy')}</span>
+                    <span className="meta-dot">•</span>
+                    <span>⏱️ {readingTime} min read</span>
+                  </div>
+                </div>
+              </Link>
             </div>
 
             {/* Premium Unified Toolbar */}
@@ -900,6 +1021,50 @@ const ArticleDetailPage = () => {
                       </div>
                     </div>
                   )}
+
+                  {/* Official Source / External Portal Link Badge */}
+                  {article.sourceUrl && (
+                    <div className="article-source-portal-badge" style={{
+                      margin: '28px 0',
+                      padding: '16px 20px',
+                      background: 'var(--color-paper, var(--color-gray-100))',
+                      border: '1.5px solid var(--color-gray-300)',
+                      borderRadius: '10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: '12px'
+                    }}>
+                      <div>
+                        <span style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--color-gray-500)', display: 'block', marginBottom: '2px' }}>
+                          Official Source / External Verification Portal
+                        </span>
+                        <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--color-black)' }}>
+                          {article.sourceLabel || article.sourceUrl}
+                        </span>
+                      </div>
+                      <a
+                        href={article.sourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          background: 'var(--accent-color, #c8102e)',
+                          color: '#ffffff',
+                          padding: '9px 18px',
+                          borderRadius: '6px',
+                          fontWeight: 800,
+                          fontSize: '12.5px',
+                          textDecoration: 'none'
+                        }}
+                      >
+                        <FiExternalLink size={14} /> Open Official Portal ↗
+                      </a>
+                    </div>
+                  )}
                 </>
               );
             })()}
@@ -985,6 +1150,7 @@ const ArticleDetailPage = () => {
                           allComments={comments}
                           user={user}
                           onReply={handleReplyComment}
+                          onEdit={handleEditComment}
                           onDelete={handleDeleteComment}
                           isBlocked={isBlocked}
                         />
@@ -1007,21 +1173,26 @@ const ArticleDetailPage = () => {
             {/* Author Bio Card */}
             {article.author && (
               <div className="author-profile-card">
-                <div className="author-card-main-info">
-                  <div className="author-card-avatar">
-                    {article.author.avatar ? (
-                      <img src={getImageUrl(article.author.avatar)} alt={article.author.name} />
-                    ) : (
-                      article.author.name[0].toUpperCase()
-                    )}
+                <Link 
+                  to={`/author/${article.author?.username || article.author?._id || ''}`}
+                  style={{ textDecoration: 'none', color: 'inherit' }}
+                >
+                  <div className="author-card-main-info">
+                    <div className="author-card-avatar">
+                      {article.author.avatar ? (
+                        <img src={getImageUrl(article.author.avatar)} alt={article.author.name} />
+                      ) : (
+                        article.author.name[0].toUpperCase()
+                      )}
+                    </div>
+                    <div className="author-card-details">
+                      <span className="author-card-label">ABOUT THE AUTHOR</span>
+                      <h4 className="author-card-name">{getDisplayName(article.author, user)}</h4>
+                      <p className="author-card-role">{article.author.role}</p>
+                      {article.author.bio && <p className="author-card-bio">{article.author.bio}</p>}
+                    </div>
                   </div>
-                  <div className="author-card-details">
-                    <span className="author-card-label">ABOUT THE AUTHOR</span>
-                    <h4 className="author-card-name">{getDisplayName(article.author, user)}</h4>
-                    <p className="author-card-role">{article.author.role}</p>
-                    {article.author.bio && <p className="author-card-bio">{article.author.bio}</p>}
-                  </div>
-                </div>
+                </Link>
 
                 {sortedAuthorSuggestions.length > 0 && (
                   <div className="author-stories-suggestions-section">

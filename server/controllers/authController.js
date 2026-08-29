@@ -1,4 +1,6 @@
+const mongoose = require('mongoose');
 const User = require('../models/User');
+const Article = require('../models/Article');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const sendEmail = require('../utils/sendEmail');
@@ -35,6 +37,7 @@ const sendTokenResponse = async (user, statusCode, res) => {
 
   res.status(statusCode).json({
     success: true,
+    token: accessToken,
     user: {
       _id: user._id,
       name: user.name,
@@ -323,7 +326,23 @@ exports.logout = async (req, res, next) => {
 // @access  Public
 exports.refreshToken = async (req, res, next) => {
   try {
-    const rToken = req.cookies.refresh_token;
+    let rToken = req.cookies.refresh_token;
+    if (!rToken && req.body && req.body.refreshToken) {
+      rToken = req.body.refreshToken;
+    }
+    if (!rToken && req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+      const fallbackToken = req.headers.authorization.split(' ')[1];
+      try {
+        const decoded = jwt.verify(fallbackToken, process.env.JWT_SECRET);
+        const user = await User.findById(decoded.id);
+        if (user && user.isActive) {
+          const accessToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '15m' });
+          res.cookie('access_token', accessToken, getAccessCookieOptions());
+          return res.status(200).json({ success: true, message: 'Token refreshed successfully', token: accessToken });
+        }
+      } catch (e) {}
+    }
+
     if (!rToken) {
       return res.status(401).json({ success: false, message: 'No refresh token provided' });
     }
@@ -344,7 +363,7 @@ exports.refreshToken = async (req, res, next) => {
       const accessToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '15m' });
 
       res.cookie('access_token', accessToken, getAccessCookieOptions());
-      res.status(200).json({ success: true, message: 'Token refreshed successfully' });
+      res.status(200).json({ success: true, message: 'Token refreshed successfully', token: accessToken });
     } catch (err) {
       // Refresh token is expired or invalid
       user.refreshToken = undefined;
@@ -950,6 +969,8 @@ exports.getUserSecurityQuestions = async (req, res, next) => {
     res.status(200).json({
       success: true,
       hasSecurityQuestions: true,
+      name: user.name,
+      username: user.username || user.email.split('@')[0],
       questions
     });
   } catch (err) {
@@ -994,7 +1015,7 @@ exports.verifySecurityQuestions = async (req, res, next) => {
     let allMatch = true;
     for (const item of answers) {
       const match = user.securityQuestions.find(q => q.question === item.question);
-      if (!match || match.answer !== item.answer.trim().toLowerCase()) {
+      if (!match || match.answer.trim().toLowerCase() !== item.answer.trim().toLowerCase()) {
         allMatch = false;
         break;
       }
@@ -1016,6 +1037,206 @@ exports.verifySecurityQuestions = async (req, res, next) => {
     next(err);
   }
 };
+
+// @desc    Change password for logged-in user
+// @route   PUT /api/auth/change-password
+// @access  Private
+exports.changePassword = async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ success: false, message: 'Current and new password are required' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ success: false, message: 'New password must be at least 6 characters' });
+    }
+
+    const user = await User.findById(req.user.id).select('+password');
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const isMatch = await user.matchPassword(currentPassword);
+    if (!isMatch) {
+      return res.status(400).json({ success: false, message: 'Current password is incorrect' });
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    res.status(200).json({ success: true, message: 'Password changed successfully' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// @desc    Deactivate user's own account
+// @route   PUT /api/auth/me/deactivate
+// @access  Private
+exports.deactivateAccount = async (req, res, next) => {
+  try {
+    const { password, reason } = req.body;
+    const user = await User.findById(req.user.id).select('+password');
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    if (password) {
+      const isMatch = await user.matchPassword(password);
+      if (!isMatch) {
+        return res.status(400).json({ success: false, message: 'Incorrect password entered' });
+      }
+    }
+
+    user.isActive = false;
+    user.refreshToken = undefined;
+    await user.save({ validateBeforeSave: false });
+
+    res.cookie('access_token', 'none', {
+      expires: new Date(Date.now() + 5 * 1000),
+      httpOnly: true,
+    });
+    res.cookie('refresh_token', 'none', {
+      expires: new Date(Date.now() + 5 * 1000),
+      httpOnly: true,
+    });
+
+    res.status(200).json({ success: true, message: 'Account deactivated successfully' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// @desc    Switch account (Admin impersonating a user)
+// @route   POST /api/auth/admin/switch-account/:userId
+// @access  Private/Admin
+exports.adminSwitchAccount = async (req, res, next) => {
+  try {
+    const targetUser = await User.findById(req.params.userId);
+    if (!targetUser) {
+      return res.status(404).json({ success: false, message: 'Target user not found' });
+    }
+
+    const accessToken = jwt.sign(
+      { id: targetUser._id, originalAdminId: req.user.id },
+      process.env.JWT_SECRET,
+      { expiresIn: '2h' }
+    );
+
+    res.cookie('access_token', accessToken, getAccessCookieOptions());
+
+    res.status(200).json({
+      success: true,
+      token: accessToken,
+      isImpersonating: true,
+      originalAdminId: req.user.id,
+      user: {
+        _id: targetUser._id,
+        name: targetUser.name,
+        username: targetUser.username || targetUser.email.split('@')[0],
+        email: targetUser.email,
+        role: targetUser.role,
+        avatar: targetUser.avatar,
+        bio: targetUser.bio,
+        isVerified: targetUser.isVerified,
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// @desc    Revert from impersonation back to Admin
+// @route   POST /api/auth/admin/revert-account
+// @access  Private
+exports.adminRevertAccount = async (req, res, next) => {
+  try {
+    const { originalAdminId } = req.body;
+    if (!originalAdminId) {
+      return res.status(400).json({ success: false, message: 'No original admin session found' });
+    }
+
+    const adminUser = await User.findById(originalAdminId);
+    if (!adminUser || adminUser.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Invalid admin identity' });
+    }
+
+    sendTokenResponse(adminUser, 200, res);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// @desc    Get author public profile and aggregated stats
+// @route   GET /api/auth/author/:identifier
+// @access  Public
+exports.getAuthorProfile = async (req, res, next) => {
+  try {
+    const { identifier } = req.params;
+    let author = null;
+
+    if (mongoose.Types.ObjectId.isValid(identifier)) {
+      author = await User.findById(identifier).select('-password -refreshToken -twoFactorSecret -securityQuestions');
+    }
+
+    if (!author) {
+      author = await User.findOne({ username: identifier.toLowerCase() }).select('-password -refreshToken -twoFactorSecret -securityQuestions');
+    }
+
+    if (!author) {
+      return res.status(404).json({ success: false, message: 'Author not found' });
+    }
+
+    // Aggregate article stats for this author
+    const totalArticles = await Article.countDocuments({ author: author._id, status: 'published' });
+    const articles = await Article.find({ author: author._id, status: 'published' }).select('views likes commentCount');
+    const totalViews = articles.reduce((acc, a) => acc + (a.views || 0), 0);
+    const totalLikes = articles.reduce((acc, a) => acc + (a.likes ? a.likes.length : 0), 0);
+    const totalComments = articles.reduce((acc, a) => acc + (a.commentCount || 0), 0);
+
+    // Determine if requester is the author themselves
+    let isOwner = false;
+    let token = req.cookies?.access_token || (req.headers.authorization?.startsWith('Bearer') ? req.headers.authorization.split(' ')[1] : null);
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        if (decoded.id === author._id.toString()) {
+          isOwner = true;
+        }
+      } catch (err) {}
+    }
+
+    res.json({
+      success: true,
+      data: {
+        author: {
+          _id: author._id,
+          name: author.name,
+          username: author.username || author.email?.split('@')[0],
+          avatar: author.avatar,
+          bio: author.bio,
+          university: author.university,
+          academicMajor: author.academicMajor,
+          yearOfStudy: author.yearOfStudy,
+          role: author.role,
+          createdAt: author.createdAt,
+          showRealNamePublicly: author.showRealNamePublicly
+        },
+        stats: {
+          totalArticles,
+          totalViews,
+          totalLikes,
+          totalComments
+        },
+        isOwner
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 
 
 

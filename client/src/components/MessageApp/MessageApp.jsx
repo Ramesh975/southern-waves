@@ -3,7 +3,7 @@ import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useChat } from '../../context/ChatContext';
 import { chatAPI, filterAPI } from '../../services/api';
-import { FiX, FiSend, FiSearch, FiPlus, FiSmile, FiEdit2, FiCornerUpLeft, FiArrowLeft, FiTag, FiHash, FiVolume2, FiAlertCircle, FiLock, FiTrash2 } from 'react-icons/fi';
+import { FiX, FiSend, FiSearch, FiPlus, FiSmile, FiEdit2, FiCornerUpLeft, FiArrowLeft, FiTag, FiHash, FiVolume2, FiAlertCircle, FiLock, FiTrash2, FiChevronDown } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import './MessageApp.css';
 
@@ -11,7 +11,11 @@ const SOCKET_URL = import.meta.env.VITE_API_URL
   ? import.meta.env.VITE_API_URL.replace('/api', '') 
   : 'http://localhost:5000';
 
-const EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
+const EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🔥', '🎉', '👏', '🚀', '💡', '☕', '💯', '🤝', '👀', '✨', '🙌'];
+
+const TRENDING_HASHTAGS = ['exam', 'results', 'madras', 'events', 'campus', 'sports', 'tech', 'admissions', 'protest', 'placement', 'library', 'internship', 'symposium', 'cultural'];
+
+const STICKER_PACK = ['🎉', '☕', '🔥', '👏', '🤯', '📚', '⚡', '💯', '🚀', '💡', '😎', '🥳', '🎯', '🙌'];
 
 const getImageUrl = (path) => {
   if (!path) return '';
@@ -28,7 +32,7 @@ const getCategoryLabel = (cat) => {
     'news': 'News',
     'editorial': 'Editorial',
     'features': 'Features',
-    'kyp': 'Know Our Past',
+    'kyp': 'Know Your Past',
     'tea-shop': 'Tea Shop',
     'pictures-speak': 'Pictures Speak'
   };
@@ -76,6 +80,13 @@ const MessageApp = ({ isFullPage = false }) => {
   const [replyToMessage, setReplyToMessage] = useState(null); // Message object being replied to
   const [loadingMessages, setLoadingMessages] = useState(false);
 
+  // Suggestions state
+  const [showTagSuggestions, setShowTagSuggestions] = useState(false);
+  const [tagQuery, setTagQuery] = useState('');
+  const [showMentionSuggestions, setShowMentionSuggestions] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState('');
+  const [showStickerTray, setShowStickerTray] = useState(false);
+
   // Pagination state
   const [hasMore, setHasMore] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -86,6 +97,7 @@ const MessageApp = ({ isFullPage = false }) => {
 
   const [activeReactionMenu, setActiveReactionMenu] = useState(null); // messageId
   const [globalChatLock, setGlobalChatLock] = useState(false);
+  const [showScrollBottom, setShowScrollBottom] = useState(false);
 
   useEffect(() => {
     filterAPI.getPublicSettings()
@@ -253,9 +265,23 @@ const MessageApp = ({ isFullPage = false }) => {
     return () => observer.disconnect();
   }, [loadOlderMessages]);
 
-  const scrollToBottom = () => {
+  const handleMessagesScroll = () => {
+    const list = messagesListRef.current;
+    if (!list) return;
+    const isScrolledUp = list.scrollHeight - list.scrollTop - list.clientHeight > 100;
+    setShowScrollBottom(isScrolledUp);
+  };
+
+  const scrollToBottom = (smooth = false) => {
     if (messagesListRef.current) {
-      messagesListRef.current.scrollTop = messagesListRef.current.scrollHeight;
+      if (smooth) {
+        messagesListRef.current.scrollTo({
+          top: messagesListRef.current.scrollHeight,
+          behavior: 'smooth',
+        });
+      } else {
+        messagesListRef.current.scrollTop = messagesListRef.current.scrollHeight;
+      }
     }
   };
 
@@ -853,165 +879,180 @@ const MessageApp = ({ isFullPage = false }) => {
                 </header>
 
                 {/* Message Stream */}
-                <div className="msg-messages-list" ref={messagesListRef}>
-                  {/* Sentinel at the very top triggers loading older messages */}
-                  {hasMore && (
-                    <div ref={sentinelRef} className="msg-load-more-sentinel">
-                      {isLoadingMore && (
-                        <div className="msg-load-more-spinner">
-                          <div className="msg-load-more-dot" />
-                          <div className="msg-load-more-dot" />
-                          <div className="msg-load-more-dot" />
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  {loadingMessages ? (
-                    <div style={{ margin: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-                      <div className="spinner" style={{ width: 30, height: 30 }} />
-                      <span style={{ fontSize: 11, color: 'var(--color-gray-500)' }}>Loading messages...</span>
-                    </div>
-                  ) : messages.length === 0 ? (
-                    <div className="msg-empty" style={{ margin: 'auto' }}>
-                      No messages here yet.<br />Be the first to speak in #{activeRoom.name}!
-                    </div>
-                  ) : (
-                    messages.map((msg) => {
-                      const isMe = user && msg.user?._id === user._id;
-                      const isBeingEdited = editingId === msg._id;
+                <div className="msg-messages-list-wrapper">
+                  <div className="msg-messages-list" ref={messagesListRef} onScroll={handleMessagesScroll}>
+                    {/* Sentinel at the very top triggers loading older messages */}
+                    {hasMore && (
+                      <div ref={sentinelRef} className="msg-load-more-sentinel">
+                        {isLoadingMore && (
+                          <div className="msg-load-more-spinner">
+                            <div className="msg-load-more-dot" />
+                            <div className="msg-load-more-dot" />
+                            <div className="msg-load-more-dot" />
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {loadingMessages ? (
+                      <div style={{ margin: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+                        <div className="spinner" style={{ width: 30, height: 30 }} />
+                        <span style={{ fontSize: 11, color: 'var(--color-gray-500)' }}>Loading messages...</span>
+                      </div>
+                    ) : messages.length === 0 ? (
+                      <div className="msg-empty" style={{ margin: 'auto' }}>
+                        No messages here yet.<br />Be the first to speak in #{activeRoom.name}!
+                      </div>
+                    ) : (
+                      messages.map((msg) => {
+                        const isMe = user && msg.user?._id === user._id;
+                        const isBeingEdited = editingId === msg._id;
 
-                      return (
-                        <div key={msg._id} style={{ display: 'flex', flexDirection: 'column' }} className={msg.isNew ? 'msg-new-entry' : ''}>
-                          {msg.isBroadcast && (
-                            <span className="msg-broadcast-badge">Broadcast Announcement</span>
-                          )}
-                          
-                          <div className={`msg-bubble-wrapper ${isMe ? 'me' : ''} ${msg.isNew ? 'msg-bubble--new' : ''}`}>
-                            {!isMe && (
-                              <img 
-                                src={msg.user?.avatar ? `${SOCKET_URL}${msg.user.avatar}` : `https://ui-avatars.com/api/?name=${encodeURIComponent(msg.user?.name || 'User')}&background=random&color=fff`} 
-                                alt={msg.user?.name} 
-                                className="msg-bubble-avatar"
-                              />
+                        return (
+                          <div key={msg._id} style={{ display: 'flex', flexDirection: 'column' }} className={msg.isNew ? 'msg-new-entry' : ''}>
+                            {msg.isBroadcast && (
+                              <span className="msg-broadcast-badge">Broadcast Announcement</span>
                             )}
-
-                            <div className="msg-bubble-inner">
+                            
+                            <div className={`msg-bubble-wrapper ${isMe ? 'me' : ''} ${msg.isNew ? 'msg-bubble--new' : ''}`}>
                               {!isMe && (
-                                <span className="msg-bubble-sender">
-                                  {msg.user?.name} {msg.user?.role ? `(${msg.user.role})` : ''}
-                                </span>
+                                <img 
+                                  src={msg.user?.avatar ? `${SOCKET_URL}${msg.user.avatar}` : `https://ui-avatars.com/api/?name=${encodeURIComponent(msg.user?.name || 'User')}&background=random&color=fff`} 
+                                  alt={msg.user?.name} 
+                                  className="msg-bubble-avatar"
+                                />
                               )}
 
-                              <div className="msg-bubble-content">
-                                {/* Render parent article if this is a news reply */}
-                                {msg.parentArticle && (
-                                  <button
-                                    className="msg-parent-article-badge"
-                                    onClick={() => setPreviewArticle(msg.parentArticle)}
-                                    title="View this article details"
-                                  >
-                                    <span className="msg-parent-article-icon">📰</span>
-                                    <span className="msg-parent-article-text">
-                                      <span className="msg-parent-article-label">Reply to {getCategoryLabel(msg.parentArticle.category)}:</span>
-                                      <span className="msg-parent-article-title">{msg.parentArticle.title}</span>
-                                    </span>
-                                    <span className="msg-parent-article-arrow">→</span>
-                                  </button>
+                              <div className="msg-bubble-inner">
+                                {!isMe && (
+                                  <span className="msg-bubble-sender">
+                                    {msg.user?.name} {msg.user?.role ? `(${msg.user.role})` : ''}
+                                  </span>
                                 )}
 
-                                {/* Render parent message if this is a reply */}
-                                {msg.parentMessage && (
-                                  <div className="msg-parent-in-bubble">
-                                    <strong>@{msg.parentMessage.user?.name || 'User'}:</strong> {msg.parentMessage.text}
-                                  </div>
-                                )}
+                                <div className="msg-bubble-content">
+                                  {/* Render parent article if this is a news reply */}
+                                  {msg.parentArticle && (
+                                    <button
+                                      className="msg-parent-article-badge"
+                                      onClick={() => setPreviewArticle(msg.parentArticle)}
+                                      title="View this article details"
+                                    >
+                                      <span className="msg-parent-article-icon">📰</span>
+                                      <span className="msg-parent-article-text">
+                                        <span className="msg-parent-article-label">Reply to {getCategoryLabel(msg.parentArticle.category)}:</span>
+                                        <span className="msg-parent-article-title">{msg.parentArticle.title}</span>
+                                      </span>
+                                      <span className="msg-parent-article-arrow">→</span>
+                                    </button>
+                                  )}
 
-                                {isBeingEdited ? (
-                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                    <textarea
-                                      value={editText}
-                                      onChange={(e) => setEditText(e.target.value)}
-                                      rows={2}
-                                      style={{ border: '1px solid var(--color-black)', padding: 4, width: '100%', fontSize: 12, resize: 'none' }}
-                                    />
-                                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
-                                      <button style={{ fontSize: 10, textDecoration: 'underline' }} onClick={() => setEditingId(null)}>Cancel</button>
-                                      <button style={{ fontSize: 10, fontWeight: 700 }} onClick={handleSaveEdit}>Save</button>
+                                  {/* Render parent message if this is a reply */}
+                                  {msg.parentMessage && (
+                                    <div className="msg-parent-in-bubble">
+                                      <strong>@{msg.parentMessage.user?.name || 'User'}:</strong> {msg.parentMessage.text}
                                     </div>
-                                  </div>
-                                ) : (
-                                  <>
-                                    <div>{msg.text}</div>
-                                    
-                                    {/* Bubble Actions on Hover */}
-                                    {user && !isBeingEdited && (
-                                      <div className="msg-bubble-actions">
-                                        <button className="msg-action-btn" onClick={() => setReplyToMessage(msg)} title="Reply">
-                                          <FiCornerUpLeft size={12} />
-                                        </button>
-                                        <button className="msg-action-btn" onClick={() => setActiveReactionMenu(msg._id === activeReactionMenu ? null : msg._id)} title="React">
-                                          <FiSmile size={12} />
-                                        </button>
-                                        {checkCanEdit(msg) && (
-                                          <button className="msg-action-btn" onClick={() => { setEditingId(msg._id); setEditText(msg.text); }} title="Edit">
-                                            <FiEdit2 size={12} />
-                                          </button>
-                                        )}
-                                        {(msg.user?._id === user?._id || msg.user === user?._id || isAdmin || isEditor || isModerator) && (
-                                          <button className="msg-action-btn" onClick={() => handleDeleteMessage(msg._id)} title="Delete" style={{ color: '#dc2626' }}>
-                                            <FiTrash2 size={12} />
-                                          </button>
-                                        )}
+                                  )}
+
+                                  {isBeingEdited ? (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                      <textarea
+                                        value={editText}
+                                        onChange={(e) => setEditText(e.target.value)}
+                                        rows={2}
+                                        style={{ border: '1px solid var(--color-black)', padding: 4, width: '100%', fontSize: 12, resize: 'none' }}
+                                      />
+                                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
+                                        <button style={{ fontSize: 10, textDecoration: 'underline' }} onClick={() => setEditingId(null)}>Cancel</button>
+                                        <button style={{ fontSize: 10, fontWeight: 700 }} onClick={handleSaveEdit}>Save</button>
                                       </div>
-                                    )}
-                                  </>
-                                )}
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <div>{msg.text}</div>
+                                      
+                                      {/* Bubble Actions on Hover */}
+                                      {user && !isBeingEdited && (
+                                        <div className="msg-bubble-actions">
+                                          <button className="msg-action-btn" onClick={() => setReplyToMessage(msg)} title="Reply">
+                                            <FiCornerUpLeft size={12} />
+                                          </button>
+                                          <button className="msg-action-btn" onClick={() => setActiveReactionMenu(msg._id === activeReactionMenu ? null : msg._id)} title="React">
+                                            <FiSmile size={12} />
+                                          </button>
+                                          {checkCanEdit(msg) && (
+                                            <button className="msg-action-btn" onClick={() => { setEditingId(msg._id); setEditText(msg.text); }} title="Edit">
+                                              <FiEdit2 size={12} />
+                                            </button>
+                                          )}
+                                          {(msg.user?._id === user?._id || msg.user === user?._id || isAdmin || isEditor || isModerator) && (
+                                            <button className="msg-action-btn" onClick={() => handleDeleteMessage(msg._id)} title="Delete" style={{ color: '#dc2626' }}>
+                                              <FiTrash2 size={12} />
+                                            </button>
+                                          )}
+                                        </div>
+                                      )}
+                                    </>
+                                  )}
 
-                                {/* Reactions display */}
-                                {msg.reactions && msg.reactions.length > 0 && (
-                                  <div className="msg-reactions-display">
-                                    {Object.entries(
-                                      msg.reactions.reduce((acc, r) => {
-                                        acc[r.emoji] = (acc[r.emoji] || 0) + 1;
-                                        return acc;
-                                      }, {})
-                                    ).map(([emoji, count]) => (
-                                      <div key={emoji} className="msg-reaction-pill" onClick={() => handleReaction(msg._id, emoji)}>
-                                        <span>{emoji}</span>
-                                        <span>{count}</span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
+                                  {/* Reactions display */}
+                                  {msg.reactions && msg.reactions.length > 0 && (
+                                    <div className="msg-reactions-display">
+                                      {Object.entries(
+                                        msg.reactions.reduce((acc, r) => {
+                                          acc[r.emoji] = (acc[r.emoji] || 0) + 1;
+                                          return acc;
+                                        }, {})
+                                      ).map(([emoji, count]) => (
+                                        <div key={emoji} className="msg-reaction-pill" onClick={() => handleReaction(msg._id, emoji)}>
+                                          <span>{emoji}</span>
+                                          <span>{count}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
 
-                                {/* Reaction menu picker */}
-                                {activeReactionMenu === msg._id && (
-                                  <div className="msg-reaction-picker">
-                                    {EMOJIS.map((em) => (
-                                      <button key={em} className="msg-picker-emoji" onClick={() => handleReaction(msg._id, em)}>
-                                        {em}
-                                      </button>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
+                                  {/* Reaction menu picker */}
+                                  {activeReactionMenu === msg._id && (
+                                    <div className="msg-reaction-picker">
+                                      {EMOJIS.map((em) => (
+                                        <button key={em} className="msg-picker-emoji" onClick={() => handleReaction(msg._id, em)}>
+                                          {em}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
 
-                              <div className="msg-bubble-meta">
-                                {msg.isEdited && <span className="msg-bubble-edited">edited</span>}
-                                <span>
-                                  {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </span>
-                                {msg.isOptimistic && (
-                                  <span style={{ color: 'var(--color-gray-400)' }}>• sending...</span>
-                                )}
+                                <div className="msg-bubble-meta">
+                                  {msg.isEdited && <span className="msg-bubble-edited">edited</span>}
+                                  <span>
+                                    {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  </span>
+                                  {msg.isOptimistic && (
+                                    <span style={{ color: 'var(--color-gray-400)' }}>• sending...</span>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </div>
-                        </div>
-                      );
-                    })
+                        );
+                      })
+                    )}
+                    <div ref={messagesEndRef} />
+                  </div>
+
+                  {/* Navigate to bottom of sheet button */}
+                  {showScrollBottom && (
+                    <button
+                      type="button"
+                      className="msg-scroll-bottom-btn"
+                      onClick={() => scrollToBottom(true)}
+                      title="Navigate to bottom of chat"
+                      aria-label="Navigate to bottom of chat"
+                    >
+                      <FiChevronDown size={20} />
+                    </button>
                   )}
-                  <div ref={messagesEndRef} />
                 </div>
 
                 {/* Reply Preview Bar - Article */}
@@ -1085,14 +1126,139 @@ const MessageApp = ({ isFullPage = false }) => {
                         </span>
                       </div>
                     ) : (
-                      <form onSubmit={handleSendMessage} className="msg-input-form">
-                        <div className="msg-input-row">
+                      <form onSubmit={handleSendMessage} className="msg-input-form" autoComplete="off">
+                        {/* Hashtag suggestions popup */}
+                        {showTagSuggestions && (
+                          <div className="msg-suggestions-popup" style={{
+                            position: 'absolute', bottom: '100%', left: '16px', right: '16px',
+                            background: 'var(--color-paper, #ffffff)', border: '1px solid var(--color-gray-300, #ccc)',
+                            borderRadius: '8px', padding: '8px', boxShadow: '0 -4px 12px rgba(0,0,0,0.1)',
+                            display: 'flex', flexWrap: 'wrap', gap: '6px', zIndex: 10
+                          }}>
+                            <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--color-gray-500)', width: '100%', marginBottom: '2px' }}>
+                              Trending Topics (Click to add):
+                            </span>
+                            {TRENDING_HASHTAGS.filter(t => !tagQuery || t.includes(tagQuery)).slice(0, 6).map(t => (
+                              <button
+                                key={t}
+                                type="button"
+                                onClick={() => {
+                                  setNewMessage(prev => prev.replace(/#([a-zA-Z0-9_-]*)$/, `#${t} `));
+                                  setShowTagSuggestions(false);
+                                }}
+                                style={{
+                                  background: 'var(--color-gray-100)', border: '1px solid var(--color-gray-300)',
+                                  borderRadius: '12px', padding: '4px 10px', fontSize: '11.5px', fontWeight: 700,
+                                  cursor: 'pointer', color: 'var(--accent-color)'
+                                }}
+                              >
+                                #{t}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Mention suggestions popup */}
+                        {showMentionSuggestions && (
+                          <div className="msg-suggestions-popup" style={{
+                            position: 'absolute', bottom: '100%', left: '16px', right: '16px',
+                            background: 'var(--color-paper, #ffffff)', border: '1px solid var(--color-gray-300, #ccc)',
+                            borderRadius: '8px', padding: '8px', boxShadow: '0 -4px 12px rgba(0,0,0,0.1)',
+                            display: 'flex', flexWrap: 'wrap', gap: '6px', zIndex: 10
+                          }}>
+                            <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--color-gray-500)', width: '100%', marginBottom: '2px' }}>
+                              Mention Students:
+                            </span>
+                            {['student', 'editor', 'moderator', 'alex_morgan', 'campus_lead'].filter(m => !mentionQuery || m.includes(mentionQuery)).map(m => (
+                              <button
+                                key={m}
+                                type="button"
+                                onClick={() => {
+                                  setNewMessage(prev => prev.replace(/@([a-zA-Z0-9_-]*)$/, `@${m} `));
+                                  setShowMentionSuggestions(false);
+                                }}
+                                style={{
+                                  background: 'var(--color-gray-100)', border: '1px solid var(--color-gray-300)',
+                                  borderRadius: '12px', padding: '4px 10px', fontSize: '11.5px', fontWeight: 700,
+                                  cursor: 'pointer', color: 'var(--color-black)'
+                                }}
+                              >
+                                @{m}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Sticker / GIF tray popup */}
+                        {showStickerTray && (
+                          <div style={{
+                            position: 'absolute', bottom: '100%', right: '16px',
+                            background: 'var(--color-paper, #ffffff)', border: '1px solid var(--color-gray-300, #ccc)',
+                            borderRadius: '12px', padding: '10px', boxShadow: '0 -4px 16px rgba(0,0,0,0.15)',
+                            display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '6px', zIndex: 10
+                          }}>
+                            {STICKER_PACK.map(stk => (
+                              <button
+                                key={stk}
+                                type="button"
+                                onClick={() => {
+                                  setNewMessage(prev => `${prev} ${stk} `.trimStart());
+                                  setShowStickerTray(false);
+                                }}
+                                style={{
+                                  fontSize: '20px', padding: '6px', border: 'none', background: 'none',
+                                  cursor: 'pointer', borderRadius: '6px', transition: 'transform 0.1s'
+                                }}
+                                onMouseEnter={(e) => e.target.style.transform = 'scale(1.2)'}
+                                onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+                              >
+                                {stk}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
+                        <div className="msg-input-row" style={{ position: 'relative' }}>
+                          <button
+                            type="button"
+                            onClick={() => setShowStickerTray(prev => !prev)}
+                            style={{
+                              border: 'none', background: 'none', cursor: 'pointer',
+                              padding: '8px', color: 'var(--color-gray-500)', display: 'flex', alignItems: 'center'
+                            }}
+                            title="Stickers / Quick Emojis"
+                          >
+                            <FiSmile size={18} />
+                          </button>
                           <input 
                             type="text" 
-                            placeholder="Write message... Use #tag to hashtag." 
+                            name="chat_message_content"
+                            autoComplete="off"
+                            data-lpignore="true"
+                            data-form-type="other"
+                            placeholder="Write message... Use #tag or @mention." 
                             className="msg-input-text"
                             value={newMessage}
-                            onChange={(e) => setNewMessage(e.target.value)}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setNewMessage(val);
+                              const hashMatch = val.match(/#([a-zA-Z0-9_-]*)$/);
+                              if (hashMatch) {
+                                setShowTagSuggestions(true);
+                                setTagQuery(hashMatch[1].toLowerCase());
+                                setShowMentionSuggestions(false);
+                              } else {
+                                setShowTagSuggestions(false);
+                              }
+                              const mentionMatch = val.match(/@([a-zA-Z0-9_-]*)$/);
+                              if (mentionMatch) {
+                                setShowMentionSuggestions(true);
+                                setMentionQuery(mentionMatch[1].toLowerCase());
+                                setShowTagSuggestions(false);
+                              } else {
+                                setShowMentionSuggestions(false);
+                              }
+                            }}
                           />
                           <button type="submit" className="msg-send-btn" disabled={!newMessage.trim()}>
                             <FiSend size={16} />

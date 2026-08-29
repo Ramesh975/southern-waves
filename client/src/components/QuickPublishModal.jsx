@@ -11,22 +11,27 @@ import {
 import toast from 'react-hot-toast';
 import WordEditor from './WordEditor';
 
+import { getImageUrl } from './ArticleComponents';
+
 /* ─── Post-type Definitions ─── */
 const POST_TYPES = [
   { id:'article',   label:'Article',        icon:FiFileText,  color:'#0055a4', desc:'Full news article with body',        category:'news',           fields:['title','lead','body','category','image','tags'] },
+  { id:'university',label:'University Row', icon:FiBookOpen,  color:'#10b981', desc:'Campus affairs & university news',   category:'university-row', fields:['title','lead','body','category','image','tags'] },
+  { id:'editorial', label:'Editorial',      icon:FiBook,      color:'#f59e0b', desc:'Opinion & editorial piece',          category:'editorial',      fields:['title','lead','body','category','image','tags'] },
+  { id:'features',  label:'Features',       icon:FiLayout,    color:'#8b5cf6', desc:'Culture, film & lifestyle features',  category:'features',       fields:['title','lead','body','category','image','tags'] },
+  { id:'picture',   label:'Picture',        icon:FiCamera,    color:'#ec4899', desc:"Picture speaks photo journal",       category:'pictures-speak', fields:['title','lead','image','tags'] },
+  { id:'event',     label:'Timeline Event', icon:FiBookOpen,  color:'#3b82f6', desc:'Know Your Past timeline event',     category:'kyp',            fields:['title','lead','body','category','image','tags'] },
   { id:'mind',      label:'Mind',           icon:FiFeather,   color:'#8b5cf6', desc:'A quick thought or opinion',         category:'tea-shop',       fields:['title','lead','tags'],                           tag:'mind' },
   { id:'spoken',    label:'Spoken',         icon:FiMic,       color:'#06b6d4', desc:'Voice your perspective',             category:'tea-shop',       fields:['title','lead','tags'],                           tag:'spoken' },
   { id:'ground',    label:'Ground',         icon:FiRadio,     color:'#10b981', desc:'Share on the ground feed',           category:'tea-shop',       fields:['title','lead','body','image','tags'],            tag:'ground' },
-  { id:'editorial', label:'Editorial',      icon:FiBook,      color:'#f59e0b', desc:'Opinion & editorial piece',          category:'editorial',      fields:['title','lead','body','category','image','tags'] },
-  { id:'picture',   label:'Picture',        icon:FiCamera,    color:'#ec4899', desc:"Picture speaks post",               category:'pictures-speak', fields:['title','lead','image','tags'] },
-  { id:'event',     label:'Timeline Event', icon:FiBookOpen,  color:'#3b82f6', desc:'Know Your Past timeline event',     category:'kyp',            fields:['title','lead','body','category','image','tags'] },
 ];
 
 const CATEGORIES = [
   { value:'news',           label:'📰 News' },
   { value:'editorial',      label:'✍️ Editorial' },
   { value:'features',       label:'🎬 Features' },
-  { value:'kyp',            label:'📖 Know Our Past' },
+  { value:'university-row', label:'🏛️ University Row' },
+  { value:'kyp',            label:'📖 Know Your Past' },
   { value:'tea-shop',       label:'☕ Tea Shop' },
   { value:'pictures-speak', label:"📷 Picture's Speak" },
 ];
@@ -36,53 +41,91 @@ const stripHtml = (html) =>
   (html || '').replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
 
 /* ─── Component ─── */
-const QuickPublishModal = ({ defaultCategory = 'news', defaultType, onClose, onCloseStart, onPublishSuccess }) => {
+const QuickPublishModal = ({
+  defaultCategory = 'news',
+  defaultType,
+  editingArticle = null,
+  onClose,
+  onCloseStart,
+  onPublishSuccess
+}) => {
   const { user } = useAuth();
   const isAdminOrEditor = user && (user.role === 'admin' || user.role === 'editor');
 
-  const visiblePostTypes = isAdminOrEditor
-    ? POST_TYPES.filter(pt => pt.category !== 'tea-shop')
-    : [
-        ...POST_TYPES.filter(pt => pt.category === 'tea-shop'),
-        ...(defaultCategory === 'pictures-speak' ? [POST_TYPES.find(pt => pt.id === 'picture')] : [])
-      ].filter(Boolean);
+  // Allow all authors to create across any format
+  const visiblePostTypes = POST_TYPES;
 
   const [selectedType, setSelectedType] = useState(() => {
+    if (editingArticle) {
+      const cat = editingArticle.category;
+      if (cat === 'pictures-speak') return POST_TYPES.find(p => p.id === 'picture');
+      if (cat === 'kyp') return POST_TYPES.find(p => p.id === 'event');
+      if (cat === 'university-row') return POST_TYPES.find(p => p.id === 'university');
+      if (cat === 'editorial') return POST_TYPES.find(p => p.id === 'editorial');
+      if (cat === 'features') return POST_TYPES.find(p => p.id === 'features');
+      if (cat === 'tea-shop') {
+        if (editingArticle.tags?.includes('spoken')) return POST_TYPES.find(p => p.id === 'spoken');
+        if (editingArticle.tags?.includes('ground')) return POST_TYPES.find(p => p.id === 'ground');
+        if (editingArticle.tags?.includes('mind')) return POST_TYPES.find(p => p.id === 'mind');
+        return POST_TYPES.find(p => p.category === 'tea-shop');
+      }
+      return POST_TYPES.find(p => p.id === 'article') || POST_TYPES[0];
+    }
     if (defaultType) {
       const found = POST_TYPES.find(pt => pt.id === defaultType);
-      if (found) {
-        const allowed = isAdminOrEditor
-          ? found.category !== 'tea-shop'
-          : (found.category === 'tea-shop' || (defaultCategory === 'pictures-speak' && found.id === 'picture'));
-        if (allowed) return found;
-      }
+      if (found) return found;
     }
     return null;
   });
 
   const getInitialStatus = () => {
+    if (editingArticle) return editingArticle.status || 'published';
     if (isAdminOrEditor) return 'published';
     const cat = selectedType ? (selectedType.id === 'article' ? defaultCategory : selectedType.category) : defaultCategory;
     return cat === 'pictures-speak' ? 'pending' : 'published';
   };
 
+  /* ─── Selected Categories (Max 3, standalone for tea-shop & pictures-speak) ─── */
+  const [selectedCategories, setSelectedCategories] = useState(() => {
+    if (editingArticle?.categories && editingArticle.categories.length > 0) {
+      return editingArticle.categories;
+    }
+    if (editingArticle?.category) {
+      return [editingArticle.category];
+    }
+    return [defaultCategory || 'news'];
+  });
+
   /* ─── Core form state ─── */
   const [form, setForm] = useState(() => ({
-    title: '', lead: '', body: '',
-    category: selectedType ? (selectedType.id === 'article' ? defaultCategory : selectedType.category) : defaultCategory,
-    historicalYear: '',
+    title: editingArticle?.title || '',
+    lead: editingArticle?.lead || '',
+    body: editingArticle?.body || '',
+    category: editingArticle?.category || (selectedType ? (selectedType.id === 'article' ? defaultCategory : selectedType.category) : defaultCategory),
+    historicalYear: editingArticle?.historicalYear || '',
     status: getInitialStatus(),
-    isFeatured: false, isTrending: false,
-    tags: selectedType?.tag || '',
-    references: [],
+    isFeatured: editingArticle?.isFeatured || false,
+    isTrending: editingArticle?.isTrending || false,
+    tags: editingArticle ? (Array.isArray(editingArticle.tags) ? editingArticle.tags.join(', ') : (editingArticle.tags || '')) : (selectedType?.tag || ''),
+    references: editingArticle?.references || [],
   }));
 
   const [articlesList,   setArticlesList]   = useState([]);
   const [refSearchQuery, setRefSearchQuery] = useState('');
   const [references,     setReferences]     = useState([]);
   const [coverImage,     setCoverImage]     = useState(null);
-  const [previewUrl,     setPreviewUrl]     = useState('');
-  const [multipleImages, setMultipleImages] = useState([]);
+  const [previewUrl,     setPreviewUrl]     = useState(() => editingArticle?.coverImage ? getImageUrl(editingArticle.coverImage) : '');
+  const [multipleImages, setMultipleImages] = useState(() => {
+    if (editingArticle?.images?.length) {
+      return editingArticle.images.map(img => ({
+        url: img.url || img,
+        previewUrl: getImageUrl(img.url || img),
+        caption: img.caption || '',
+        isNew: false
+      }));
+    }
+    return [];
+  });
   const [loading,        setLoading]        = useState(false);
   const [isClosing,      setIsClosing]      = useState(false);
 
@@ -106,7 +149,7 @@ const QuickPublishModal = ({ defaultCategory = 'news', defaultType, onClose, onC
     { id:'body',  label:'Body content (50+ words)',  done: wordCount >= 50 },
     { id:'image', label:'Cover image uploaded',      done: !!(coverImage || previewUrl) },
     { id:'tags',  label:'Tags added',                done: form.tags.trim().length > 0 },
-    { id:'cat',   label:'Section selected',          done: !!form.category },
+    { id:'cat',   label:'Section selected',          done: selectedCategories.length > 0 },
   ];
   const readiness = Math.round(checkItems.filter(c => c.done).length / checkItems.length * 100);
 
@@ -127,16 +170,20 @@ const QuickPublishModal = ({ defaultCategory = 'news', defaultType, onClose, onC
   }, []);
 
   useEffect(() => {
-    if (!selectedType) {
-      setForm(f => ({ ...f, category:defaultCategory, references:[] }));
+    if (!selectedType && !editingArticle) {
+      const initialCat = defaultCategory || 'news';
+      setSelectedCategories([initialCat]);
+      setForm(f => ({ ...f, category: initialCat, references: [] }));
       setReferences([]);
       setRefSearchQuery('');
-      multipleImages.forEach(img => URL.revokeObjectURL(img.previewUrl));
+      multipleImages.forEach(img => {
+        if (img.previewUrl && img.isNew) URL.revokeObjectURL(img.previewUrl);
+      });
       setMultipleImages([]);
       setCoverImage(null);
       setPreviewUrl('');
     }
-  }, [defaultCategory, selectedType]);
+  }, [defaultCategory, selectedType, editingArticle]);
 
   // Autosave simulation
   useEffect(() => {
@@ -158,10 +205,11 @@ const QuickPublishModal = ({ defaultCategory = 'news', defaultType, onClose, onC
 
   const handleTypeSelect = (pt) => {
     setSelectedType(pt);
+    const cat = pt.id === 'article' ? (defaultCategory || 'news') : pt.category;
+    setSelectedCategories([cat]);
     setForm(f => {
-      const cat    = pt.id === 'article' ? defaultCategory : pt.category;
       const status = isAdminOrEditor ? 'published' : (cat === 'pictures-speak' ? 'pending' : 'published');
-      return { ...f, category:cat, status, tags: pt.tag ? pt.tag : f.tags };
+      return { ...f, category: cat, status, tags: pt.tag ? pt.tag : f.tags };
     });
   };
 
@@ -203,18 +251,50 @@ const QuickPublishModal = ({ defaultCategory = 'news', defaultType, onClose, onC
     toast.success(`${tag} inserted into editor`, { duration:1500, icon:'✏️' });
   };
 
+  const handleToggleCategory = (catVal) => {
+    const isStandalone = ['tea-shop', 'pictures-speak'].includes(catVal);
+
+    if (selectedCategories.includes(catVal)) {
+      if (selectedCategories.length === 1) {
+        return toast.error('At least 1 section must remain selected.');
+      }
+      const updated = selectedCategories.filter((c) => c !== catVal);
+      setSelectedCategories(updated);
+      setForm((prev) => ({ ...prev, category: updated[0] }));
+    } else {
+      if (isStandalone) {
+        const catObj = CATEGORIES.find((c) => c.value === catVal);
+        toast(`${catObj?.label || catVal} is a standalone section and cannot be combined with other sections.`, { icon: 'ℹ️' });
+        setSelectedCategories([catVal]);
+        setForm((prev) => ({ ...prev, category: catVal }));
+        return;
+      }
+
+      const baseCategories = selectedCategories.filter((c) => !['tea-shop', 'pictures-speak'].includes(c));
+
+      if (baseCategories.length >= 3) {
+        return toast.error('Maximum 3 sections allowed per article.');
+      }
+      const updated = [...baseCategories, catVal];
+      setSelectedCategories(updated);
+      setForm((prev) => ({ ...prev, category: updated[0] }));
+    }
+  };
+
   const toggleSection = (key) => setOpenSections(prev => ({ ...prev, [key]:!prev[key] }));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.title.trim() || !form.lead.trim()) return toast.error('Title and summary are required');
-    if (form.category === 'kyp' && !form.historicalYear) return toast.error('Historical Event Year is required');
+    if ((form.category === 'kyp' || selectedCategories.includes('kyp')) && !form.historicalYear) {
+      return toast.error('Historical Event Year is required');
+    }
 
     let finalBody = form.body.trim();
     if (!selectedType?.fields?.includes('body') || !finalBody) finalBody = form.lead.trim();
     if (!finalBody) return toast.error('Article body is required');
 
-    const isPicture = selectedType?.id === 'picture';
+    const isPicture = selectedType?.id === 'picture' || form.category === 'pictures-speak';
     if (isPicture && multipleImages.length === 0) return toast.error('At least one image required for Picture Speaks');
 
     setLoading(true);
@@ -225,25 +305,39 @@ const QuickPublishModal = ({ defaultCategory = 'news', defaultType, onClose, onC
         else if (k === 'references') fd.append(k, JSON.stringify(references.map(r => ({ article:r.article._id, note:r.note||'' }))));
         else fd.append(k, v);
       });
+      fd.set('category', selectedCategories[0] || form.category || 'news');
+      fd.set('categories', JSON.stringify(selectedCategories));
 
       if (isPicture) {
         if (multipleImages[0]?.file) fd.append('coverImage', multipleImages[0].file);
         multipleImages.forEach(img => { if (img.file) fd.append('images', img.file); });
         fd.append('captions', JSON.stringify(multipleImages.map(img => img.caption || '')));
+        const imagesMeta = multipleImages.map(img =>
+          img.file ? { isNew:true, caption:img.caption||'' } : { url:img.url||'', caption:img.caption||'' }
+        );
+        fd.set('imagesMeta', JSON.stringify(imagesMeta));
       } else {
         if (coverImage) fd.append('coverImage', coverImage);
         if (multipleImages.length > 0) {
           multipleImages.forEach(img => { if (img.file) fd.append('images', img.file); });
           fd.append('captions', JSON.stringify(multipleImages.map(img => img.caption || '')));
-          fd.append('imagesMeta', JSON.stringify(multipleImages.map(img =>
+          const imagesMeta = multipleImages.map(img =>
             img.file ? { isNew:true, caption:img.caption||'' } : { url:img.url||'', caption:img.caption||'' }
-          )));
+          );
+          fd.set('imagesMeta', JSON.stringify(imagesMeta));
         }
       }
 
-      const res = await articleAPI.create(fd);
-      if (res.data?.success) {
+      let res;
+      if (editingArticle) {
+        res = await articleAPI.update(editingArticle._id, fd);
+        toast.success('Story updated successfully! 🚀');
+      } else {
+        res = await articleAPI.create(fd);
         toast.success(`${selectedType?.label || 'Article'} published! 🎉`);
+      }
+
+      if (res.data?.success) {
         if (onPublishSuccess) onPublishSuccess(res.data.data);
         handleClose();
       }
@@ -252,7 +346,7 @@ const QuickPublishModal = ({ defaultCategory = 'news', defaultType, onClose, onC
         toast.error('⚠️ Your post was flagged.', { duration:5000 });
         handleClose();
       } else {
-        toast.error(err.response?.data?.message || 'Failed to publish');
+        toast.error(err.response?.data?.message || 'Failed to save story');
       }
     } finally {
       setLoading(false);
@@ -1050,34 +1144,82 @@ const QuickPublishModal = ({ defaultCategory = 'news', defaultType, onClose, onC
                         <span className="qpm-title-char">{form.title.length}/120</span>
                       </div>
 
-                      {/* ─ Meta row: Section + Year ─ */}
-                      <div className="qpm-meta-row">
+                      {/* ─ Meta row: Multi-Section Selector + Year ─ */}
+                      <div className="qpm-meta-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 10 }}>
                         {activeFields.includes('category') && (
-                          <div className="qpm-meta-field">
-                            <span className="qpm-meta-label">Section</span>
-                            <select
-                              className="qpm-meta-select"
-                              value={form.category}
-                              onChange={(e) => setForm({ ...form, category: e.target.value })}
-                              required
-                            >
-                              {CATEGORIES.map(cat => (
-                                <option key={cat.value} value={cat.value}>{cat.label}</option>
-                              ))}
-                            </select>
+                          <div style={{ width: '100%' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                              <span className="qpm-meta-label">Sections / Categories (Up to 3 allowed)</span>
+                              <span style={{
+                                fontSize: 11,
+                                fontWeight: 700,
+                                color: selectedCategories.some(c => ['tea-shop', 'pictures-speak'].includes(c))
+                                  ? '#0284c7'
+                                  : selectedCategories.length >= 3 ? '#d97706' : 'var(--color-gray-500)'
+                              }}>
+                                {selectedCategories.some(c => ['tea-shop', 'pictures-speak'].includes(c))
+                                  ? '1/1 Standalone Section'
+                                  : `${selectedCategories.length}/3 Selected`}
+                              </span>
+                            </div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                              {CATEGORIES.map((cat) => {
+                                const isSelected = selectedCategories.includes(cat.value);
+                                const isPrimary = selectedCategories[0] === cat.value;
+                                return (
+                                  <button
+                                    key={cat.value}
+                                    type="button"
+                                    onClick={() => handleToggleCategory(cat.value)}
+                                    style={{
+                                      background: isSelected
+                                        ? (isPrimary ? (selectedType?.color || 'var(--color-primary, #0055a4)') : 'rgba(0, 85, 164, 0.12)')
+                                        : 'var(--color-gray-100, #f1f5f9)',
+                                      border: isSelected
+                                        ? `1.5px solid ${isPrimary ? (selectedType?.color || 'var(--color-primary, #0055a4)') : 'rgba(0, 85, 164, 0.4)'}`
+                                        : '1px solid var(--color-gray-300, #cbd5e1)',
+                                      color: isSelected
+                                        ? (isPrimary ? '#ffffff' : (selectedType?.color || 'var(--color-primary, #0055a4)'))
+                                        : 'var(--color-black, #0f172a)',
+                                      padding: '5px 12px',
+                                      borderRadius: 8,
+                                      fontSize: 12,
+                                      fontWeight: 700,
+                                      cursor: 'pointer',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: 5,
+                                      transition: 'all 0.15s ease'
+                                    }}
+                                  >
+                                    <span>{cat.label}</span>
+                                    {isPrimary && (
+                                      <span style={{ fontSize: 9, background: 'rgba(255,255,255,0.28)', padding: '1px 5px', borderRadius: 4, textTransform: 'uppercase' }}>
+                                        Primary
+                                      </span>
+                                    )}
+                                    {isSelected && !isPrimary && (
+                                      <span style={{ fontSize: 9, background: 'rgba(0,0,0,0.08)', padding: '1px 5px', borderRadius: 4, textTransform: 'uppercase' }}>
+                                        Cross-post
+                                      </span>
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
                           </div>
                         )}
-                        {form.category === 'kyp' && (
-                          <div className="qpm-meta-field" style={{ maxWidth:160 }}>
-                            <span className="qpm-meta-label">Historical Year</span>
+                        {(form.category === 'kyp' || selectedCategories.includes('kyp')) && (
+                          <div className="qpm-meta-field" style={{ maxWidth: 220, marginTop: 4 }}>
+                            <span className="qpm-meta-label">Historical Event Year *</span>
                             <select
                               className="qpm-meta-select"
                               value={form.historicalYear || ''}
                               onChange={(e) => setForm({ ...form, historicalYear: e.target.value })}
                               required
                             >
-                              <option value="" disabled>Select year…</option>
-                              {Array.from({ length:2026-1800+1 }, (_, i) => 2026-i).map(y => (
+                              <option value="" disabled>Select event year…</option>
+                              {Array.from({ length: 2026 - 1800 + 1 }, (_, i) => 2026 - i).map(y => (
                                 <option key={y} value={y}>{y}</option>
                               ))}
                             </select>
@@ -1499,8 +1641,15 @@ const QuickPublishModal = ({ defaultCategory = 'news', defaultType, onClose, onC
               {/* ── Sticky Footer ── */}
               <div className="qpm-footer">
                 <div className="qpm-footer-left">
-                  <button type="button" className="qpm-btn-ghost" onClick={() => setSelectedType(null)}>
-                    ← Back
+                  <button
+                    type="button"
+                    className="qpm-btn-ghost"
+                    onClick={() => {
+                      if (editingArticle) handleClose();
+                      else setSelectedType(null);
+                    }}
+                  >
+                    {editingArticle ? 'Cancel' : '← Back'}
                   </button>
                 </div>
                 <div className="qpm-footer-right">
@@ -1509,12 +1658,12 @@ const QuickPublishModal = ({ defaultCategory = 'news', defaultType, onClose, onC
                     form={formId}
                     disabled={loading}
                     className="qpm-btn-primary"
-                    style={{ '--btn-color': selectedType?.color }}
+                    style={{ '--btn-color': selectedType?.color || 'var(--color-primary, #0055a4)' }}
                   >
-                    {loading ? 'Publishing…' : (
+                    {loading ? 'Saving…' : (
                       <>
                         <FiCheck size={14} />
-                        Publish {selectedType?.label}
+                        {editingArticle ? 'Update Story' : `Publish ${selectedType?.label || 'Article'}`}
                       </>
                     )}
                   </button>

@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 
 const Footer = () => {
-  const categories = ['News', 'Editorial', 'Features', 'Tea Shop', "Picture's Speak", 'Know Our Past'];
+  const categories = ['News', 'Editorial', 'Features', 'Tea Shop', "Picture's Speak", 'Know Your Past'];
   const quick = ['About Us', "FAQ's", 'Write For Us', 'Contact'];
 
   return (

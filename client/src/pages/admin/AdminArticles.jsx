@@ -78,7 +78,7 @@ const AdminArticles = () => {
       {/* Filter & Search Bar */}
       <div className="admin-card" style={{ padding: '20px', display: 'flex', gap: '16px', marginBottom: '24px', flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{ display: 'flex', gap: 8, flex: 1, minWidth: 0, flexWrap: 'wrap' }}>
-          {['', 'published', 'draft', 'archived'].map((s) => (
+          {['', 'published', 'pending', 'draft', 'archived'].map((s) => (
             <button
               key={s}
               className={`btn-admin-secondary`}

@@ -137,7 +137,7 @@ const GlobalChatModal = ({ onClose }) => {
       setNewMessage('');
       setIsBroadcast(false);
     } catch (err) {
-      toast.error('Failed to send message');
+      toast.error(err.response?.data?.message || 'Failed to send message');
     }
   };
 

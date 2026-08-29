@@ -77,7 +77,15 @@ const NewsArticleCard = ({ article, onReply, onComment, highlight }) => {
       <Link to={`/article/${article.slug}`} className="nm-card-link">
         {article.coverImage && (
           <div className="nm-card-thumb">
-            <img src={getImgSrc(article.coverImage)} alt={article.title} loading="lazy" />
+            <img 
+              src={getImgSrc(article.coverImage)} 
+              alt={article.title} 
+              loading="lazy" 
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.src = 'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=600&auto=format&fit=crop&q=60';
+              }}
+            />
             {article.isBreaking && <span className="nm-badge breaking">⚡ Breaking</span>}
             {article.isFeatured && !article.isBreaking && <span className="nm-badge featured">★ Featured</span>}
           </div>

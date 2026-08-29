@@ -9,7 +9,7 @@ const CATEGORIES = [
   { id: 'news', label: 'News', icon: '📰', desc: 'Campus issues, student initiatives, laws' },
   { id: 'editorial', label: 'Editorial', icon: '✍️', desc: 'In-depth reviews and opinions' },
   { id: 'features', label: 'Features', icon: '🎬', desc: 'Human interest stories, art, and book reviews' },
-  { id: 'kyp', label: 'Know Our Past', icon: '📖', desc: 'Historical student movements and archives' },
+  { id: 'kyp', label: 'Know Your Past', icon: '📖', desc: 'Historical student movements and archives' },
   { id: 'tea-shop', label: 'Tea Shop', icon: '☕', desc: 'Student voices, gossip, and local vibes' },
   { id: 'pictures-speak', label: 'Pictures Speak', icon: '📷', desc: 'Untold stories captured through the lens' }
 ];

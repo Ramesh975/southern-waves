@@ -16,9 +16,11 @@ const ROUTE_NAMES = {
   '/news': 'News',
   '/editorial': 'Editorial',
   '/features': 'Features',
+  '/university-row': 'University Row',
   '/tea-shop': 'Tea Shop',
   '/pictures-speak': "Pictures Speak",
-  '/know-your-past': 'Know Our Past',
+  '/know-your-past': 'Know Your Past',
+  '/stories': 'Fast Stories',
   '/about': 'About Us',
   '/login': 'Student Login',
   '/register': 'Sign Up',
@@ -26,7 +28,7 @@ const ROUTE_NAMES = {
 };
 
 const Navbar = () => {
-  const { user, logout, refreshUser } = useAuth();
+  const { user, logout, refreshUser, impersonating, revertToAdmin } = useAuth();
   const { theme, setTheme, toggleTheme, styleMode, setStyleMode, accent, setAccent, ACCENT_COLORS } = useTheme();
   const { isOpen, setIsOpen, openRoom, setActiveRoom, setActiveTab, replies, totalUnread, notifications, unreadNotificationsCount, markNotificationRead, markAllNotificationsRead, fetchNotifications } = useChat();
   const [customizerOpen, setCustomizerOpen] = useState(false);
@@ -391,26 +393,6 @@ const Navbar = () => {
                       })}
                     </div>
                   </div>
-
-                  <div className="popover-section">
-                    <span className="section-label">UI Mode</span>
-                    <div className="ui-mode-row">
-                      {[
-                        { id: 'modern', label: 'Modern Executive' },
-                      ].map((mode) => {
-                        const isSelected = styleMode === mode.id;
-                        return (
-                          <button
-                            key={mode.id}
-                            className={`ui-mode-btn ${isSelected ? 'selected' : ''}`}
-                            onClick={() => setStyleMode(mode.id)}
-                          >
-                            <span>{mode.label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
                 </div>
               )}
             </div>
@@ -525,12 +507,12 @@ const Navbar = () => {
                             <span>Saved Articles</span>
                           </Link>
                           <Link 
-                            to="/my-uploads" 
+                            to="/author/me" 
                             className="profile-popover-item"
                             onClick={() => setProfileMenuOpen(false)}
                           >
                             <FiUpload size={16} />
-                            <span>My Uploads</span>
+                            <span>Author Studio & Posts</span>
                           </Link>
                         </>
                       ) : (
@@ -544,12 +526,12 @@ const Navbar = () => {
                             <span>Saved Articles</span>
                           </Link>
                           <Link 
-                            to="/my-uploads" 
+                            to="/author/me" 
                             className="profile-popover-item"
                             onClick={() => setProfileMenuOpen(false)}
                           >
                             <FiUpload size={16} />
-                            <span>My Uploads</span>
+                            <span>Author Studio & Posts</span>
                           </Link>
                         </>
                       )}
@@ -623,11 +605,12 @@ const Navbar = () => {
           <div className="nav-mega-dropdown-inner concept-layout">
             {/* Primary Grid: 3 Columns, 2 Rows matching handdrawn sketch */}
             <div className="mega-concept-grid">
-              {/* Column 1: News & Editorial */}
+              {/* Column 1: News, Editorial & University Row */}
               <div className="mega-column">
                 <div className="mega-column-links">
                   {renderNavLink('/news', 'News')}
                   {renderNavLink('/editorial', 'Editorial')}
+                  {renderNavLink('/university-row', 'University Row')}
                 </div>
               </div>
 
@@ -639,11 +622,12 @@ const Navbar = () => {
                 </div>
               </div>
 
-              {/* Column 3: Tea Shop, Know Our Past & About Us */}
+              {/* Column 3: Tea Shop, Know Your Past, Fast Stories & About Us */}
               <div className="mega-column">
                 <div className="mega-column-links">
                   {renderNavLink('/tea-shop', 'Tea Shop')}
-                  {renderNavLink('/know-your-past', 'Know Our Past')}
+                  {renderNavLink('/know-your-past', 'Know Your Past')}
+                  {renderNavLink('/stories', 'Fast Stories')}
                   {renderNavLink('/about', 'About Us')}
                 </div>
               </div>
@@ -818,9 +802,11 @@ const Navbar = () => {
               <NavLink to="/news" className={({ isActive }) => `sec-nav-link ${isActive ? 'active' : ''}`}>News</NavLink>
               <NavLink to="/editorial" className={({ isActive }) => `sec-nav-link ${isActive ? 'active' : ''}`}>Editorial</NavLink>
               <NavLink to="/features" className={({ isActive }) => `sec-nav-link ${isActive ? 'active' : ''}`}>Features</NavLink>
+              <NavLink to="/university-row" className={({ isActive }) => `sec-nav-link ${isActive ? 'active' : ''}`}>University Row</NavLink>
               <NavLink to="/pictures-speak" className={({ isActive }) => `sec-nav-link ${isActive ? 'active' : ''}`}>Picture's Speak</NavLink>
               <NavLink to="/tea-shop" className={({ isActive }) => `sec-nav-link ${isActive ? 'active' : ''}`}>Tea Shop</NavLink>
-              <NavLink to="/know-your-past" className={({ isActive }) => `sec-nav-link ${isActive ? 'active' : ''}`}>Know Our Past</NavLink>
+              <NavLink to="/know-your-past" className={({ isActive }) => `sec-nav-link ${isActive ? 'active' : ''}`}>Know Your Past</NavLink>
+              <NavLink to="/stories" className={({ isActive }) => `sec-nav-link ${isActive ? 'active' : ''}`}>Fast Stories</NavLink>
               <NavLink to="/about" className={({ isActive }) => `sec-nav-link ${isActive ? 'active' : ''}`}>About Us</NavLink>
             </div>
           </div>
@@ -866,6 +852,9 @@ const Navbar = () => {
             <NavLink to="/features" className="mobile-link" onClick={() => setMobileMenuOpen(false)}>
               Features
             </NavLink>
+            <NavLink to="/university-row" className="mobile-link" onClick={() => setMobileMenuOpen(false)}>
+              🏛️ University Row
+            </NavLink>
             <NavLink to="/tea-shop" className="mobile-link" onClick={() => setMobileMenuOpen(false)}>
               Tea Shop
             </NavLink>
@@ -876,7 +865,10 @@ const Navbar = () => {
               Pictures Speak
             </NavLink>
             <NavLink to="/know-your-past" className="mobile-link" onClick={() => setMobileMenuOpen(false)}>
-              Know Our Past
+              Know Your Past
+            </NavLink>
+            <NavLink to="/stories" className="mobile-link" onClick={() => setMobileMenuOpen(false)}>
+              Fast Stories
             </NavLink>
           </div>
 
@@ -1062,38 +1054,6 @@ const Navbar = () => {
                     </div>
                   </div>
 
-                  {/* UI Mode */}
-                  <div>
-                    <span className="section-label" style={{ display: 'block', marginBottom: '6px' }}>UI Mode</span>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-                      {[
-                        { id: 'modern', label: 'Modern Executive' },
-                        { id: 'traditional', label: 'Traditional' }
-                      ].map((mode) => {
-                        const isSelected = styleMode === mode.id;
-                        return (
-                          <button
-                            key={mode.id}
-                            onClick={() => setStyleMode(mode.id)}
-                            style={{
-                              padding: '8px',
-                              borderRadius: '8px',
-                              border: '1.5px solid var(--color-gray-300)',
-                              background: isSelected ? 'var(--accent-color)' : 'var(--color-white)',
-                              color: isSelected ? '#fff' : 'var(--color-black)',
-                              fontSize: '11px',
-                              fontWeight: 700,
-                              textTransform: 'uppercase',
-                              textAlign: 'center',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            <span>{mode.label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
                 </div>
               )}
             </div>
@@ -1138,15 +1098,15 @@ const Navbar = () => {
                     <span>Saved Articles</span>
                   </Link>
 
-                  {/* My Uploads */}
+                  {/* Author Studio & Posts */}
                   <Link 
-                    to="/my-uploads" 
+                    to="/author/me" 
                     className="profile-popover-item"
                     onClick={() => setMobileMenuOpen(false)}
                     style={{ padding: '8px 12px' }}
                   >
                     <FiUpload size={16} />
-                    <span>My Uploads</span>
+                    <span>Author Studio & Posts</span>
                   </Link>
 
                   {/* Accounts */}

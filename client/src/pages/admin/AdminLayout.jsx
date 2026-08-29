@@ -555,12 +555,12 @@ const AdminLayout = () => {
                         <span>Saved Articles</span>
                       </Link>
                       <Link 
-                        to="/my-uploads" 
+                        to="/author/me" 
                         className="profile-popover-item"
                         onClick={() => setProfileMenuOpen(false)}
                       >
                         <FiUpload size={16} />
-                        <span>My Uploads</span>
+                        <span>Author Studio & Posts</span>
                       </Link>
 
                       {/* Option 2: Notifications */}

@@ -207,37 +207,106 @@ const TeaShopPage = () => {
           
           {/* Ground Tab Specific: Create Post Form */}
           {activeTab === 'ground' && user && user.role === 'student' && (
-            <div style={{ background: 'var(--color-gray-100)', padding: 20, borderRadius: 8, marginBottom: 24, border: '1px solid var(--color-gray-200)' }}>
+            <div style={{
+              background: 'var(--color-paper, var(--color-white))',
+              padding: '20px',
+              borderRadius: '12px',
+              marginBottom: '28px',
+              border: '1px solid var(--color-gray-200)',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.04)'
+            }}>
               <form onSubmit={handlePostSubmit}>
-                <input
-                  type="text"
-                  placeholder="I wish to play football in Nationals..."
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  style={{ width: '100%', background: 'transparent', border: 'none', borderBottom: '1px solid var(--color-gray-300)', padding: '8px 0', fontSize: 16, color: 'var(--color-black)', outline: 'none', marginBottom: 12, fontWeight: 700 }}
-                  required
-                />
-                <textarea
-                  placeholder="All sub description like feed..."
-                  value={lead}
-                  onChange={(e) => setLead(e.target.value)}
-                  rows={2}
-                  style={{ width: '100%', background: 'transparent', border: 'none', resize: 'none', fontSize: 14, color: 'var(--color-gray-600)', outline: 'none', marginBottom: 12 }}
-                  required
-                />
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, color: 'var(--color-gray-500)', fontSize: 12 }}>
-                    <BiCategory size={16} />
-                    {coverImage ? 'Image Selected' : 'Add Image'}
-                    <input type="file" accept="image/*" onChange={handleImageChange} style={{ display: 'none' }} />
-                  </label>
-                  <button type="submit" disabled={submittingPost} style={{ background: 'var(--color-red)', color: '#fff', border: 'none', padding: '8px 20px', borderRadius: 4, fontSize: 12, fontWeight: 700, cursor: submittingPost ? 'not-allowed' : 'pointer' }}>
-                    {submittingPost ? 'Posting...' : 'Post'}
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', marginBottom: '14px' }}>
+                  <img
+                    src={user.avatar ? getImageUrl(user.avatar) : 'https://ui-avatars.com/api/?name=' + encodeURIComponent(user.name || 'Student')}
+                    alt={user.name}
+                    style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <input
+                      type="text"
+                      placeholder="Topic Title (e.g. Football match, Campus food vibes, Exam notes)..."
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      style={{
+                        width: '100%',
+                        background: 'transparent',
+                        border: 'none',
+                        borderBottom: '1px solid var(--color-gray-200)',
+                        padding: '6px 0',
+                        fontSize: '15px',
+                        fontWeight: 800,
+                        color: 'var(--color-black)',
+                        outline: 'none',
+                        marginBottom: '8px'
+                      }}
+                      required
+                    />
+                    <textarea
+                      placeholder="What's on your campus mind today? Share thoughts, questions, or announcements..."
+                      value={lead}
+                      onChange={(e) => setLead(e.target.value)}
+                      rows={2}
+                      style={{
+                        width: '100%',
+                        background: 'transparent',
+                        border: 'none',
+                        resize: 'none',
+                        fontSize: '13.5px',
+                        color: 'var(--color-gray-700)',
+                        outline: 'none',
+                        lineHeight: 1.5
+                      }}
+                      required
+                    />
+                  </div>
+                </div>
+
+                {imagePreview && (
+                  <div style={{ position: 'relative', marginBottom: '14px' }}>
+                    <img src={imagePreview} alt="Preview" style={{ maxHeight: '180px', borderRadius: '8px', objectFit: 'cover', width: '100%' }} />
+                    <button
+                      type="button"
+                      onClick={() => { setCoverImage(null); setImagePreview(null); }}
+                      style={{ position: 'absolute', top: '8px', right: '8px', background: 'rgba(0,0,0,0.6)', color: '#fff', border: 'none', borderRadius: '50%', width: '24px', height: '24px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    >
+                      <BiX size={16} />
+                    </button>
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--color-gray-100)', paddingTop: '12px' }}>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <label style={{
+                      cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
+                      color: 'var(--color-gray-600)', fontSize: '12px', fontWeight: 700,
+                      background: 'var(--color-gray-100)', padding: '6px 12px', borderRadius: '20px'
+                    }}>
+                      <BiCategory size={15} />
+                      {coverImage ? 'Photo Attached' : 'Attach Photo'}
+                      <input type="file" accept="image/*" onChange={handleImageChange} style={{ display: 'none' }} />
+                    </label>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={submittingPost || !title.trim() || !lead.trim()}
+                    style={{
+                      background: 'var(--accent-color, #c8102e)',
+                      color: '#fff',
+                      border: 'none',
+                      padding: '8px 22px',
+                      borderRadius: '20px',
+                      fontSize: '13px',
+                      fontWeight: 800,
+                      cursor: (submittingPost || !title.trim() || !lead.trim()) ? 'not-allowed' : 'pointer',
+                      opacity: (submittingPost || !title.trim() || !lead.trim()) ? 0.5 : 1,
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.1)'
+                    }}
+                  >
+                    {submittingPost ? 'Posting...' : 'Share to Tea Shop ☕'}
                   </button>
                 </div>
-                {imagePreview && (
-                  <img src={imagePreview} alt="Preview" style={{ marginTop: 12, maxHeight: 150, borderRadius: 4, objectFit: 'cover' }} />
-                )}
               </form>
             </div>
           )}
@@ -306,7 +375,11 @@ const PostCard = ({ post, user, onReaction }) => {
 
   // Join this article's socket room when comments are opened
   useEffect(() => {
-    const socket = io(SOCKET_URL, { withCredentials: true });
+    const token = localStorage.getItem('sw_token');
+    const socket = io(SOCKET_URL, { 
+      withCredentials: true,
+      auth: token ? { token } : {}
+    });
     socketRef.current = socket;
 
     socket.emit('article:joinRoom', { articleId: post._id });
@@ -393,7 +466,7 @@ const PostCard = ({ post, user, onReaction }) => {
         <button className="newstag-btn">
           <BiShareAlt size={18} /> Share
         </button>
-        {user && user.role === 'admin' && (
+        {user && (user.role === 'admin' || post.author?._id === user._id || post.author === user._id) && (
           <button className="newstag-btn delete-btn" onClick={() => onDelete(post._id)} style={{ marginLeft: 'auto', background: 'transparent', border: 'none', color: 'var(--color-red, #c8102e)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 700 }}>
             <BiTrash size={18} /> Delete
           </button>

@@ -6,7 +6,8 @@ import { authAPI, filterAPI } from '../services/api';
 import toast from 'react-hot-toast';
 import {
   FiUser, FiMail, FiPhone, FiLock, FiCheckCircle, FiShield,
-  FiBook, FiArrowRight, FiArrowLeft, FiCheck, FiX, FiHelpCircle, FiClock
+  FiBook, FiArrowRight, FiArrowLeft, FiCheck, FiX, FiHelpCircle, FiClock,
+  FiEye, FiEyeOff, FiKey, FiRefreshCw
 } from 'react-icons/fi';
 
 const RegisterPage = () => {
@@ -104,6 +105,28 @@ const RegisterPage = () => {
 
   // Username validation state (Step 4)
   const [usernameStatus, setUsernameStatus] = useState({ checking: false, available: null, message: '' });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // Strong password generator
+  const generateStrongPassword = () => {
+    const chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789!@#$%&*';
+    let pwd = '';
+    // Ensure at least one upper, one lower, one number, one special
+    pwd += 'ABCDEFGHJKMNPQRSTUVWXYZ'[Math.floor(Math.random() * 24)];
+    pwd += 'abcdefghjkmnpqrstuvwxyz'[Math.floor(Math.random() * 24)];
+    pwd += '23456789'[Math.floor(Math.random() * 8)];
+    pwd += '!@#$%&*'[Math.floor(Math.random() * 7)];
+    for (let i = 4; i < 14; i++) {
+      pwd += chars[Math.floor(Math.random() * chars.length)];
+    }
+    // Shuffle
+    pwd = pwd.split('').sort(() => 0.5 - Math.random()).join('');
+    setForm(prev => ({ ...prev, password: pwd, confirmPassword: pwd }));
+    setShowPassword(true);
+    setShowConfirmPassword(true);
+    toast.success('Strong password generated and filled! 🔐');
+  };
 
   // Terms Modal State
   const [showTermsModal, setShowTermsModal] = useState(false);
@@ -442,7 +465,22 @@ const RegisterPage = () => {
                     type="button"
                     disabled={sendingEmailOtp || emailTimer > 0 || !form.email}
                     onClick={handleSendEmailOtp}
-                    style={{ padding: isMobile ? '12px' : '0 16px', borderRadius: '8px', background: 'var(--color-black)', color: '#fff', fontWeight: 700, fontSize: '12px', border: 'none', cursor: 'pointer' }}
+                    style={{
+                      padding: '10px 18px',
+                      minHeight: '44px',
+                      borderRadius: '8px',
+                      background: 'var(--color-black)',
+                      color: '#fff',
+                      fontWeight: 700,
+                      fontSize: '13px',
+                      border: 'none',
+                      cursor: (sendingEmailOtp || emailTimer > 0 || !form.email) ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      whiteSpace: 'nowrap',
+                      opacity: (sendingEmailOtp || emailTimer > 0 || !form.email) ? 0.6 : 1
+                    }}
                   >
                     {sendingEmailOtp ? 'Sending...' : emailTimer > 0 ? `${emailTimer}s` : emailOtpSent ? 'Resend OTP' : 'Send OTP'}
                   </button>
@@ -465,7 +503,21 @@ const RegisterPage = () => {
                     type="button"
                     disabled={verifyingEmail || emailOtp.length < 6}
                     onClick={handleVerifyEmailOtp}
-                    style={{ padding: isMobile ? '12px' : '0 18px', borderRadius: '8px', background: 'var(--accent-color)', color: '#fff', fontWeight: 700, fontSize: '12px', border: 'none', cursor: 'pointer' }}
+                    style={{
+                      padding: '10px 18px',
+                      minHeight: '44px',
+                      borderRadius: '8px',
+                      background: 'var(--accent-color)',
+                      color: '#fff',
+                      fontWeight: 700,
+                      fontSize: '13px',
+                      border: 'none',
+                      cursor: (verifyingEmail || emailOtp.length < 6) ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      whiteSpace: 'nowrap'
+                    }}
                   >
                     {verifyingEmail ? 'Verifying...' : 'Verify Email'}
                   </button>
@@ -501,7 +553,22 @@ const RegisterPage = () => {
                     type="button"
                     disabled={sendingPhoneOtp || phoneTimer > 0 || !form.phone}
                     onClick={handleSendPhoneOtp}
-                    style={{ padding: isMobile ? '12px' : '0 16px', borderRadius: '8px', background: 'var(--color-black)', color: '#fff', fontWeight: 700, fontSize: '12px', border: 'none', cursor: 'pointer' }}
+                    style={{
+                      padding: '10px 18px',
+                      minHeight: '44px',
+                      borderRadius: '8px',
+                      background: 'var(--color-black)',
+                      color: '#fff',
+                      fontWeight: 700,
+                      fontSize: '13px',
+                      border: 'none',
+                      cursor: (sendingPhoneOtp || phoneTimer > 0 || !form.phone) ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      whiteSpace: 'nowrap',
+                      opacity: (sendingPhoneOtp || phoneTimer > 0 || !form.phone) ? 0.6 : 1
+                    }}
                   >
                     {sendingPhoneOtp ? 'Sending...' : phoneTimer > 0 ? `${phoneTimer}s` : phoneOtpSent ? 'Resend OTP' : 'Send OTP'}
                   </button>
@@ -524,7 +591,21 @@ const RegisterPage = () => {
                     type="button"
                     disabled={verifyingPhone || phoneOtp.length < 6}
                     onClick={handleVerifyPhoneOtp}
-                    style={{ padding: isMobile ? '12px' : '0 18px', borderRadius: '8px', background: 'var(--accent-color)', color: '#fff', fontWeight: 700, fontSize: '12px', border: 'none', cursor: 'pointer' }}
+                    style={{
+                      padding: '10px 18px',
+                      minHeight: '44px',
+                      borderRadius: '8px',
+                      background: 'var(--accent-color)',
+                      color: '#fff',
+                      fontWeight: 700,
+                      fontSize: '13px',
+                      border: 'none',
+                      cursor: (verifyingPhone || phoneOtp.length < 6) ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      whiteSpace: 'nowrap'
+                    }}
                   >
                     {verifyingPhone ? 'Verifying...' : 'Verify Mobile'}
                   </button>
@@ -557,17 +638,17 @@ const RegisterPage = () => {
                 value={form.educationLevel}
                 onChange={(e) => setForm({ ...form, educationLevel: e.target.value })}
               >
-                <option value="Undergraduate Degree">Undergraduate Degree</option>
-                <option value="Postgraduate / Master Degree">Postgraduate / Master Degree</option>
-                <option value="Doctorate / PhD">Doctorate / PhD</option>
-                <option value="Diploma / Associate Degree">Diploma / Associate Degree</option>
-                <option value="High School">High School</option>
+                <option value="Undergraduate Degree">Undergraduate Degree (UG / Bachelor's)</option>
+                <option value="Postgraduate / Master Degree">Postgraduate Degree (PG / Master's)</option>
+                <option value="Doctorate / PhD">Doctorate / PhD Research Scholar</option>
+                <option value="Diploma / Associate Degree">Diploma / Polytechnic</option>
+                <option value="Higher Secondary / High School">Higher Secondary / 12th Standard</option>
               </select>
             </div>
 
             <div className="form-group" style={{ marginBottom: '16px' }}>
               <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span>University / College / Institution</span>
+                <span>University / College / Campus</span>
                 <span style={{ fontSize: '11px', color: 'var(--color-gray-500)' }}>Select or Type Custom</span>
               </label>
               
@@ -586,20 +667,22 @@ const RegisterPage = () => {
                 {!publicSettings.restrictToDefaultUniversity && (
                   <select
                     className="form-input"
-                    style={{ width: isMobile ? '100%' : 'auto', maxWidth: isMobile ? '100%' : '170px', fontSize: '12px' }}
+                    style={{ width: isMobile ? '100%' : 'auto', maxWidth: isMobile ? '100%' : '200px', fontSize: '12px' }}
                     value={form.university}
                     onChange={(e) => setForm({ ...form, university: e.target.value })}
                   >
-                    <option value="">-- Quick Select --</option>
-                    <option value="University of Madras">University of Madras</option>
-                    <option value="Anna University">Anna University</option>
+                    <option value="">-- Quick Campus List --</option>
+                    <option value="University of Madras (Chepauk / Marina / Guindy)">University of Madras</option>
+                    <option value="Anna University (CEG / ACT / SAP / MIT)">Anna University</option>
                     <option value="Indian Institute of Technology (IIT) Madras">IIT Madras</option>
                     <option value="SRM Institute of Science and Technology">SRM Institute</option>
-                    <option value="VIT University">VIT University</option>
+                    <option value="VIT University (Chennai / Vellore)">VIT University</option>
                     <option value="Loyola College, Chennai">Loyola College</option>
                     <option value="Presidency College, Chennai">Presidency College</option>
-                    <option value="Madurai Kamaraj University">Madurai Kamaraj</option>
-                    <option value="Bharathiar University">Bharathiar Univ</option>
+                    <option value="Madras Christian College (MCC)">Madras Christian College</option>
+                    <option value="Stella Maris College, Chennai">Stella Maris College</option>
+                    <option value="Madurai Kamaraj University">Madurai Kamaraj Univ</option>
+                    <option value="Bharathiar University, Coimbatore">Bharathiar University</option>
                   </select>
                 )}
               </div>
@@ -612,8 +695,10 @@ const RegisterPage = () => {
                 <option value="VIT University" />
                 <option value="Loyola College, Chennai" />
                 <option value="Presidency College, Chennai" />
+                <option value="Madras Christian College (MCC)" />
+                <option value="Stella Maris College, Chennai" />
                 <option value="Madurai Kamaraj University" />
-                <option value="Bharathiar University" />
+                <option value="Bharathiar University, Coimbatore" />
               </datalist>
 
               {publicSettings.restrictToDefaultUniversity && (
@@ -625,18 +710,60 @@ const RegisterPage = () => {
 
             <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '14px', marginBottom: '24px' }}>
               <div className="form-group" style={{ flex: 1 }}>
-                <label className="form-label">Academic Major / Department</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="Computer Science"
-                  value={form.academicMajor}
-                  onChange={(e) => setForm({ ...form, academicMajor: e.target.value })}
-                  required
-                />
+                <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Course / Academic Major</span>
+                  <span style={{ fontSize: '11px', color: 'var(--color-gray-500)' }}>Select / Type</span>
+                </label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <input
+                    type="text"
+                    list="course-options-list"
+                    className="form-input"
+                    placeholder="e.g. Computer Science / Journalism"
+                    value={form.academicMajor}
+                    onChange={(e) => setForm({ ...form, academicMajor: e.target.value })}
+                    required
+                  />
+                  <select
+                    className="form-input"
+                    style={{ fontSize: '12px' }}
+                    value=""
+                    onChange={(e) => {
+                      if (e.target.value) setForm({ ...form, academicMajor: e.target.value });
+                    }}
+                  >
+                    <option value="">-- Quick Course / Major Select --</option>
+                    <option value="Computer Science & Engineering">Computer Science & Engg</option>
+                    <option value="Information Technology">Information Technology</option>
+                    <option value="Journalism & Mass Communication">Journalism & Mass Comm</option>
+                    <option value="Visual Communication / Media Arts">Visual Communication</option>
+                    <option value="B.Com / Commerce & Finance">B.Com / Commerce & Finance</option>
+                    <option value="BBA / Business Administration">BBA / Business Administration</option>
+                    <option value="English Literature">English Literature</option>
+                    <option value="Tamil Literature">Tamil Literature</option>
+                    <option value="Law / LLB / Legal Studies">Law / LLB / Legal Studies</option>
+                    <option value="Economics">Economics</option>
+                    <option value="Mechanical / Civil / Electrical Engg">Core Engineering</option>
+                    <option value="Physics / Chemistry / Maths">Pure Sciences (Physics/Chem/Math)</option>
+                    <option value="Medicine / Biotechnology">Biotechnology / Life Sciences</option>
+                  </select>
+                </div>
+                <datalist id="course-options-list">
+                  <option value="Computer Science & Engineering" />
+                  <option value="Information Technology" />
+                  <option value="Journalism & Mass Communication" />
+                  <option value="Visual Communication" />
+                  <option value="Commerce & Accounting" />
+                  <option value="Business Administration" />
+                  <option value="English Literature" />
+                  <option value="Tamil Literature" />
+                  <option value="Law & Legal Studies" />
+                  <option value="Economics" />
+                </datalist>
               </div>
+
               <div className="form-group" style={{ flex: 1 }}>
-                <label className="form-label">Year of Study</label>
+                <label className="form-label">Designation / Year of Study</label>
                 <select
                   className="form-input"
                   value={form.yearOfStudy}
@@ -646,7 +773,10 @@ const RegisterPage = () => {
                   <option value="2nd Year / Sophomore">2nd Year / Sophomore</option>
                   <option value="3rd Year / Junior">3rd Year / Junior</option>
                   <option value="Final Year / Senior">Final Year / Senior</option>
-                  <option value="Post-Graduate">Post-Graduate</option>
+                  <option value="Postgraduate (1st / 2nd Year)">Postgraduate (1st / 2nd Year)</option>
+                  <option value="Doctorate / PhD Scholar">Doctorate / PhD Scholar</option>
+                  <option value="Alumni / Graduate">Alumni / Graduate</option>
+                  <option value="Faculty / Staff Member">Faculty / Staff Member</option>
                 </select>
               </div>
             </div>
@@ -696,29 +826,99 @@ const RegisterPage = () => {
               </p>
             </div>
 
-            {/* Passwords */}
+            {/* Password Suggestion Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <span style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--color-black)' }}>Password Setup</span>
+              <button
+                type="button"
+                onClick={generateStrongPassword}
+                style={{
+                  background: 'rgba(0,85,164,0.08)',
+                  color: 'var(--accent-color)',
+                  border: '1px solid var(--accent-color)',
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  fontSize: '11.5px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px'
+                }}
+              >
+                <FiKey size={13} /> Suggest Strong Password
+              </button>
+            </div>
+
+            {/* Passwords with Eye Visibility Toggles */}
             <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '14px', marginBottom: '20px' }}>
               <div className="form-group" style={{ flex: 1 }}>
                 <label className="form-label">Password</label>
-                <input
-                  type="password"
-                  className="form-input"
-                  placeholder="••••••••"
-                  value={form.password}
-                  onChange={(e) => setForm({ ...form, password: e.target.value })}
-                  required
-                />
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    className="form-input"
+                    placeholder="••••••••"
+                    value={form.password}
+                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                    style={{ paddingRight: '38px' }}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(prev => !prev)}
+                    style={{
+                      position: 'absolute',
+                      right: '10px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      border: 'none',
+                      background: 'none',
+                      cursor: 'pointer',
+                      color: 'var(--color-gray-500)',
+                      padding: '4px',
+                      display: 'flex',
+                      alignItems: 'center'
+                    }}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <FiEyeOff size={16} /> : <FiEye size={16} />}
+                  </button>
+                </div>
               </div>
               <div className="form-group" style={{ flex: 1 }}>
                 <label className="form-label">Confirm Password</label>
-                <input
-                  type="password"
-                  className="form-input"
-                  placeholder="••••••••"
-                  value={form.confirmPassword}
-                  onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
-                  required
-                />
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    className="form-input"
+                    placeholder="••••••••"
+                    value={form.confirmPassword}
+                    onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
+                    style={{ paddingRight: '38px' }}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(prev => !prev)}
+                    style={{
+                      position: 'absolute',
+                      right: '10px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      border: 'none',
+                      background: 'none',
+                      cursor: 'pointer',
+                      color: 'var(--color-gray-500)',
+                      padding: '4px',
+                      display: 'flex',
+                      alignItems: 'center'
+                    }}
+                    aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showConfirmPassword ? <FiEyeOff size={16} /> : <FiEye size={16} />}
+                  </button>
+                </div>
               </div>
             </div>
 

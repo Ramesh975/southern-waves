@@ -25,6 +25,16 @@ exports.addComment = async (req, res, next) => {
     // Scan comment for harmful content
     const scanResult = await scanText(req.body.text || '');
     if (scanResult.isFlagged) {
+      // If user is admin/moderator, give warning without restricting account
+      if (['admin', 'moderator'].includes(req.user.role)) {
+        return res.status(400).json({
+          success: false,
+          warning: true,
+          message: `Warning: Your comment contains restricted content (${scanResult.reason}). It was not posted, but admin accounts are not restricted.`,
+          reason: scanResult.reason,
+        });
+      }
+
       // Auto-block the user temporarily (1 hour)
       const User = require('../models/User');
       const blockedUntil = new Date(Date.now() + 1 * 60 * 60 * 1000);
@@ -114,6 +124,48 @@ exports.approveComment = async (req, res, next) => {
   }
 };
 
+// @desc    Update comment
+// @route   PUT /api/comments/:id
+// @access  Private (author or admin)
+exports.updateComment = async (req, res, next) => {
+  try {
+    const { text } = req.body;
+    if (!text || !text.trim()) {
+      return res.status(400).json({ success: false, message: 'Comment text is required' });
+    }
+
+    const comment = await Comment.findById(req.params.id);
+    if (!comment) return res.status(404).json({ success: false, message: 'Comment not found' });
+
+    if (comment.author.toString() !== req.user.id && !['admin', 'editor', 'moderator'].includes(req.user.role)) {
+      return res.status(403).json({ success: false, message: 'Not authorized to edit this comment' });
+    }
+
+    // Scan for harmful content
+    const scanResult = await scanText(text.trim());
+    if (scanResult.isFlagged) {
+      return res.status(400).json({ success: false, message: `Harmful content detected: ${scanResult.reason}` });
+    }
+
+    comment.text = text.trim();
+    comment.isEdited = true;
+    comment.editedAt = new Date();
+    await comment.save();
+
+    await comment.populate('author', 'name username showRealNamePublicly avatar role');
+
+    // Broadcast edit via socket
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`article:${comment.article}`).emit('comment:edited', comment);
+    }
+
+    res.status(200).json({ success: true, data: comment });
+  } catch (err) {
+    next(err);
+  }
+};
+
 // @desc    Delete comment
 // @route   DELETE /api/comments/:id
 // @access  Private (owner or admin)
@@ -124,7 +176,14 @@ exports.deleteComment = async (req, res, next) => {
     if (comment.author.toString() !== req.user.id && !['admin', 'editor', 'moderator'].includes(req.user.role)) {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
+    const articleId = comment.article;
     await comment.deleteOne();
+
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`article:${articleId}`).emit('comment:deleted', { _id: req.params.id });
+    }
+
     res.status(200).json({ success: true, message: 'Comment deleted' });
   } catch (err) {
     next(err);

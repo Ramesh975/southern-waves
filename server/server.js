@@ -120,16 +120,23 @@ const getSocketToken = (socket) => {
 io.use(async (socket, next) => {
   try {
     const token = getSocketToken(socket);
-    if (!token) return next(new Error('Authentication required'));
+    if (!token) {
+      socket.data.user = null;
+      return next();
+    }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findById(decoded.id).select('_id name role isActive isBlocked');
-    if (!user || !user.isActive) return next(new Error('Authentication required'));
+    if (!user || !user.isActive) {
+      socket.data.user = null;
+      return next();
+    }
 
     socket.data.user = { id: user.id, role: user.role, isBlocked: user.isBlocked };
     return next();
   } catch (error) {
-    return next(new Error('Authentication required'));
+    socket.data.user = null;
+    return next();
   }
 });
 

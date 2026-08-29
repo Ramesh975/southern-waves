@@ -32,6 +32,7 @@
   --color-gray-300: #cccccc;
   --color-gray-200: #e0e0e0;
   --color-gray-100: #f4f4f4;
+  --color-gray-50: #fafafa;
   --color-white: #ffffff;
   --color-cream: #faf8f5;
   --color-paper: #fbf9f5;
@@ -90,6 +91,7 @@
   --color-gray-300: #333333;
   --color-gray-200: #2a2a2a;
   --color-gray-100: #1e1e1e;
+  --color-gray-50: #181818;
   --color-white: #1a1a1a;
   --color-cream: #121212;
   --color-paper: #151515;
@@ -119,10 +121,42 @@
   --color-gray-400: #444444;
   --color-gray-300: #222222;
   --color-gray-200: #151515;
-  --color-gray-100: #0d0d0d;
+  --color-gray-100: #0a0a0a;
+  --color-gray-50: #000000;
   --color-white: #000000;
   --color-cream: #000000;
   --color-paper: #000000;
+}
+
+/* Style Mode Typography & High Contrast */
+[data-style="traditional"] {
+  --font-display: 'Playfair Display', Georgia, serif;
+  --font-serif: 'Playfair Display', Georgia, serif;
+  --font-sans: 'Playfair Display', Georgia, serif;
+}
+
+[data-style="traditional"] body,
+[data-style="traditional"] h1,
+[data-style="traditional"] h2,
+[data-style="traditional"] h3,
+[data-style="traditional"] h4,
+[data-style="traditional"] p,
+[data-style="traditional"] .article-body {
+  font-family: var(--font-serif) !important;
+}
+
+[data-theme="dark"] [data-style="traditional"] body,
+[data-theme="dark"] [data-style="traditional"] .article-body,
+[data-theme="dark"] [data-style="traditional"] p,
+[data-theme="black"] [data-style="traditional"] body,
+[data-theme="black"] [data-style="traditional"] .article-body,
+[data-theme="black"] [data-style="traditional"] p {
+  color: #f3f4f6 !important;
+}
+
+[data-theme="dark"] body,
+[data-theme="black"] body {
+  color: #f9fafb;
 }
 
 body.fs-small  { --fs-article: 14px; }

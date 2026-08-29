@@ -164,51 +164,44 @@ const ForYouTab = ({ highlightId, onReply, onComment }) => {
 
             {/* Configured Preferences Widget */}
             {user.recommendationSettings && (
-              <div className="nm-configured-preferences" style={{
-                background: 'rgba(0,0,0,0.03)',
-                border: '2px solid #000',
-                padding: '12px',
-                borderRadius: '6px',
-                marginBottom: '20px',
-                boxShadow: '3px 3px 0 #000'
-              }}>
-                <h4 style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', color: '#000', margin: '0 0 10px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="nm-configured-preferences">
+                <h4 className="nm-configured-pref-title">
                   <span>🎯 Feed Preferences</span>
                   <button 
                     onClick={() => window.dispatchEvent(new CustomEvent('open-account-settings', { detail: { tab: 'recommendations' } }))}
-                    style={{ background: 'none', border: 'none', color: 'var(--accent-color, #0055a4)', fontWeight: 800, fontSize: '9.5px', cursor: 'pointer', textTransform: 'uppercase', padding: 0 }}
+                    className="nm-configured-pref-tune"
                   >
                     Tune
                   </button>
                 </h4>
                 {/* Categories */}
                 <div style={{ marginBottom: '8px' }}>
-                  <span style={{ fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', color: '#666', display: 'block', marginBottom: '4px' }}>Sections</span>
+                  <span className="nm-pref-section-label">Sections</span>
                   {user.recommendationSettings.preferredCategories && user.recommendationSettings.preferredCategories.length > 0 ? (
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                       {user.recommendationSettings.preferredCategories.map(cat => (
-                        <span key={cat} style={{ background: '#f3f4f6', border: '1.5px solid #000', color: '#000', padding: '1px 6px', borderRadius: '4px', fontSize: '9.5px', fontWeight: 700, textTransform: 'uppercase' }}>
+                        <span key={cat} className="nm-pref-tag-pill">
                           {cat}
                         </span>
                       ))}
                     </div>
                   ) : (
-                    <span style={{ fontSize: '11px', color: '#777', fontStyle: 'italic' }}>None selected</span>
+                    <span style={{ fontSize: '11px', color: 'var(--color-gray-500, #777)', fontStyle: 'italic' }}>None selected</span>
                   )}
                 </div>
                 {/* Tags */}
                 <div>
-                  <span style={{ fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', color: '#666', display: 'block', marginBottom: '4px' }}>Favorite Topics</span>
+                  <span className="nm-pref-section-label">Favorite Topics</span>
                   {user.recommendationSettings.preferredTags && user.recommendationSettings.preferredTags.length > 0 ? (
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                       {user.recommendationSettings.preferredTags.map(tag => (
-                        <span key={tag} style={{ background: '#fff', border: '1.5px solid #000', color: '#000', padding: '1px 6px', borderRadius: '4px', fontSize: '9.5px', fontWeight: 700 }}>
+                        <span key={tag} className="nm-pref-tag-pill">
                           #{tag}
                         </span>
                       ))}
                     </div>
                   ) : (
-                    <span style={{ fontSize: '11px', color: '#777', fontStyle: 'italic' }}>None selected</span>
+                    <span style={{ fontSize: '11px', color: 'var(--color-gray-500, #777)', fontStyle: 'italic' }}>None selected</span>
                   )}
                 </div>
               </div>

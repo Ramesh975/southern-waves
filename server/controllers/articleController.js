@@ -39,7 +39,7 @@ exports.getArticles = async (req, res, next) => {
     }
 
     if (category) {
-      query.category = category;
+      query.$or = [{ category: category }, { categories: category }];
     } else if (req.query.adminView !== 'true' && !tag) {
       // Exclude tea-shop from general public listings only when not filtering by tag
       query.category = { $ne: 'tea-shop' };
@@ -244,14 +244,36 @@ exports.createArticle = async (req, res, next) => {
       } catch (e) {}
     }
 
-    // If student, restrict to published tea-shop post OR pending pictures-speak post
-    if (req.user.role === 'student') {
-      if (req.body.category === 'pictures-speak') {
-        req.body.status = 'pending';
-      } else {
-        req.body.category = 'tea-shop';
-        req.body.status = 'published';
+    // Parse categories array if sent as JSON string or comma-separated
+    if (req.body.categories) {
+      if (typeof req.body.categories === 'string') {
+        try {
+          req.body.categories = JSON.parse(req.body.categories);
+        } catch (e) {
+          req.body.categories = req.body.categories.split(',').map(c => c.trim()).filter(Boolean);
+        }
       }
+      if (Array.isArray(req.body.categories)) {
+        const standalone = req.body.categories.find(c => ['tea-shop', 'pictures-speak'].includes(c));
+        if (standalone) {
+          req.body.categories = [standalone];
+          req.body.category = standalone;
+        } else {
+          req.body.categories = req.body.categories.filter(c => !['tea-shop', 'pictures-speak'].includes(c)).slice(0, 3);
+          if (req.body.category && !req.body.categories.includes(req.body.category)) {
+            req.body.categories = [req.body.category, ...req.body.categories].slice(0, 3);
+          }
+          if (req.body.categories.length > 0) {
+            req.body.category = req.body.categories[0];
+          }
+        }
+      }
+    } else if (req.body.category) {
+      req.body.categories = [req.body.category];
+    }
+
+    // Role-based field restrictions for regular authors
+    if (req.user.role === 'student') {
       req.body.isFeatured = false;
       req.body.isTrending = false;
       req.body.isBreaking = false;
@@ -369,14 +391,8 @@ exports.updateArticle = async (req, res, next) => {
       return res.status(403).json({ success: false, message: 'Not authorized to update this article' });
     }
 
-    // If student, restrict category and status
+    // Role-based field restrictions for regular authors
     if (req.user.role === 'student') {
-      if (req.body.category === 'pictures-speak' || article.category === 'pictures-speak') {
-        req.body.status = 'pending';
-      } else {
-        req.body.category = 'tea-shop';
-        req.body.status = 'published';
-      }
       req.body.isFeatured = false;
       req.body.isTrending = false;
       req.body.isBreaking = false;
@@ -420,6 +436,34 @@ exports.updateArticle = async (req, res, next) => {
       try {
         req.body.images = JSON.parse(req.body.images);
       } catch (e) {}
+    }
+
+    // Parse categories array if sent as JSON string or comma-separated
+    if (req.body.categories) {
+      if (typeof req.body.categories === 'string') {
+        try {
+          req.body.categories = JSON.parse(req.body.categories);
+        } catch (e) {
+          req.body.categories = req.body.categories.split(',').map(c => c.trim()).filter(Boolean);
+        }
+      }
+      if (Array.isArray(req.body.categories)) {
+        const standalone = req.body.categories.find(c => ['tea-shop', 'pictures-speak'].includes(c));
+        if (standalone) {
+          req.body.categories = [standalone];
+          req.body.category = standalone;
+        } else {
+          req.body.categories = req.body.categories.filter(c => !['tea-shop', 'pictures-speak'].includes(c)).slice(0, 3);
+          if (req.body.category && !req.body.categories.includes(req.body.category)) {
+            req.body.categories = [req.body.category, ...req.body.categories].slice(0, 3);
+          }
+          if (req.body.categories.length > 0) {
+            req.body.category = req.body.categories[0];
+          }
+        }
+      }
+    } else if (req.body.category) {
+      req.body.categories = [req.body.category];
     }
 
     // Only admin can push to home

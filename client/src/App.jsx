@@ -24,10 +24,12 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import NewsTagPage from './pages/NewsTagPage';
 import NewsMenuPage from './pages/NewsMenuPage';
 import SavedArticlesPage from './pages/SavedArticlesPage';
-import MyUploadsPage from './pages/MyUploadsPage';
+import AuthorProfilePage from './pages/AuthorProfilePage';
 import OnboardingPage from './pages/OnboardingPage';
 import SettingsPage from './pages/SettingsPage';
 import KnowYourPastPage from './pages/KnowYourPastPage';
+import StoriesPage from './pages/StoriesPage';
+import UniversityRowPage from './pages/UniversityRowPage';
 
 // Admin Pages
 import AdminLayout from './pages/admin/AdminLayout';
@@ -126,6 +128,7 @@ const AppInner = () => {
     '/news',
     '/editorial',
     '/features',
+    '/university-row',
     '/know-your-past',
     '/tea-shop',
     '/pictures-speak',
@@ -195,9 +198,13 @@ const AppInner = () => {
           <Route path="/news" element={<NewsMenuPage defaultCategory="news" />} />
           <Route path="/editorial" element={<NewsMenuPage defaultCategory="editorial" />} />
           <Route path="/features" element={<NewsMenuPage defaultCategory="features" />} />
+          <Route path="/university-row" element={<NewsMenuPage defaultCategory="university-row" />} />
           <Route path="/know-your-past" element={<KnowYourPastPage />} />
           <Route path="/tea-shop" element={<NewsMenuPage defaultCategory="tea-shop" />} />
           <Route path="/pictures-speak" element={<PicturesSpeakPage />} />
+          <Route path="/stories" element={<StoriesPage />} />
+          <Route path="/author/:identifier" element={<AuthorProfilePage />} />
+          <Route path="/author" element={<AuthorProfilePage />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/tag/:tag" element={<NewsTagPage />} />
           <Route path="/about" element={<AboutPage />} />
@@ -207,11 +214,12 @@ const AppInner = () => {
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
-          {/* Protected Saved Articles & Onboarding Route */}
+          {/* Protected Saved Articles & Author Studio Route */}
           <Route element={<ProtectedRoute allowedRoles={['student', 'moderator', 'editor', 'admin']} />}>
             <Route path="/chat" element={<ChatPage />} />
             <Route path="/saved-articles" element={<SavedArticlesPage />} />
-            <Route path="/my-uploads" element={<MyUploadsPage />} />
+            <Route path="/my-uploads" element={<AuthorProfilePage />} />
+            <Route path="/author-studio" element={<AuthorProfilePage />} />
             <Route path="/onboarding" element={<OnboardingPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>

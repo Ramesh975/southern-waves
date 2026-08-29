@@ -48,9 +48,7 @@ export const ThemeProvider = ({ children }) => {
     return 'light';
   });
 
-  const [styleMode, setStyleMode] = useState(() => {
-    return localStorage.getItem('southern_waves_style') || 'modern';
-  });
+  const [styleMode] = useState('modern');
 
   const [accent, setAccent] = useState(() => {
     return localStorage.getItem('southern_waves_accent') || 'blue';
@@ -63,10 +61,10 @@ export const ThemeProvider = ({ children }) => {
   }, [theme]);
 
   useEffect(() => {
-    // Set data-style attribute on <html> element
-    document.documentElement.setAttribute('data-style', styleMode);
-    localStorage.setItem('southern_waves_style', styleMode);
-  }, [styleMode]);
+    // Always set data-style to modern
+    document.documentElement.setAttribute('data-style', 'modern');
+    localStorage.setItem('southern_waves_style', 'modern');
+  }, []);
 
   useEffect(() => {
     // Dynamically update accent colors in root CSS variables
@@ -85,9 +83,8 @@ export const ThemeProvider = ({ children }) => {
     });
   };
 
-  const toggleStyleMode = () => {
-    setStyleMode((prev) => (prev === 'traditional' ? 'modern' : 'traditional'));
-  };
+  const toggleStyleMode = () => {};
+  const setStyleMode = () => {};
 
   return (
     <ThemeContext.Provider value={{ 

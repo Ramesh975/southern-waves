@@ -822,22 +822,40 @@
   transform-origin: top right;
 }
 
-[data-style="modern"] .appearance-popover {
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12);
-  background: rgba(255, 255, 255, 0.95);
+/* ============================================================
+   APPEARANCE & THEME POPOVER
+   ============================================================ */
+
+.appearance-popover {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  width: 280px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 18px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+  z-index: 2100;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: popover-scale-in 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transform-origin: top right;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
 }
 
-[data-theme="dark"] [data-style="modern"] .appearance-popover {
-  background: rgba(30, 30, 30, 0.95);
-  border-color: rgba(255, 255, 255, 0.08);
+[data-theme="dark"] .appearance-popover {
+  background: #18181b;
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
 }
 
 [data-theme="black"] .appearance-popover {
   background: #000000;
-  border-color: #333333;
+  border-color: #27272a;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.8);
 }
 
 @keyframes popover-scale-in {
@@ -854,11 +872,16 @@
 .popover-header h3 {
   font-family: var(--font-display);
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 1px;
-  color: var(--color-black);
+  letter-spacing: 0.5px;
+  color: var(--color-black, #0f172a);
   margin: 0;
+}
+
+[data-theme="dark"] .popover-header h3,
+[data-theme="black"] .popover-header h3 {
+  color: #ffffff;
 }
 
 .popover-section {
@@ -872,7 +895,7 @@
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
-  color: var(--color-gray-500);
+  color: var(--color-gray-500, #94a3b8);
   letter-spacing: 0.5px;
 }
 
@@ -902,9 +925,10 @@
   align-items: center;
   gap: 4px;
   padding: 8px 4px;
-  border: 2px solid var(--color-black);
-  background: var(--color-white);
-  color: var(--color-black);
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #0f172a;
   font-family: var(--font-sans);
   font-size: 11px;
   font-weight: 700;
@@ -913,94 +937,32 @@
   transition: all 0.2s ease;
 }
 
-[data-style="modern"] .theme-mode-btn {
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 8px;
-  background: rgba(0, 0, 0, 0.03);
+[data-theme="dark"] .theme-mode-btn {
+  background: #27272a;
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #f8fafc;
 }
 
-[data-theme="dark"] [data-style="modern"] .theme-mode-btn {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.08);
+[data-theme="black"] .theme-mode-btn {
+  background: #111111;
+  border-color: #333333;
+  color: #ffffff;
 }
 
 .theme-mode-btn:hover {
-  background: var(--color-gray-100);
+  background: rgba(125, 125, 125, 0.15);
   color: var(--accent-color);
 }
 
 .theme-mode-btn.selected {
-  background: var(--accent-color);
-  color: var(--color-white);
-  border-color: var(--accent-color);
-}
-
-[data-style="modern"] .theme-mode-btn.selected {
-  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.2);
-}
-
-.ui-mode-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-}
-
-.ui-mode-btn {
-  padding: 8px;
-  border: 2px solid var(--color-black);
-  background: var(--color-white);
-  color: var(--color-black);
-  font-family: var(--font-sans);
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-[data-style="modern"] .ui-mode-btn {
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 8px;
-  background: rgba(0, 0, 0, 0.03);
-}
-
-[data-theme="dark"] [data-style="modern"] .ui-mode-btn {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.08);
-}
-
-.ui-mode-btn:hover {
-  background: var(--color-gray-100);
-  color: var(--accent-color);
-}
-
-.ui-mode-btn.selected {
-  background: var(--accent-color);
-  color: var(--color-white);
-  border-color: var(--accent-color);
-}
-
-[data-style="modern"] .ui-mode-btn.selected {
-  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.2);
+  background: var(--accent-color) !important;
+  color: #ffffff !important;
+  border-color: var(--accent-color) !important;
+  box-shadow: 0 4px 12px rgba(0, 85, 164, 0.3);
 }
 
 /* ============================================================
-   SIGN-OUT CONFIRMATION MODAL ANIMATIONS
-   ============================================================ */
-
-@keyframes fadeInOverlay {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-
-@keyframes slideUpModal {
-  from { opacity: 0; transform: translateY(20px) scale(0.96); }
-  to   { opacity: 1; transform: translateY(0)    scale(1);    }
-}
-
-/* ============================================================
-   PROFILE POPOVER & ANIMATIONS
+   PROFILE POPOVER
    ============================================================ */
 
 .profile-popover {
@@ -1008,35 +970,31 @@
   top: calc(100% + 12px);
   right: 0;
   width: 290px;
-  background: var(--color-white);
-  border: 3px solid var(--color-black);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 16px;
   padding: 20px;
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
   z-index: 2100;
   display: flex;
   flex-direction: column;
   gap: 16px;
   animation: hero-popover-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
   transform-origin: top right;
-}
-
-[data-style="modern"] .profile-popover {
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12);
-  background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
 }
 
-[data-theme="dark"] [data-style="modern"] .profile-popover {
-  background: rgba(30, 30, 30, 0.95);
-  border-color: rgba(255, 255, 255, 0.08);
+[data-theme="dark"] .profile-popover {
+  background: #18181b;
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
 }
 
 [data-theme="black"] .profile-popover {
   background: #000000;
-  border-color: #333333;
+  border-color: #27272a;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.8);
 }
 
 @keyframes hero-popover-in {
@@ -1057,11 +1015,12 @@
   align-items: center;
   gap: 12px;
   padding-bottom: 12px;
-  border-bottom: 1px solid var(--color-gray-200);
+  border-bottom: 1px solid #e2e8f0;
 }
 
-[data-theme="dark"] .profile-popover-header {
-  border-bottom-color: rgba(255, 255, 255, 0.08);
+[data-theme="dark"] .profile-popover-header,
+[data-theme="black"] .profile-popover-header {
+  border-bottom-color: rgba(255, 255, 255, 0.1);
 }
 
 .profile-popover-avatar {
@@ -1070,7 +1029,7 @@
   border-radius: 50%;
   border: 2px solid var(--accent-color);
   object-fit: cover;
-  background: var(--color-gray-200);
+  background: #e2e8f0;
 }
 
 .profile-popover-info {
@@ -1084,7 +1043,7 @@
   font-family: var(--font-display);
   font-weight: 800;
   font-size: 15px;
-  color: var(--color-black);
+  color: #0f172a;
   text-transform: capitalize;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -1092,13 +1051,23 @@
   margin: 0;
 }
 
+[data-theme="dark"] .profile-popover-name,
+[data-theme="black"] .profile-popover-name {
+  color: #ffffff;
+}
+
 .profile-popover-email {
-  font-size: 11px;
-  color: var(--color-gray-500);
+  font-size: 11.5px;
+  color: #64748b;
   white-space: nowrap;
   text-overflow: ellipsis;
   overflow: hidden;
   margin: 0;
+}
+
+[data-theme="dark"] .profile-popover-email,
+[data-theme="black"] .profile-popover-email {
+  color: #94a3b8;
 }
 
 .profile-popover-role {
@@ -1123,7 +1092,7 @@
   padding: 10px 14px;
   border-radius: 8px;
   text-decoration: none;
-  color: var(--color-black);
+  color: #1e293b;
   font-family: var(--font-sans);
   font-weight: 600;
   font-size: 13.5px;
@@ -1134,17 +1103,26 @@
   text-align: left;
 }
 
+[data-theme="dark"] .profile-popover-item {
+  color: #f1f5f9;
+}
+
+[data-theme="black"] .profile-popover-item {
+  color: #ffffff;
+}
+
 .profile-popover-item:hover {
   background: rgba(0, 0, 0, 0.04);
   transform: translateX(4px);
   color: var(--accent-color);
 }
 
-[data-theme="dark"] .profile-popover-item:hover {
-  background: rgba(255, 255, 255, 0.05);
+[data-theme="dark"] .profile-popover-item:hover,
+[data-theme="black"] .profile-popover-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--accent-color);
 }
 
-/* Specific Rounded Box for Sign Out Button */
 .profile-popover-signout {
   display: flex;
   align-items: center;
@@ -1157,27 +1135,17 @@
   font-weight: 800;
   font-size: 12px;
   text-transform: uppercase;
-  color: var(--color-white);
-  background: var(--color-black);
-  border: 2px solid var(--color-black);
-  border-radius: 20px; /* Box Rounded */
+  color: #ffffff;
+  background: var(--accent-color, #c8102e);
+  border: none;
+  border-radius: 20px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .profile-popover-signout:hover {
-  background: transparent;
-  color: var(--color-black);
-}
-
-[data-theme="dark"] .profile-popover-signout {
-  background: var(--accent-color);
-  border-color: var(--accent-color);
-  color: #fff;
-}
-
-[data-theme="dark"] .profile-popover-signout:hover {
-  opacity: 0.85;
+  opacity: 0.9;
+  transform: scale(1.02);
 }
 
 /* Mobile Notifications Dropdown Override */
