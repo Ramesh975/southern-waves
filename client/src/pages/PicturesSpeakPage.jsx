@@ -336,6 +336,8 @@ const StoryViewer = ({ article, articlesList = [], onClose, onSelectArticle }) =
     }, 280);
   };
 
+  const [isHoldingPhoto, setIsHoldingPhoto] = useState(false);
+
   // Touch & Mouse 3D Swipe Handlers
   const dragStartRef = useRef({ x: 0, y: 0, time: 0 });
 
@@ -343,6 +345,7 @@ const StoryViewer = ({ article, articlesList = [], onClose, onSelectArticle }) =
     const t = e.targetTouches[0];
     dragStartRef.current = { x: t.clientX, y: t.clientY, time: Date.now() };
     setIsDragging(true);
+    setIsHoldingPhoto(true);
   };
 
   const onTouchMove = (e) => {
@@ -350,10 +353,18 @@ const StoryViewer = ({ article, articlesList = [], onClose, onSelectArticle }) =
     const t = e.targetTouches[0];
     const dx = t.clientX - dragStartRef.current.x;
     const dy = t.clientY - dragStartRef.current.y;
+    
+    // Prevent mobile browser pull-to-refresh during swipe gesture
+    if (Math.abs(dy) > 4 || Math.abs(dx) > 4) {
+      if (e.cancelable) {
+        e.preventDefault();
+      }
+    }
     setDragOffset({ x: dx, y: dy });
   };
 
   const onTouchEnd = () => {
+    setIsHoldingPhoto(false);
     if (!isDragging) return;
     setIsDragging(false);
     const { x, y } = dragOffset;
@@ -380,6 +391,7 @@ const StoryViewer = ({ article, articlesList = [], onClose, onSelectArticle }) =
   const onMouseDown = (e) => {
     dragStartRef.current = { x: e.clientX, y: e.clientY, time: Date.now() };
     setIsDragging(true);
+    setIsHoldingPhoto(true);
   };
 
   const onMouseMove = (e) => {
@@ -390,7 +402,15 @@ const StoryViewer = ({ article, articlesList = [], onClose, onSelectArticle }) =
   };
 
   const onMouseUp = () => {
+    setIsHoldingPhoto(false);
     onTouchEnd();
+  };
+
+  const onMouseLeave = () => {
+    if (isDragging || isHoldingPhoto) {
+      setIsHoldingPhoto(false);
+      onTouchEnd();
+    }
   };
 
   const handleHype = async () => {
@@ -504,12 +524,12 @@ const StoryViewer = ({ article, articlesList = [], onClose, onSelectArticle }) =
         <div className="ps-viewer-split-body">
 
           {/* ════════════════════════════════════════════════════════════
-             LEFT SIDE: { photos } | { actions } | { & discus }
+             LEFT SIDE: [1. Picture] | [2. Actions] | [5. Discussion]
           ════════════════════════════════════════════════════════════ */}
           <div className="ps-view-left-column">
             
-            {/* 1. { photos } — Hero 3D Stage with Stacked Photos Shade Reveal */}
-            <div className="ps-3d-stage-wrapper">
+            {/* 1. { Picture } — Hero 3D Stage with Stacked Photos & Fog Overlay Narration */}
+            <div className="ps-section-picture ps-3d-stage-wrapper">
               <div className="ps-hero-stack-container">
                 
                 {/* Stack Under-layer 2 (Deepest shade) */}
@@ -539,7 +559,7 @@ const StoryViewer = ({ article, articlesList = [], onClose, onSelectArticle }) =
                 {/* Active Hero Card with 3D Gesture Drag & Smooth Lift */}
                 <div 
                   ref={cardRef}
-                  className="ps-3d-story-card ps-hero-active-card"
+                  className={`ps-3d-story-card ps-hero-active-card ${isHoldingPhoto ? 'holding-photo' : ''}`}
                   style={get3DTransformStyle()}
                   onTouchStart={onTouchStart}
                   onTouchMove={onTouchMove}
@@ -547,6 +567,7 @@ const StoryViewer = ({ article, articlesList = [], onClose, onSelectArticle }) =
                   onMouseDown={onMouseDown}
                   onMouseMove={onMouseMove}
                   onMouseUp={onMouseUp}
+                  onMouseLeave={onMouseLeave}
                 >
                   {slides.length > 0 && (
                     <img
@@ -558,11 +579,22 @@ const StoryViewer = ({ article, articlesList = [], onClose, onSelectArticle }) =
                     />
                   )}
 
-                  {/* Gradient Overlay */}
-                  <div className="ps-viewer-img-gradient" />
+                  {/* Fog Gradient Backdrop Overlay */}
+                  <div className={`ps-photo-fog-overlay ${isHoldingPhoto ? 'photo-held' : ''}`} />
+
+                  {/* Photo Narration Overlay (Shows above image with fog; hides on hold) */}
+                  <div className={`ps-photo-narration-overlay ${isHoldingPhoto ? 'photo-held' : ''}`}>
+                    <div className="ps-photo-narration-pill-row">
+                      <span className="ps-photo-narration-badge">PHOTO {activeSlide + 1} / {slides.length}</span>
+                      <span className="ps-photo-hold-hint">Hold to view image</span>
+                    </div>
+                    <p className="ps-photo-narration-caption">
+                      {slides[activeSlide]?.caption || article.lead || 'Visual narrative recorded for this photo.'}
+                    </p>
+                  </div>
 
                   {/* 3D Swipe Cue Indicator */}
-                  <div className="ps-3d-swipe-cue">
+                  <div className={`ps-3d-swipe-cue ${isHoldingPhoto ? 'photo-held' : ''}`}>
                     <span>← Swipe photos • ↑ Prev story • ↓ Next story</span>
                   </div>
 
@@ -571,7 +603,7 @@ const StoryViewer = ({ article, articlesList = [], onClose, onSelectArticle }) =
                     <>
                       <button 
                         type="button" 
-                        className="ps-nav-arrow left" 
+                        className={`ps-nav-arrow left ${isHoldingPhoto ? 'photo-held' : ''}`}
                         onClick={(e) => { e.stopPropagation(); handlePrev(); }}
                         aria-label="Previous Photo"
                       >
@@ -579,7 +611,7 @@ const StoryViewer = ({ article, articlesList = [], onClose, onSelectArticle }) =
                       </button>
                       <button 
                         type="button" 
-                        className="ps-nav-arrow right" 
+                        className={`ps-nav-arrow right ${isHoldingPhoto ? 'photo-held' : ''}`}
                         onClick={(e) => { e.stopPropagation(); handleNext(); }}
                         aria-label="Next Photo"
                       >
@@ -589,7 +621,7 @@ const StoryViewer = ({ article, articlesList = [], onClose, onSelectArticle }) =
                   )}
 
                   {/* Slide Dots */}
-                  <div className="ps-slides-dots">
+                  <div className={`ps-slides-dots ${isHoldingPhoto ? 'photo-held' : ''}`}>
                     {slides.map((_, i) => (
                       <span
                         key={i}
@@ -601,7 +633,7 @@ const StoryViewer = ({ article, articlesList = [], onClose, onSelectArticle }) =
 
                   {/* Audio Waveform */}
                   {isSpeaking && (
-                    <div className="ps-audio-wave-wrap">
+                    <div className={`ps-audio-wave-wrap ${isHoldingPhoto ? 'photo-held' : ''}`}>
                       <span className="ps-wave-bar b1" /><span className="ps-wave-bar b2" />
                       <span className="ps-wave-bar b3" /><span className="ps-wave-bar b4" />
                     </div>
@@ -610,8 +642,8 @@ const StoryViewer = ({ article, articlesList = [], onClose, onSelectArticle }) =
               </div>
             </div>
 
-            {/* 2. { actions } — Actions Bar & Voice Narration */}
-            <div className="ps-left-actions-panel">
+            {/* 2. { Actions } — Actions Bar & Voice Narration */}
+            <div className="ps-section-action ps-left-actions-panel">
               {/* Interaction buttons */}
               <div className="ps-actions-bar">
                 <button className={`ps-action-btn heart ${user && likes.includes(user._id) ? 'active' : ''}`} onClick={handleHype}>
@@ -654,20 +686,20 @@ const StoryViewer = ({ article, articlesList = [], onClose, onSelectArticle }) =
               </div>
             </div>
 
-            {/* 3. { & discus } — Discussion & Comments Thread */}
-            <div className="ps-left-discussion-panel">
+            {/* 5. { Discussion } — Discussion & Comments Thread */}
+            <div className="ps-section-discussion ps-left-discussion-panel">
               <InlineComments article={article} />
             </div>
 
           </div>
 
           {/* ════════════════════════════════════════════════════════════
-             RIGHT SIDE: { slide content } | { continue of slide content }
+             RIGHT SIDE: [3. Story] | [4. Photo Detail] | [6. More to Explore]
           ════════════════════════════════════════════════════════════ */}
           <div className="ps-view-right-column">
             
-            {/* Header & Story Info */}
-            <div className="ps-story-meta-header">
+            {/* 3. { Story } — Story Title & Meta Header */}
+            <div className="ps-section-story ps-story-meta-header">
               <div className="ps-story-meta-badge-row">
                 <span className="ps-cat-badge">📷 CAMERA SPEAKS</span>
                 <span className="ps-slide-counter-badge">
@@ -692,16 +724,8 @@ const StoryViewer = ({ article, articlesList = [], onClose, onSelectArticle }) =
               </div>
             </div>
 
-            {/* { slide content } — Active Slide Caption */}
-            <div className="ps-active-slide-content-box">
-              <span className="ps-slide-caption-label">Photo Narration</span>
-              <p className="ps-slide-caption-text">
-                {slides[activeSlide]?.caption || article.lead || 'Visual narrative recorded for this slide.'}
-              </p>
-            </div>
-
-            {/* { continue of slide content } — Full Narrative Body */}
-            <div className="ps-continue-slide-content">
+            {/* 4. { Photo Detail } — Full Narrative Body & Tags */}
+            <div className="ps-section-photo-detail ps-continue-slide-content">
               <h3 className="ps-continue-narrative-title">Story Narrative</h3>
               {article.body ? (
                 <div 
@@ -720,29 +744,29 @@ const StoryViewer = ({ article, articlesList = [], onClose, onSelectArticle }) =
                   ))}
                 </div>
               )}
-
-              {/* More Stories Recommendation Cards */}
-              {recommendedStories.length > 0 && (
-                <div className="ps-right-more-stories-section">
-                  <h4 className="ps-right-more-title">More Stories to Explore</h4>
-                  <div className="ps-right-more-grid">
-                    {recommendedStories.map(rec => (
-                      <div 
-                        key={rec._id} 
-                        className="ps-right-more-card"
-                        onClick={() => onSelectArticle?.(rec)}
-                      >
-                        <img src={getImageUrl(rec.coverImage)} alt={rec.title} />
-                        <div className="ps-right-more-card-info">
-                          <h5>{rec.title}</h5>
-                          <span>by {rec.author?.name || 'Student'}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
+
+            {/* 6. { More to Explore } — Recommendations */}
+            {recommendedStories.length > 0 && (
+              <div className="ps-section-explore ps-right-more-stories-section">
+                <h4 className="ps-right-more-title">More Stories to Explore</h4>
+                <div className="ps-right-more-grid">
+                  {recommendedStories.map(rec => (
+                    <div 
+                      key={rec._id} 
+                      className="ps-right-more-card"
+                      onClick={() => onSelectArticle?.(rec)}
+                    >
+                      <img src={getImageUrl(rec.coverImage)} alt={rec.title} />
+                      <div className="ps-right-more-card-info">
+                        <h5>{rec.title}</h5>
+                        <span>by {rec.author?.name || 'Student'}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
           </div>
 

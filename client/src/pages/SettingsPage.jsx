@@ -8,7 +8,7 @@ import {
   FiEdit3, FiSettings, FiCamera, FiPlus, FiTrash2, FiSearch, 
   FiCheck, FiSend, FiClock, FiCalendar, FiAlertTriangle, 
   FiCheckCircle, FiUnlock, FiLock, FiInfo, FiHash, FiPhone, FiBookOpen,
-  FiChevronRight, FiArrowLeft, FiEye, FiEyeOff, FiX, FiKey
+  FiChevronRight, FiArrowLeft, FiEye, FiEyeOff, FiX, FiKey, FiLayers, FiZap
 } from 'react-icons/fi';
 import { IoContrast } from 'react-icons/io5';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -79,7 +79,7 @@ const ToggleSwitch = IOSSwitch;
 
 const SettingsPage = () => {
   const { user, refreshUser, isBlocked, isAdmin, isModerator, isEditor, changePassword, deactivateAccount, switchAccount } = useAuth();
-  const { theme, setTheme, styleMode, setStyleMode, accent, setAccent, ACCENT_COLORS } = useTheme();
+  const { theme, setTheme, styleMode, setStyleMode, themeEngine, setThemeEngine, accent, setAccent, ACCENT_COLORS } = useTheme();
   
   // Password change state
   const [currentPassword, setCurrentPassword] = useState('');
@@ -1682,6 +1682,59 @@ const SettingsPage = () => {
                         </div>
                       );
                     })}
+                  </div>
+                </div>
+
+                {/* Section 3: Theme Engine / Spread Accent */}
+                <div style={{ marginTop: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <span className="settings-label" style={{ margin: 0 }}>3. Theme Engine & Color Integration</span>
+                    <span style={{ fontSize: '11px', background: 'var(--accent-color)', color: '#fff', padding: '2px 8px', borderRadius: '12px', fontWeight: 800 }}>
+                      Material 3
+                    </span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '14px', marginTop: '10px' }}>
+                    {/* Option 1: Default */}
+                    <div 
+                      className={`theme-card ${themeEngine === 'default' ? 'active' : ''}`}
+                      onClick={() => setThemeEngine('default')}
+                      style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px', cursor: 'pointer', textAlign: 'left' }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(120,120,120,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <FiLayers size={16} color="var(--color-black)" />
+                        </div>
+                        <div>
+                          <strong style={{ fontSize: '14px', color: 'var(--color-black)' }}>Option 1: Default Engine</strong>
+                          <div style={{ fontSize: '11px', color: 'var(--color-gray-500)' }}>Current standard clean theme</div>
+                        </div>
+                        {themeEngine === 'default' && <FiCheckCircle size={18} color="var(--accent-color)" style={{ marginLeft: 'auto' }} />}
+                      </div>
+                      <p style={{ fontSize: '11.5px', color: 'var(--color-gray-600)', margin: '4px 0 0 0', lineHeight: 1.4 }}>
+                        Classic newspaper layout with neutral backgrounds and isolated accent highlights on primary buttons.
+                      </p>
+                    </div>
+
+                    {/* Option 2: Spread Accent */}
+                    <div 
+                      className={`theme-card ${themeEngine === 'expressive' ? 'active' : ''}`}
+                      onClick={() => setThemeEngine('expressive')}
+                      style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px', cursor: 'pointer', textAlign: 'left' }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'var(--accent-color)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <FiZap size={16} />
+                        </div>
+                        <div>
+                          <strong style={{ fontSize: '14px', color: 'var(--color-black)' }}>Option 2: Spread Accent</strong>
+                          <div style={{ fontSize: '11px', color: 'var(--accent-color)', fontWeight: 700 }}>Material 3 Expressive System-Wide</div>
+                        </div>
+                        {themeEngine === 'expressive' && <FiCheckCircle size={18} color="var(--accent-color)" style={{ marginLeft: 'auto' }} />}
+                      </div>
+                      <p style={{ fontSize: '11.5px', color: 'var(--color-gray-600)', margin: '4px 0 0 0', lineHeight: 1.4 }}>
+                        Material You dynamic color integration: spreads the chosen accent hue throughout backgrounds, cards, slides, menus, and controls.
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>

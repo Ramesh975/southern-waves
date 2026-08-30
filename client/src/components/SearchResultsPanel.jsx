@@ -97,7 +97,7 @@ const SearchResultsPanel = ({
                           return (
                             <Link key={art._id} to={`/article/${art.slug}`} className="nm-search-suggestion-item" onClick={onClose}>
                               {art.coverImage && (
-                                <img src={getImgSrc(art.coverImage)} alt="" className="nm-search-suggestion-thumb" />
+                                <img src={getImgSrc(art.coverImage)} alt="" className="nm-search-suggestion-thumb" onError={(e) => { e.target.style.display = 'none'; }} />
                               )}
                               <div className="nm-search-suggestion-info">
                                 <span className="nm-search-suggestion-cat">
@@ -105,7 +105,7 @@ const SearchResultsPanel = ({
                                 </span>
                                 <span className="nm-search-suggestion-title">{art.title}</span>
                                 <span className="nm-search-suggestion-meta">
-                                  {isKyp ? `Year: ${art.historicalYear || 'N/A'}` : `⏱️ {timeAgo(art.publishedAt || art.createdAt)}`}
+                                  {isKyp ? `Year: ${art.historicalYear || 'N/A'}` : `⏱️ ${timeAgo(art.publishedAt || art.createdAt)}`}
                                 </span>
                               </div>
                             </Link>
@@ -125,7 +125,7 @@ const SearchResultsPanel = ({
                           return (
                             <Link key={art._id} to={`/article/${art.slug}`} className="nm-search-suggestion-item" onClick={onClose}>
                               {art.coverImage && (
-                                <img src={getImgSrc(art.coverImage)} alt="" className="nm-search-suggestion-thumb" />
+                                <img src={getImgSrc(art.coverImage)} alt="" className="nm-search-suggestion-thumb" onError={(e) => { e.target.style.display = 'none'; }} />
                               )}
                               <div className="nm-search-suggestion-info">
                                 <span className="nm-search-suggestion-cat-recommend">
@@ -168,7 +168,7 @@ const SearchResultsPanel = ({
                       onClick={onClose}
                     >
                       {art.coverImage && (
-                        <img src={getImgSrc(art.coverImage)} alt="" className="nm-search-result-thumb" />
+                        <img src={getImgSrc(art.coverImage)} alt="" className="nm-search-result-thumb" onError={(e) => { e.target.style.display = 'none'; }} />
                       )}
                       <div className="nm-search-result-info">
                         <span className="nm-search-result-cat">

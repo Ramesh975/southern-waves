@@ -50,6 +50,11 @@ export const ThemeProvider = ({ children }) => {
 
   const [styleMode] = useState('modern');
 
+  // Theme Engine: 'default' (Current Theme) vs 'expressive' (Spread Accent / Material 3 Expressive)
+  const [themeEngine, setThemeEngine] = useState(() => {
+    return localStorage.getItem('southern_waves_engine') || 'default';
+  });
+
   const [accent, setAccent] = useState(() => {
     return localStorage.getItem('southern_waves_accent') || 'blue';
   });
@@ -59,6 +64,13 @@ export const ThemeProvider = ({ children }) => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('southern_waves_theme', theme);
   }, [theme]);
+
+  useEffect(() => {
+    // Set data-theme-engine attribute on <html> element
+    document.documentElement.setAttribute('data-theme-engine', themeEngine);
+    document.documentElement.setAttribute('data-spread-accent', themeEngine === 'expressive' ? 'true' : 'false');
+    localStorage.setItem('southern_waves_engine', themeEngine);
+  }, [themeEngine]);
 
   useEffect(() => {
     // Always set data-style to modern
@@ -83,6 +95,10 @@ export const ThemeProvider = ({ children }) => {
     });
   };
 
+  const toggleThemeEngine = () => {
+    setThemeEngine((prev) => (prev === 'expressive' ? 'default' : 'expressive'));
+  };
+
   const toggleStyleMode = () => {};
   const setStyleMode = () => {};
 
@@ -94,6 +110,9 @@ export const ThemeProvider = ({ children }) => {
       styleMode, 
       toggleStyleMode, 
       setStyleMode, 
+      themeEngine,
+      setThemeEngine,
+      toggleThemeEngine,
       accent, 
       setAccent, 
       ACCENT_COLORS 
@@ -102,3 +121,5 @@ export const ThemeProvider = ({ children }) => {
     </ThemeContext.Provider>
   );
 };
+
+export default ThemeContext;

@@ -343,7 +343,7 @@ const HomePage = () => {
                 </div>
                 
                 {/* Tab selector bar */}
-                <div className="luxury-feed-tabs" style={{ display: 'flex', borderBottom: '2px solid var(--color-black)', paddingBottom: '0', overflowX: 'auto', gap: '8px' }}>
+                <div className="luxury-feed-tabs" style={{ display: 'flex', borderBottom: '2px solid var(--color-gray-200, #e2e8f0)', paddingBottom: '0', overflowX: 'auto', gap: '8px' }}>
                   <button 
                     onClick={() => setActiveStreamTab('recommended')}
                     className={`luxury-tab-btn ${activeStreamTab === 'recommended' ? 'active' : ''}`}
@@ -358,8 +358,8 @@ const HomePage = () => {
                       display: 'flex',
                       alignItems: 'center',
                       gap: '6px',
-                      borderBottom: activeStreamTab === 'recommended' ? '4px solid var(--accent-color, #ff0055)' : '4px solid transparent',
-                      color: activeStreamTab === 'recommended' ? 'var(--accent-color, #ff0055)' : 'var(--color-gray-600)',
+                      borderBottom: activeStreamTab === 'recommended' ? '4px solid var(--accent-color, #c8102e)' : '4px solid transparent',
+                      color: activeStreamTab === 'recommended' ? 'var(--accent-color, #c8102e)' : 'var(--color-gray-500, #64748b)',
                       transition: 'all 0.2s ease'
                     }}
                   >
@@ -379,8 +379,8 @@ const HomePage = () => {
                       display: 'flex',
                       alignItems: 'center',
                       gap: '6px',
-                      borderBottom: activeStreamTab === 'trending' ? '4px solid var(--accent-color, #ff0055)' : '4px solid transparent',
-                      color: activeStreamTab === 'trending' ? 'var(--accent-color, #ff0055)' : 'var(--color-gray-600)',
+                      borderBottom: activeStreamTab === 'trending' ? '4px solid var(--accent-color, #c8102e)' : '4px solid transparent',
+                      color: activeStreamTab === 'trending' ? 'var(--accent-color, #c8102e)' : 'var(--color-gray-500, #64748b)',
                       transition: 'all 0.2s ease'
                     }}
                   >
@@ -400,8 +400,8 @@ const HomePage = () => {
                       display: 'flex',
                       alignItems: 'center',
                       gap: '6px',
-                      borderBottom: activeStreamTab === 'viewed' ? '4px solid var(--accent-color, #ff0055)' : '4px solid transparent',
-                      color: activeStreamTab === 'viewed' ? 'var(--accent-color, #ff0055)' : 'var(--color-gray-600)',
+                      borderBottom: activeStreamTab === 'viewed' ? '4px solid var(--accent-color, #c8102e)' : '4px solid transparent',
+                      color: activeStreamTab === 'viewed' ? 'var(--accent-color, #c8102e)' : 'var(--color-gray-500, #64748b)',
                       transition: 'all 0.2s ease'
                     }}
                   >
@@ -421,8 +421,8 @@ const HomePage = () => {
                       display: 'flex',
                       alignItems: 'center',
                       gap: '6px',
-                      borderBottom: activeStreamTab === 'liked' ? '4px solid var(--accent-color, #ff0055)' : '4px solid transparent',
-                      color: activeStreamTab === 'liked' ? 'var(--accent-color, #ff0055)' : 'var(--color-gray-600)',
+                      borderBottom: activeStreamTab === 'liked' ? '4px solid var(--accent-color, #c8102e)' : '4px solid transparent',
+                      color: activeStreamTab === 'liked' ? 'var(--accent-color, #c8102e)' : 'var(--color-gray-500, #64748b)',
                       transition: 'all 0.2s ease'
                     }}
                   >

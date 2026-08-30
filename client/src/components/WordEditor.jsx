@@ -199,19 +199,21 @@ const WordEditor = ({
           border: 1.5px solid var(--color-gray-200, #e5e7eb);
           border-radius: 12px;
           overflow: hidden;
-          background: #fff;
+          background: var(--color-white);
           transition: border-color 0.2s;
         }
         .we-wrapper:focus-within {
           border-color: var(--accent-color, #0055a4);
           box-shadow: 0 0 0 3px rgba(0,85,164,0.08);
         }
-        [data-theme="dark"] .we-wrapper {
-          background: #1a1a24;
-          border-color: rgba(255,255,255,0.1);
+        [data-theme="dark"] .we-wrapper,
+        [data-theme="black"] .we-wrapper {
+          background: var(--color-white);
+          border-color: var(--color-gray-200);
         }
-        [data-theme="dark"] .we-wrapper:focus-within {
-          border-color: rgba(0,85,164,0.6);
+        [data-theme="dark"] .we-wrapper:focus-within,
+        [data-theme="black"] .we-wrapper:focus-within {
+          border-color: var(--accent-color);
         }
         .we-toolbar {
           display: flex;
@@ -225,9 +227,10 @@ const WordEditor = ({
           top: 0;
           z-index: 10;
         }
-        [data-theme="dark"] .we-toolbar {
-          background: #141420;
-          border-bottom-color: rgba(255,255,255,0.07);
+        [data-theme="dark"] .we-toolbar,
+        [data-theme="black"] .we-toolbar {
+          background: var(--color-gray-50);
+          border-bottom-color: var(--color-gray-200);
         }
         .we-btn {
           display: flex;
@@ -286,8 +289,9 @@ const WordEditor = ({
           color: var(--color-black, #0d0d0d);
           background: transparent;
         }
-        [data-theme="dark"] .we-canvas {
-          color: rgba(255,255,255,0.88);
+        [data-theme="dark"] .we-canvas,
+        [data-theme="black"] .we-canvas {
+          color: var(--color-black);
         }
         .we-canvas:empty:before {
           content: attr(placeholder);
@@ -320,9 +324,10 @@ const WordEditor = ({
           background: var(--color-gray-50, #f9fafb);
           border-radius: 0 8px 8px 0;
         }
-        [data-theme="dark"] .we-canvas blockquote {
-          background: rgba(255,255,255,0.04);
-          color: rgba(255,255,255,0.6);
+        [data-theme="dark"] .we-canvas blockquote,
+        [data-theme="black"] .we-canvas blockquote {
+          background: var(--color-gray-100);
+          color: var(--color-gray-800);
         }
         .we-canvas ul, .we-canvas ol {
           padding-left: 24px;

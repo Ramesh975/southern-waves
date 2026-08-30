@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { articleAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import { FiTrendingUp, FiTrash2, FiCheckCircle, FiX, FiSearch } from 'react-icons/fi';
@@ -163,7 +164,9 @@ const AdminSubmissions = () => {
                 return (
                   <tr key={post._id}>
                     <td style={{ maxWidth: 300 }}>
-                      <span style={{ fontWeight: 600, fontSize: 13, display: 'block' }}>{post.title}</span>
+                      <Link to={`/admin/article/${post._id}`} style={{ textDecoration: 'none', color: 'var(--admin-text-main)' }}>
+                        <span style={{ fontWeight: 700, fontSize: 13, display: 'block', cursor: 'pointer' }}>{post.title}</span>
+                      </Link>
                       <span style={{ fontSize: 11, color: 'var(--color-gray-500)', display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
                         {post.lead}
                       </span>

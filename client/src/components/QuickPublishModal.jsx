@@ -40,11 +40,31 @@ const CATEGORIES = [
 const stripHtml = (html) =>
   (html || '').replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
 
+/* ─── Wrapper helper to conditionally render layout without losing input focus ─── */
+const StableWrapper = ({ inline, isClosing, handleClose, children }) => {
+  if (inline) {
+    return (
+      <div className="qpm-inline-wrapper">
+        {children}
+      </div>
+    );
+  }
+  return (
+    <div
+      className={`qpm-overlay${isClosing ? ' closing' : ''}`}
+      onClick={(e) => e.target === e.currentTarget && handleClose()}
+    >
+      {children}
+    </div>
+  );
+};
+
 /* ─── Component ─── */
 const QuickPublishModal = ({
   defaultCategory = 'news',
   defaultType,
   editingArticle = null,
+  inline = false,
   onClose,
   onCloseStart,
   onPublishSuccess
@@ -196,9 +216,13 @@ const QuickPublishModal = ({
 
   /* ─── Handlers ─── */
   const handleClose = () => {
-    setIsClosing(true);
     multipleImages.forEach(img => URL.revokeObjectURL(img.previewUrl));
     if (previewUrl) URL.revokeObjectURL(previewUrl);
+    if (inline) {
+      if (onClose) onClose();
+      return;
+    }
+    setIsClosing(true);
     if (onCloseStart) onCloseStart();
     setTimeout(() => onClose(), 300);
   };
@@ -355,16 +379,13 @@ const QuickPublishModal = ({
 
   const activeFields = selectedType?.fields || ['title','lead','body','category','image','tags'];
 
-  /* ──────────────────────────────────────────────
-     RENDER
-  ────────────────────────────────────────────── */
   return (
     <>
       {/* ── Inline CSS ── */}
       <style>{`
         /* === Overlay & Modal === */
         .qpm-overlay {
-          position: fixed; inset: 0; z-index: 1100;
+          position: fixed; inset: 0; z-index: 5000;
           background: rgba(0,0,0,0.52);
           backdrop-filter: blur(4px);
           display: flex; align-items: center; justify-content: center;
@@ -397,7 +418,7 @@ const QuickPublishModal = ({
           position: relative;
         }
         .qpm-modal.closing { animation: qpm-slide-down 0.26s ease forwards; }
-        [data-theme="dark"] .qpm-modal { background: #16161e; box-shadow: 0 32px 100px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.06); }
+        [data-theme="dark"] .qpm-modal, [data-theme="black"] .qpm-modal { background: var(--color-paper); border: 1px solid var(--color-gray-200); box-shadow: var(--shadow-xl); }
 
         /* === Type Selection Screen === */
         .qpm-type-screen {
@@ -409,13 +430,13 @@ const QuickPublishModal = ({
           padding: 28px 32px 20px;
           border-bottom: 1px solid var(--color-gray-100, #f1f1f1);
         }
-        [data-theme="dark"] .qpm-type-screen-header { border-color: rgba(255,255,255,0.06); }
+        [data-theme="dark"] .qpm-type-screen-header, [data-theme="black"] .qpm-type-screen-header { border-color: var(--color-gray-200); }
         .qpm-type-screen-header h2 {
           font-family: var(--font-display, 'Outfit', sans-serif);
           font-size: 22px; font-weight: 800; letter-spacing:-0.02em;
           color: var(--color-black, #0d0d0d); margin:0 0 4px;
         }
-        [data-theme="dark"] .qpm-type-screen-header h2 { color:#fff; }
+        [data-theme="dark"] .qpm-type-screen-header h2, [data-theme="black"] .qpm-type-screen-header h2 { color:var(--color-black); }
         .qpm-type-screen-header p { font-size:13px; color:var(--color-gray-500,#6b7280); margin:0; }
         .qpm-type-grid {
           display: grid;
@@ -429,7 +450,7 @@ const QuickPublishModal = ({
           border-radius: 14px; background: none; cursor: pointer;
           transition: all 0.18s ease; text-align: center;
         }
-        [data-theme="dark"] .qpm-type-card { border-color: rgba(255,255,255,0.08); }
+        [data-theme="dark"] .qpm-type-card, [data-theme="black"] .qpm-type-card { border-color: var(--color-gray-200); background: var(--color-white); }
         .qpm-type-card:hover {
           border-color: var(--pt-color);
           background: color-mix(in srgb, var(--pt-color) 6%, transparent);
@@ -443,7 +464,7 @@ const QuickPublishModal = ({
           color: var(--pt-color);
         }
         .qpm-type-card-label { font-size:14px; font-weight:700; color:var(--color-black,#0d0d0d); }
-        [data-theme="dark"] .qpm-type-card-label { color:#fff; }
+        [data-theme="dark"] .qpm-type-card-label, [data-theme="black"] .qpm-type-card-label { color:var(--color-black); }
         .qpm-type-card-desc { font-size:11px; color:var(--color-gray-500,#6b7280); line-height:1.4; }
         .qpm-close-x {
           width:32px; height:32px; border:none; background:var(--color-gray-100,#f3f4f6);
@@ -466,7 +487,7 @@ const QuickPublishModal = ({
           border-bottom: 1px solid var(--color-gray-100,#f1f1f1);
           background: var(--color-gray-50, #fafafa);
         }
-        [data-theme="dark"] .qpm-header { background:#121218; border-color:rgba(255,255,255,0.06); }
+        [data-theme="dark"] .qpm-header, [data-theme="black"] .qpm-header { background:var(--color-gray-50); border-color:var(--color-gray-200); }
         .qpm-header-left { display:flex; align-items:center; gap:8px; }
         .qpm-back-btn {
           font-size:12px; font-weight:600; padding:5px 10px;
@@ -582,8 +603,9 @@ const QuickPublishModal = ({
           padding-right:30px; -webkit-appearance:none; appearance:none;
           transition:border-color 0.15s;
         }
-        [data-theme="dark"] .qpm-meta-select, [data-theme="dark"] .qpm-meta-input {
-          background-color:#1e1e2a; border-color:rgba(255,255,255,0.1); color:#fff;
+        [data-theme="dark"] .qpm-meta-select, [data-theme="dark"] .qpm-meta-input,
+        [data-theme="black"] .qpm-meta-select, [data-theme="black"] .qpm-meta-input {
+          background-color:var(--color-white); border-color:var(--color-gray-200); color:var(--color-black);
         }
         .qpm-meta-select:focus, .qpm-meta-input:focus {
           border-color:var(--accent-color,#0055a4);
@@ -609,14 +631,14 @@ const QuickPublishModal = ({
           resize:vertical; outline:none; box-sizing:border-box;
           min-height:80px; transition:border-color 0.15s, box-shadow 0.15s;
         }
-        [data-theme="dark"] .qpm-lead-textarea { background:#1e1e2a; border-color:rgba(255,255,255,0.1); color:#fff; }
+        [data-theme="dark"] .qpm-lead-textarea, [data-theme="black"] .qpm-lead-textarea { background:var(--color-white); border-color:var(--color-gray-200); color:var(--color-black); }
         .qpm-lead-textarea::placeholder { color:var(--color-gray-400,#9ca3af); font-style:italic; }
         .qpm-lead-textarea:focus {
           border-color:var(--accent-color,#0055a4);
           box-shadow:0 0 0 3px rgba(0,85,164,0.1);
           background:#fff;
         }
-        [data-theme="dark"] .qpm-lead-textarea:focus { background:#202030; }
+        [data-theme="dark"] .qpm-lead-textarea:focus, [data-theme="black"] .qpm-lead-textarea:focus { background:var(--color-white); }
 
         /* Body label */
         .qpm-body-label-row {
@@ -645,8 +667,9 @@ const QuickPublishModal = ({
           background:var(--color-gray-50,#f9fafb);
           border-bottom:1px solid var(--color-gray-200,#e5e7eb);
         }
-        [data-theme="dark"] .qpm-story-images-header {
-          background:#1a1a26; border-color:rgba(255,255,255,0.06);
+        [data-theme="dark"] .qpm-story-images-header,
+        [data-theme="black"] .qpm-story-images-header {
+          background:var(--color-gray-50); border-color:var(--color-gray-200);
         }
         .qpm-story-images-header h5 {
           flex:1; font-size:12px; font-weight:700; text-transform:uppercase;
@@ -673,7 +696,7 @@ const QuickPublishModal = ({
           background:var(--color-gray-50,#f9fafb);
           color:var(--color-gray-500,#6b7280); margin-bottom:14px;
         }
-        [data-theme="dark"] .qpm-cover-dropzone { background:#1a1a26; border-color:rgba(255,255,255,0.1); }
+        [data-theme="dark"] .qpm-cover-dropzone, [data-theme="black"] .qpm-cover-dropzone { background:var(--color-gray-50); border-color:var(--color-gray-200); }
         .qpm-cover-dropzone:hover {
           border-color:var(--accent-color,#0055a4);
           background:color-mix(in srgb,var(--accent-color,#0055a4) 5%, transparent);
@@ -704,7 +727,7 @@ const QuickPublishModal = ({
           border-radius:10px; overflow:hidden; background:var(--color-gray-50,#f9fafb);
           transition:border-color 0.15s, box-shadow 0.15s;
         }
-        [data-theme="dark"] .qpm-img-card { border-color:rgba(255,255,255,0.08); background:#1e1e2a; }
+        [data-theme="dark"] .qpm-img-card, [data-theme="black"] .qpm-img-card { border-color:var(--color-gray-200); background:var(--color-white); }
         .qpm-img-card:hover { border-color:var(--accent-color,#0055a4); }
         .qpm-img-thumb-wrap {
           position:relative; aspect-ratio:4/3; overflow:hidden; background:#000;
@@ -740,8 +763,9 @@ const QuickPublishModal = ({
           background:var(--color-paper,#fff); color:var(--color-black,#0d0d0d);
           outline:none; box-sizing:border-box; font-family:inherit;
         }
-        [data-theme="dark"] .qpm-caption-input-small {
-          background:#252530; border-color:rgba(255,255,255,0.1); color:#fff;
+        [data-theme="dark"] .qpm-caption-input-small,
+        [data-theme="black"] .qpm-caption-input-small {
+          background:var(--color-white); border-color:var(--color-gray-200); color:var(--color-black);
         }
         .qpm-caption-input-small::placeholder { color:var(--color-gray-400,#9ca3af); }
 
@@ -770,7 +794,7 @@ const QuickPublishModal = ({
           border-radius:9px; padding:8px 12px; background:var(--color-gray-50,#f9fafb);
           transition:border-color 0.15s, box-shadow 0.15s;
         }
-        [data-theme="dark"] .qpm-tags-input-wrap { background:#1e1e2a; border-color:rgba(255,255,255,0.1); }
+        [data-theme="dark"] .qpm-tags-input-wrap, [data-theme="black"] .qpm-tags-input-wrap { background:var(--color-white); border-color:var(--color-gray-200); }
         .qpm-tags-input-wrap:focus-within {
           border-color:var(--accent-color,#0055a4);
           box-shadow:0 0 0 3px rgba(0,85,164,0.1);
@@ -780,7 +804,7 @@ const QuickPublishModal = ({
           flex:1; border:none; outline:none; background:none;
           font-size:13px; font-family:inherit; color:var(--color-black,#0d0d0d);
         }
-        [data-theme="dark"] .qpm-tags-input { color:#fff; }
+        [data-theme="dark"] .qpm-tags-input, [data-theme="black"] .qpm-tags-input { color:var(--color-black); }
         .qpm-tags-input::placeholder { color:var(--color-gray-400,#9ca3af); }
 
         /* ── Right Sidebar ── */
@@ -790,7 +814,7 @@ const QuickPublishModal = ({
           display:flex; flex-direction:column; overflow:hidden;
           transition:width 0.25s ease, opacity 0.2s ease;
         }
-        [data-theme="dark"] .qpm-sidebar { border-color:rgba(255,255,255,0.06); }
+        [data-theme="dark"] .qpm-sidebar, [data-theme="black"] .qpm-sidebar { border-color:var(--color-gray-200); background:var(--color-gray-50); }
         .qpm-sidebar.collapsed { width:40px; overflow:hidden; }
         .qpm-sidebar-scroll {
           flex:1; overflow-y:auto; padding-bottom:20px;
@@ -878,9 +902,9 @@ const QuickPublishModal = ({
           background:var(--color-gray-50,#f9fafb); border-radius:10px; padding:10px 12px;
           border:1px solid var(--color-gray-100,#f1f1f1);
         }
-        [data-theme="dark"] .qpm-stat-card { background:#1e1e2a; border-color:rgba(255,255,255,0.06); }
+        [data-theme="dark"] .qpm-stat-card, [data-theme="black"] .qpm-stat-card { background:var(--color-white); border-color:var(--color-gray-200); }
         .qpm-stat-value { display:block; font-size:18px; font-weight:800; color:var(--color-black,#0d0d0d); line-height:1; margin-bottom:2px; }
-        [data-theme="dark"] .qpm-stat-value { color:#fff; }
+        [data-theme="dark"] .qpm-stat-value, [data-theme="black"] .qpm-stat-value { color:var(--color-black); }
         .qpm-stat-label { font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--color-gray-400,#9ca3af); }
 
         /* References */
@@ -898,16 +922,16 @@ const QuickPublishModal = ({
           background:var(--color-gray-50,#f9fafb); color:var(--color-black,#0d0d0d);
           transition:border-color 0.15s;
         }
-        [data-theme="dark"] .qpm-ref-search-input { background:#1e1e2a; border-color:rgba(255,255,255,0.1); color:#fff; }
+        [data-theme="dark"] .qpm-ref-search-input, [data-theme="black"] .qpm-ref-search-input { background:var(--color-white); border-color:var(--color-gray-200); color:var(--color-black); }
         .qpm-ref-search-input:focus { border-color:var(--accent-color,#0055a4); background:#fff; }
-        [data-theme="dark"] .qpm-ref-search-input:focus { background:#252530; }
+        [data-theme="dark"] .qpm-ref-search-input:focus, [data-theme="black"] .qpm-ref-search-input:focus { background:var(--color-white); }
         .qpm-ref-dropdown {
           position:absolute; top:100%; left:0; right:0; z-index:50;
           background:var(--color-paper,#fff); border:1px solid var(--color-gray-200,#e5e7eb);
           border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,0.12);
           max-height:200px; overflow-y:auto; margin-top:4px;
         }
-        [data-theme="dark"] .qpm-ref-dropdown { background:#1e1e2a; border-color:rgba(255,255,255,0.1); }
+        [data-theme="dark"] .qpm-ref-dropdown, [data-theme="black"] .qpm-ref-dropdown { background:var(--color-paper); border-color:var(--color-gray-200); }
         .qpm-ref-dropdown-item {
           padding:8px 12px; cursor:pointer; font-size:12px;
           border-bottom:1px solid var(--color-gray-100,#f1f1f1); transition:background 0.12s;
@@ -932,7 +956,7 @@ const QuickPublishModal = ({
           border:1px solid var(--color-gray-200,#e5e7eb); border-radius:9px;
           padding:9px 10px; margin-bottom:7px; background:var(--color-gray-50,#f9fafb);
         }
-        [data-theme="dark"] .qpm-ref-card { background:#1e1e2a; border-color:rgba(255,255,255,0.08); }
+        [data-theme="dark"] .qpm-ref-card, [data-theme="black"] .qpm-ref-card { background:var(--color-white); border-color:var(--color-gray-200); }
         .qpm-ref-card-top { display:flex; gap:6px; margin-bottom:6px; align-items:flex-start; }
         .qpm-ref-card-info { flex:1; min-width:0; }
         .qpm-ref-card-cat {
@@ -940,7 +964,7 @@ const QuickPublishModal = ({
           letter-spacing:0.07em; color:var(--accent-color,#0055a4); display:block; margin-bottom:2px;
         }
         .qpm-ref-card-title { font-size:11px; font-weight:600; color:var(--color-black,#0d0d0d); line-height:1.4; }
-        [data-theme="dark"] .qpm-ref-card-title { color:rgba(255,255,255,0.85); }
+        [data-theme="dark"] .qpm-ref-card-title, [data-theme="black"] .qpm-ref-card-title { color:var(--color-black); }
         .qpm-ref-card-remove {
           width:18px; height:18px; border:none; background:var(--color-gray-200,#e5e7eb);
           border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center;
@@ -954,7 +978,7 @@ const QuickPublishModal = ({
           outline:none; background:var(--color-paper,#fff); color:var(--color-black,#0d0d0d);
           box-sizing:border-box; transition:border-color 0.15s;
         }
-        [data-theme="dark"] .qpm-ref-card-note { background:#252530; border-color:rgba(255,255,255,0.08); color:#fff; }
+        [data-theme="dark"] .qpm-ref-card-note, [data-theme="black"] .qpm-ref-card-note { background:var(--color-gray-50); border-color:var(--color-gray-200); color:var(--color-black); }
         .qpm-ref-card-note:focus { border-color:var(--accent-color,#0055a4); }
 
         /* AI / History placeholder */
@@ -972,8 +996,9 @@ const QuickPublishModal = ({
           border-top:1px solid var(--color-gray-100,#f1f1f1);
           background:var(--color-paper,#fff);
         }
-        [data-theme="dark"] .qpm-footer {
-          background:#16161e; border-color:rgba(255,255,255,0.06);
+        [data-theme="dark"] .qpm-footer,
+        [data-theme="black"] .qpm-footer {
+          background:var(--color-paper); border-color:var(--color-gray-200);
         }
         .qpm-footer-left { display:flex; align-items:center; gap:10px; }
         .qpm-footer-right { display:flex; align-items:center; gap:8px; }
@@ -984,9 +1009,9 @@ const QuickPublishModal = ({
           color:var(--color-gray-600,#4b5563); font-family:inherit; transition:all 0.15s; white-space:nowrap;
           display:flex; align-items:center; gap:6px;
         }
-        [data-theme="dark"] .qpm-btn-ghost { border-color:rgba(255,255,255,0.1); color:rgba(255,255,255,0.6); }
+        [data-theme="dark"] .qpm-btn-ghost, [data-theme="black"] .qpm-btn-ghost { border-color:var(--color-gray-200); color:var(--color-black); background:var(--color-white); }
         .qpm-btn-ghost:hover { background:var(--color-gray-50,#f9fafb); border-color:var(--color-gray-300,#d1d5db); }
-        [data-theme="dark"] .qpm-btn-ghost:hover { background:rgba(255,255,255,0.06); }
+        [data-theme="dark"] .qpm-btn-ghost:hover, [data-theme="black"] .qpm-btn-ghost:hover { background:var(--color-gray-100); }
 
         .qpm-btn-primary {
           padding:9px 20px; border:none; border-radius:9px;
@@ -1017,14 +1042,32 @@ const QuickPublishModal = ({
           .qpm-btn-primary { padding:9px 14px; font-size:12px; }
           .qpm-btn-ghost { padding:8px 10px; font-size:12px; }
         }
+
+        /* === Inline Mode === */
+        .qpm-inline-wrapper {
+          width: 100%;
+          display: flex;
+          flex-direction: column;
+        }
+        .qpm-modal.inline-editor {
+          width: 100% !important;
+          height: auto !important;
+          min-height: calc(100vh - 180px) !important;
+          box-shadow: none !important;
+          animation: none !important;
+          
+          border-radius: 12px !important;
+          background: var(--color-bg, var(--color-paper, #ffffff)) !important;
+        }
+        [data-theme="dark"] .qpm-modal.inline-editor, 
+        [data-theme="black"] .qpm-modal.inline-editor {
+          border-color: var(--color-gray-200) !important;
+        }
       `}</style>
 
-      {/* ── Backdrop ── */}
-      <div
-        className={`qpm-overlay${isClosing ? ' closing' : ''}`}
-        onClick={(e) => e.target === e.currentTarget && handleClose()}
-      >
-        <div className={`qpm-modal${isClosing ? ' closing' : ''}`}>
+      {/* ── Backdrop / Wrapper ── */}
+      <StableWrapper inline={inline} isClosing={isClosing} handleClose={handleClose}>
+        <div className={`qpm-modal${inline ? ' inline-editor' : ''}${isClosing ? ' closing' : ''}`}>
 
           {/* ════ TYPE SELECTION SCREEN ════ */}
           {!selectedType ? (
@@ -1674,7 +1717,7 @@ const QuickPublishModal = ({
           )}
 
         </div>
-      </div>
+      </StableWrapper>
     </>
   );
 };

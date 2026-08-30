@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef, useLayoutEffect, useCallback } from
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useChat } from '../../context/ChatContext';
-import { chatAPI, filterAPI } from '../../services/api';
-import { FiX, FiSend, FiSearch, FiPlus, FiSmile, FiEdit2, FiCornerUpLeft, FiArrowLeft, FiTag, FiHash, FiVolume2, FiAlertCircle, FiLock, FiTrash2, FiChevronDown } from 'react-icons/fi';
+import { chatAPI, filterAPI, articleAPI } from '../../services/api';
+import { FiX, FiSend, FiSearch, FiPlus, FiSmile, FiEdit2, FiCornerUpLeft, FiArrowLeft, FiTag, FiHash, FiVolume2, FiAlertCircle, FiLock, FiTrash2, FiChevronDown, FiFileText, FiMessageSquare } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import './MessageApp.css';
 
@@ -72,6 +72,18 @@ const MessageApp = ({ isFullPage = false }) => {
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedAlertId, setExpandedAlertId] = useState(null);
+
+  // Chat-wide Search State [Tags, Chats, Conversation]
+  const [chatSearchQuery, setChatSearchQuery] = useState('');
+  const [chatSearchTab, setChatSearchTab] = useState('all'); // 'all' | 'tags' | 'chats' | 'messages'
+  const [chatSearchResults, setChatSearchResults] = useState({ tags: [], chats: [], messages: [] });
+  const [chatSearchLoading, setChatSearchLoading] = useState(false);
+
+  // News Attachment & Recommendations State
+  const [showNewsAttach, setShowNewsAttach] = useState(false);
+  const [newsSearchQuery, setNewsSearchQuery] = useState('');
+  const [newsArticles, setNewsArticles] = useState([]);
+  const [newsLoading, setNewsLoading] = useState(false);
   
   // Chat Detail Room State
   const [messages, setMessages] = useState([]);
@@ -98,6 +110,7 @@ const MessageApp = ({ isFullPage = false }) => {
   const [activeReactionMenu, setActiveReactionMenu] = useState(null); // messageId
   const [globalChatLock, setGlobalChatLock] = useState(false);
   const [showScrollBottom, setShowScrollBottom] = useState(false);
+  const [highlightMessageId, setHighlightMessageId] = useState(null); // Target message to scroll to & highlight
 
   useEffect(() => {
     filterAPI.getPublicSettings()
@@ -110,11 +123,216 @@ const MessageApp = ({ isFullPage = false }) => {
   }, []);
   const [previewArticle, setPreviewArticle] = useState(null);
 
+  // Debounced Chat Search across [Tags, Chats, Conversation]
+  useEffect(() => {
+    if (!chatSearchQuery.trim()) {
+      setChatSearchResults({ tags: [], chats: [], messages: [] });
+      setChatSearchLoading(false);
+      return;
+    }
+    setChatSearchLoading(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await chatAPI.search({ q: chatSearchQuery.trim(), type: chatSearchTab });
+        if (res.data?.success) {
+          setChatSearchResults(res.data.data);
+        }
+      } catch (err) {
+        console.error('Chat search failed:', err);
+      } finally {
+        setChatSearchLoading(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [chatSearchQuery, chatSearchTab]);
+
+  // Debounced News Search / Live Recommendations for Chat Attachment
+  useEffect(() => {
+    if (!showNewsAttach) return;
+    setNewsLoading(true);
+    const timer = setTimeout(async () => {
+      try {
+        const params = { limit: 8 };
+        if (newsSearchQuery.trim()) {
+          params.search = newsSearchQuery.trim();
+        } else {
+          params.sort = '-createdAt';
+        }
+        const res = await articleAPI.getAll(params);
+        setNewsArticles(res.data?.data || []);
+      } catch (err) {
+        console.error('Failed to load news for chat attachment:', err);
+      } finally {
+        setNewsLoading(false);
+      }
+    }, newsSearchQuery ? 250 : 0);
+
+    return () => clearTimeout(timer);
+  }, [showNewsAttach, newsSearchQuery]);
+
+  // Send a news article directly into the chatroom
+  const handleSendNewsArticle = async (article) => {
+    if (!user || !activeRoom) return;
+    const isChatModerator = user?.role === 'admin' || user?.role === 'moderator';
+    if (globalChatLock && !isChatModerator) {
+      return toast.error('Chat is temporarily locked.');
+    }
+
+    const tempId = `optimistic-${Date.now()}`;
+    const optimisticMsg = {
+      _id: tempId,
+      tempId: tempId,
+      text: '',
+      user: {
+        _id: user._id,
+        name: user.name,
+        avatar: user.avatar,
+        role: user.role
+      },
+      category: activeRoom.type === 'group' ? activeRoom.name : 'tea-shop',
+      tags: activeRoom.type === 'tag' ? [activeRoom.name] : [],
+      isBroadcast: isBroadcast,
+      parentArticle: {
+        _id: article._id,
+        title: article.title,
+        slug: article.slug,
+        category: article.category,
+        coverImage: article.coverImage,
+        lead: article.lead || article.dek || '',
+        author: article.author
+      },
+      reactions: [],
+      createdAt: new Date().toISOString(),
+      isOptimistic: true
+    };
+
+    setMessages((prev) => [...prev, { ...optimisticMsg, isNew: true }]);
+    setShowNewsAttach(false);
+    setNewsSearchQuery('');
+    scrollToBottom();
+
+    try {
+      const payload = {
+        text: `Shared story: "${article.title}"`,
+        category: activeRoom.type === 'group' ? activeRoom.name : 'tea-shop',
+        tags: activeRoom.type === 'tag' ? [activeRoom.name] : [],
+        isBroadcast: isBroadcast,
+        parentArticleId: article._id,
+        tempId: tempId
+      };
+      const res = await chatAPI.sendMessage(payload);
+      setMessages((prev) =>
+        prev.map((msg) => (msg._id === tempId ? res.data.data : msg))
+      );
+    } catch (err) {
+      console.error('Failed to send news article:', err);
+      setMessages((prev) => prev.filter((msg) => msg._id !== tempId));
+      toast.error('Failed to send news story to chat');
+    }
+  };
+
+  // Formatter for clickable hashtags and user mentions in messages
+  const renderFormattedMessage = (text) => {
+    if (!text) return null;
+    const trimmed = text.trim();
+
+    // If message is purely a tag like `#siva shankar` or `#exam`
+    if (/^#[\w\u00C0-\u017F -]{1,40}$/.test(trimmed)) {
+      const tagName = trimmed.replace(/^#/, '').trim().toLowerCase();
+      return (
+        <button
+          type="button"
+          className="msg-inline-tag-pill"
+          onClick={(e) => {
+            e.stopPropagation();
+            openRoom('tag', tagName);
+          }}
+          title={`Jump to #${tagName} chat channel`}
+        >
+          <FiHash size={13} className="msg-tag-hash-icon" />
+          <span>{tagName}</span>
+        </button>
+      );
+    }
+
+    // Split text by inline #tag and @mention
+    const regex = /(#[\w\u00C0-\u017F-]+|@[\w\u00C0-\u017F-]+)/g;
+    const parts = text.split(regex);
+
+    return parts.map((part, idx) => {
+      if (part.startsWith('#') && part.length > 1) {
+        const rawTag = part.slice(1).toLowerCase();
+        return (
+          <button
+            key={idx}
+            type="button"
+            className="msg-inline-tag"
+            onClick={(e) => {
+              e.stopPropagation();
+              openRoom('tag', rawTag);
+            }}
+            title={`Open #${rawTag} chat`}
+          >
+            #{rawTag}
+          </button>
+        );
+      }
+      if (part.startsWith('@') && part.length > 1) {
+        const mention = part.slice(1);
+        return (
+          <span key={idx} className="msg-inline-mention" title={`Mentioning @${mention}`}>
+            @{mention}
+          </span>
+        );
+      }
+      return part;
+    });
+  };
+
   const messagesEndRef = useRef(null);
   const messagesListRef = useRef(null); // scroll container ref
   const sentinelRef = useRef(null);     // top-of-list intersection target
   const oldestIdRef = useRef(null);     // _id of oldest loaded message (cursor)
   const chatListRef = useRef(null);
+
+  // Lock background scroll when drawer is open on mobile / overlay
+  useEffect(() => {
+    if (isOpen && !isFullPage) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [isOpen, isFullPage]);
+
+  // Smooth scroll and flash-highlight message when navigated from conversation search
+  useEffect(() => {
+    if (!highlightMessageId) return;
+
+    let attempts = 0;
+    const maxAttempts = 15;
+    const interval = setInterval(() => {
+      attempts += 1;
+      const el = document.getElementById(`msg-${highlightMessageId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        clearInterval(interval);
+      } else if (attempts >= maxAttempts) {
+        clearInterval(interval);
+      }
+    }, 100);
+
+    const clearTimer = setTimeout(() => {
+      setHighlightMessageId(null);
+    }, 4500);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(clearTimer);
+    };
+  }, [highlightMessageId, messages]);
 
   // Handle URL Query Parameters for full page mode
   useEffect(() => {
@@ -176,13 +394,36 @@ const MessageApp = ({ isFullPage = false }) => {
 
   const handleIncomingEdit = (updatedMsg) => {
     setMessages((prev) =>
-      prev.map((msg) => (msg._id === updatedMsg._id ? updatedMsg : msg))
+      prev.map((msg) => {
+        if (msg._id === updatedMsg._id) {
+          return {
+            ...msg,
+            ...updatedMsg,
+            parentArticle: (updatedMsg.parentArticle && typeof updatedMsg.parentArticle === 'object' && updatedMsg.parentArticle.title)
+              ? updatedMsg.parentArticle
+              : msg.parentArticle
+          };
+        }
+        return msg;
+      })
     );
   };
 
   const handleIncomingReaction = (updatedMsg) => {
     setMessages((prev) =>
-      prev.map((msg) => (msg._id === updatedMsg._id ? updatedMsg : msg))
+      prev.map((msg) => {
+        if (msg._id === updatedMsg._id) {
+          return {
+            ...msg,
+            ...updatedMsg,
+            parentArticle: (updatedMsg.parentArticle && typeof updatedMsg.parentArticle === 'object' && updatedMsg.parentArticle.title)
+              ? updatedMsg.parentArticle
+              : msg.parentArticle,
+            reactions: updatedMsg.reactions
+          };
+        }
+        return msg;
+      })
     );
   };
 
@@ -206,9 +447,9 @@ const MessageApp = ({ isFullPage = false }) => {
       setMessages(fetched);
       setHasMore(res.data.hasMore || false);
       if (fetched.length > 0) oldestIdRef.current = fetched[0]._id;
-      // Snap to bottom immediately after first paint
+      // Snap to bottom immediately after first paint (unless jumping to a specific highlighted message)
       requestAnimationFrame(() => {
-        if (messagesListRef.current) {
+        if (messagesListRef.current && !highlightMessageId) {
           messagesListRef.current.scrollTop = messagesListRef.current.scrollHeight;
         }
       });
@@ -264,6 +505,28 @@ const MessageApp = ({ isFullPage = false }) => {
     observer.observe(sentinel);
     return () => observer.disconnect();
   }, [loadOlderMessages]);
+
+  // Ensure chat list is scrolled to the very bottom when loading finishes or messages update
+  useLayoutEffect(() => {
+    if (!loadingMessages && messages.length > 0 && !highlightMessageId) {
+      scrollToBottom();
+      const timer = setTimeout(() => {
+        scrollToBottom();
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [loadingMessages, messages.length, activeRoom, highlightMessageId]);
+
+  // Scroll to bottom when the chat drawer/window is opened
+  useEffect(() => {
+    if (isOpen) {
+      scrollToBottom();
+      const timer = setTimeout(() => {
+        scrollToBottom();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
 
   const handleMessagesScroll = () => {
     const list = messagesListRef.current;
@@ -381,14 +644,29 @@ const MessageApp = ({ isFullPage = false }) => {
   // Reactions
   const handleReaction = async (messageId, emoji) => {
     try {
-      // Optimistic reaction toggle
+      // Optimistic reaction toggle: one user can have only one reaction
       setMessages((prev) =>
         prev.map((msg) => {
           if (msg._id === messageId) {
-            const hasReacted = msg.reactions?.some(r => r.user?._id === user._id && r.emoji === emoji);
-            const newReactions = hasReacted
-              ? msg.reactions.filter(r => !(r.user?._id === user._id && r.emoji === emoji))
-              : [...(msg.reactions || []), { user: { _id: user._id, name: user.name }, emoji }];
+            const existingReactionIndex = msg.reactions?.findIndex(
+              r => r.user?._id === user._id || r.user === user._id
+            );
+            let newReactions = msg.reactions ? [...msg.reactions] : [];
+
+            if (existingReactionIndex !== -1 && existingReactionIndex !== undefined) {
+              const existingEmoji = newReactions[existingReactionIndex].emoji;
+              if (existingEmoji === emoji) {
+                // Toggle off (remove)
+                newReactions.splice(existingReactionIndex, 1);
+              } else {
+                // Replace previous reaction with new emoji
+                newReactions.splice(existingReactionIndex, 1);
+                newReactions.push({ user: { _id: user._id, name: user.name }, emoji });
+              }
+            } else {
+              // Add reaction
+              newReactions.push({ user: { _id: user._id, name: user.name }, emoji });
+            }
             return { ...msg, reactions: newReactions };
           }
           return msg;
@@ -396,7 +674,19 @@ const MessageApp = ({ isFullPage = false }) => {
       );
       setActiveReactionMenu(null);
       
-      await chatAPI.reactToMessage(messageId, emoji);
+      const res = await chatAPI.reactToMessage(messageId, emoji);
+      if (res?.data?.data) {
+        const serverMsg = res.data.data;
+        setMessages((prev) =>
+          prev.map((msg) => (msg._id === serverMsg._id ? {
+            ...msg,
+            ...serverMsg,
+            parentArticle: (serverMsg.parentArticle && typeof serverMsg.parentArticle === 'object' && serverMsg.parentArticle.title)
+              ? serverMsg.parentArticle
+              : msg.parentArticle
+          } : msg))
+        );
+      }
     } catch (err) {
       console.error('Reaction failed:', err);
     }
@@ -586,39 +876,187 @@ const MessageApp = ({ isFullPage = false }) => {
               </div>
             </header>
 
-            {/* Navigation Category Tabs */}
-            <nav 
-              className="msg-nav-pills"
-              onWheel={(e) => {
-                const container = e.currentTarget;
-                if (e.deltaY !== 0) {
-                  e.preventDefault();
-                  container.scrollLeft += e.deltaY;
-                }
-              }}
-            >
-              {[
-                { id: 'all', label: 'All' },
-                { id: 'board_alerts', label: unreadNotificationsCount > 0 ? `Alerts (${unreadNotificationsCount})` : 'Alerts' },
-                { id: 'groups', label: 'Groups' },
-                { id: 'tags', label: 'Tags' },
-                { id: 'announcements', label: 'Announcements' },
-                { id: 'replies', label: 'Replies' }
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  className={`msg-pill ${activeTab === tab.id ? 'active' : ''}`}
-                  onClick={() => setActiveTab(tab.id)}
+            {/* QUICK SEARCH OPTION [Tags, Chats, Conversation] */}
+            <div className="msg-chat-search-wrap">
+              <FiSearch size={14} className="msg-chat-search-icon" />
+              <input 
+                type="text"
+                placeholder="Search tags, chats, messages..."
+                value={chatSearchQuery}
+                onChange={(e) => setChatSearchQuery(e.target.value)}
+                className="msg-chat-search-input"
+              />
+              {chatSearchQuery && (
+                <button 
+                  type="button" 
+                  onClick={() => setChatSearchQuery('')}
+                  className="msg-chat-search-clear"
+                  title="Clear search"
                 >
-                  {tab.label}
+                  <FiX size={14} />
                 </button>
-              ))}
-            </nav>
+              )}
+            </div>
+
+            {/* Navigation Category Tabs (hidden when searching) */}
+            {!chatSearchQuery.trim() && (
+              <nav 
+                className="msg-nav-pills"
+                onWheel={(e) => {
+                  const container = e.currentTarget;
+                  if (e.deltaY !== 0) {
+                    e.preventDefault();
+                    container.scrollLeft += e.deltaY;
+                  }
+                }}
+              >
+                {[
+                  { id: 'all', label: 'All' },
+                  { id: 'board_alerts', label: unreadNotificationsCount > 0 ? `Alerts (${unreadNotificationsCount})` : 'Alerts' },
+                  { id: 'groups', label: 'Groups' },
+                  { id: 'tags', label: 'Tags' },
+                  { id: 'announcements', label: 'Announcements' },
+                  { id: 'replies', label: 'Replies' }
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    className={`msg-pill ${activeTab === tab.id ? 'active' : ''}`}
+                    onClick={() => setActiveTab(tab.id)}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </nav>
+            )}
 
             {/* List Content */}
             <div className="msg-rooms-list" ref={chatListRef}>
-              
-              {/* BOARD ALERTS TAB */}
+              {chatSearchQuery.trim() ? (
+                <div className="msg-search-results-panel">
+                  {/* Filter Pills */}
+                  <div className="msg-search-filter-pills">
+                    {[
+                      { id: 'all', label: 'All' },
+                      { id: 'tags', label: `Tags (${chatSearchResults.tags?.length || 0})` },
+                      { id: 'chats', label: `Chats (${chatSearchResults.chats?.length || 0})` },
+                      { id: 'messages', label: `Messages (${chatSearchResults.messages?.length || 0})` }
+                    ].map((pill) => (
+                      <button
+                        key={pill.id}
+                        type="button"
+                        className={`msg-search-filter-pill ${chatSearchTab === pill.id ? 'active' : ''}`}
+                        onClick={() => setChatSearchTab(pill.id)}
+                      >
+                        {pill.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {chatSearchLoading ? (
+                    <div className="msg-search-loading-state">
+                      <div className="spinner" style={{ width: 22, height: 22 }} />
+                      <span>Searching discussion board...</span>
+                    </div>
+                  ) : (
+                    (!chatSearchResults.tags?.length && !chatSearchResults.chats?.length && !chatSearchResults.messages?.length) ? (
+                      <div className="msg-empty">
+                        No tags, chats, or conversation messages found matching "{chatSearchQuery}".
+                      </div>
+                    ) : (
+                      <div className="msg-search-results-content">
+                        {/* TAGS SECTION */}
+                        {(chatSearchTab === 'all' || chatSearchTab === 'tags') && chatSearchResults.tags?.length > 0 && (
+                          <div className="msg-search-group-block">
+                            <span className="msg-search-group-heading">Tag Channels</span>
+                            {chatSearchResults.tags.map((t) => (
+                              <div
+                                key={t.name}
+                                className="msg-room-item"
+                                onClick={() => {
+                                  openRoom('tag', t.name);
+                                  setChatSearchQuery('');
+                                }}
+                              >
+                                <div className="msg-room-avatar tag-avatar">
+                                  <FiHash size={16} />
+                                </div>
+                                <div className="msg-room-details">
+                                  <span className="msg-room-name">#{t.name}</span>
+                                  <span className="msg-room-lasttext">Hashtag channel</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* CHATS SECTION */}
+                        {(chatSearchTab === 'all' || chatSearchTab === 'chats') && chatSearchResults.chats?.length > 0 && (
+                          <div className="msg-search-group-block">
+                            <span className="msg-search-group-heading">Chat Channels</span>
+                            {chatSearchResults.chats.map((c) => (
+                              <div
+                                key={c.name}
+                                className="msg-room-item"
+                                onClick={() => {
+                                  openRoom('group', c.name);
+                                  setChatSearchQuery('');
+                                }}
+                              >
+                                <div className="msg-room-avatar">
+                                  {c.name.charAt(0).toUpperCase()}
+                                </div>
+                                <div className="msg-room-details">
+                                  <span className="msg-room-name">{c.display}</span>
+                                  <span className="msg-room-lasttext">{c.description}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* CONVERSATION MESSAGES SECTION */}
+                        {(chatSearchTab === 'all' || chatSearchTab === 'messages') && chatSearchResults.messages?.length > 0 && (
+                          <div className="msg-search-group-block">
+                            <span className="msg-search-group-heading">Conversation Messages</span>
+                            {chatSearchResults.messages.map((m) => {
+                              const isTag = m.tags && m.tags.length > 0;
+                              const channelName = isTag ? `#${m.tags[0]}` : m.category;
+                              return (
+                                <div
+                                  key={m._id}
+                                  className="msg-room-item"
+                                  onClick={() => {
+                                    openRoom(isTag ? 'tag' : 'group', isTag ? m.tags[0] : m.category);
+                                    setChatSearchQuery('');
+                                    setHighlightMessageId(m._id);
+                                  }}
+                                >
+                                  <div className="msg-room-avatar">
+                                    <FiMessageSquare size={16} />
+                                  </div>
+                                  <div className="msg-room-details">
+                                    <div className="msg-room-top">
+                                      <span className="msg-room-name">{m.user?.name || 'User'} <span className="msg-search-channel-tag">in {channelName}</span></span>
+                                      <span className="msg-room-time">
+                                        {new Date(m.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                                      </span>
+                                    </div>
+                                    <div className="msg-room-bottom">
+                                      <span className="msg-room-lasttext">{m.text}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  )}
+                </div>
+              ) : (
+                <>
+                  {/* BOARD ALERTS TAB */}
               {activeTab === 'board_alerts' ? (
                 notifications.length === 0 ? (
                   <div className="msg-empty">No board alerts found.</div>
@@ -818,6 +1256,8 @@ const MessageApp = ({ isFullPage = false }) => {
                   ))
                 )
               )}
+                </>
+              )}
             </div>
 
             {/* Circular Floating Plus Button */}
@@ -906,9 +1346,15 @@ const MessageApp = ({ isFullPage = false }) => {
                       messages.map((msg) => {
                         const isMe = user && msg.user?._id === user._id;
                         const isBeingEdited = editingId === msg._id;
+                        const isHighlighted = highlightMessageId === msg._id;
 
                         return (
-                          <div key={msg._id} style={{ display: 'flex', flexDirection: 'column' }} className={msg.isNew ? 'msg-new-entry' : ''}>
+                          <div 
+                            id={`msg-${msg._id}`}
+                            key={msg._id} 
+                            style={{ display: 'flex', flexDirection: 'column' }} 
+                            className={`${isHighlighted ? 'msg-highlight-pulse' : ''} ${msg.isNew ? 'msg-new-entry' : ''}`}
+                          >
                             {msg.isBroadcast && (
                               <span className="msg-broadcast-badge">Broadcast Announcement</span>
                             )}
@@ -930,22 +1376,6 @@ const MessageApp = ({ isFullPage = false }) => {
                                 )}
 
                                 <div className="msg-bubble-content">
-                                  {/* Render parent article if this is a news reply */}
-                                  {msg.parentArticle && (
-                                    <button
-                                      className="msg-parent-article-badge"
-                                      onClick={() => setPreviewArticle(msg.parentArticle)}
-                                      title="View this article details"
-                                    >
-                                      <span className="msg-parent-article-icon">📰</span>
-                                      <span className="msg-parent-article-text">
-                                        <span className="msg-parent-article-label">Reply to {getCategoryLabel(msg.parentArticle.category)}:</span>
-                                        <span className="msg-parent-article-title">{msg.parentArticle.title}</span>
-                                      </span>
-                                      <span className="msg-parent-article-arrow">→</span>
-                                    </button>
-                                  )}
-
                                   {/* Render parent message if this is a reply */}
                                   {msg.parentMessage && (
                                     <div className="msg-parent-in-bubble">
@@ -953,22 +1383,115 @@ const MessageApp = ({ isFullPage = false }) => {
                                     </div>
                                   )}
 
+                                  {/* Rich News Card if article attached */}
+                                  {msg.parentArticle && typeof msg.parentArticle === 'object' && msg.parentArticle.title && (
+                                    <div 
+                                      className="msg-news-card-bubble"
+                                      onClick={() => {
+                                        if (msg.parentArticle.slug) {
+                                          navigate(`/article/${msg.parentArticle.slug}`);
+                                          setIsOpen(false);
+                                        } else {
+                                          setPreviewArticle(msg.parentArticle);
+                                        }
+                                      }}
+                                      title="Click to view full story"
+                                    >
+                                      <div className="msg-news-card-header">
+                                        <span className="msg-news-card-badge">
+                                          📰 {getCategoryLabel(msg.parentArticle.category)}
+                                        </span>
+                                        <span className="msg-news-card-tap-hint">Read Story →</span>
+                                      </div>
+
+                                      {msg.parentArticle.coverImage && (
+                                        <div className="msg-news-card-image-wrap">
+                                          <img 
+                                            src={getImageUrl(msg.parentArticle.coverImage)} 
+                                            alt={msg.parentArticle.title} 
+                                            className="msg-news-card-image"
+                                            loading="lazy"
+                                          />
+                                        </div>
+                                      )}
+
+                                      <div className="msg-news-card-content">
+                                        <h4 className="msg-news-card-title">{msg.parentArticle.title}</h4>
+                                        {(msg.parentArticle.lead || msg.parentArticle.dek) && (
+                                          <p className="msg-news-card-lead">
+                                            {msg.parentArticle.lead || msg.parentArticle.dek}
+                                          </p>
+                                        )}
+                                        <div className="msg-news-card-footer">
+                                          <button 
+                                            type="button" 
+                                            className="msg-news-card-read-btn"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              if (msg.parentArticle.slug) {
+                                                navigate(`/article/${msg.parentArticle.slug}`);
+                                                setIsOpen(false);
+                                              } else {
+                                                setPreviewArticle(msg.parentArticle);
+                                              }
+                                            }}
+                                          >
+                                            Read Full Story →
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+
                                   {isBeingEdited ? (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                    /* MODERN DARK INLINE EDITING CARD */
+                                    <div className="msg-edit-box-dark">
+                                      <div className="msg-edit-header-dark">
+                                        <span className="msg-edit-title-dark">Editing message</span>
+                                        <span className="msg-edit-hint-dark">Esc to cancel • Enter to save</span>
+                                      </div>
                                       <textarea
                                         value={editText}
                                         onChange={(e) => setEditText(e.target.value)}
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter' && !e.shiftKey) {
+                                            e.preventDefault();
+                                            handleSaveEdit();
+                                          } else if (e.key === 'Escape') {
+                                            setEditingId(null);
+                                          }
+                                        }}
                                         rows={2}
-                                        style={{ border: '1px solid var(--color-black)', padding: 4, width: '100%', fontSize: 12, resize: 'none' }}
+                                        autoFocus
+                                        className="msg-edit-textarea-dark"
+                                        placeholder="Edit your message..."
                                       />
-                                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
-                                        <button style={{ fontSize: 10, textDecoration: 'underline' }} onClick={() => setEditingId(null)}>Cancel</button>
-                                        <button style={{ fontSize: 10, fontWeight: 700 }} onClick={handleSaveEdit}>Save</button>
+                                      <div className="msg-edit-actions-dark">
+                                        <button 
+                                          type="button" 
+                                          className="msg-edit-btn-cancel" 
+                                          onClick={() => setEditingId(null)}
+                                        >
+                                          Cancel
+                                        </button>
+                                        <button 
+                                          type="button" 
+                                          className="msg-edit-btn-save" 
+                                          onClick={handleSaveEdit}
+                                          disabled={!editText.trim()}
+                                        >
+                                          Save Changes
+                                        </button>
                                       </div>
                                     </div>
                                   ) : (
                                     <>
-                                      <div>{msg.text}</div>
+                                      {/* Message text with clickable tags (#) and mentions (@) */}
+                                      {msg.text && (
+                                        <div className="msg-bubble-text-wrap">
+                                          {renderFormattedMessage(msg.text)}
+                                        </div>
+                                      )}
                                       
                                       {/* Bubble Actions on Hover */}
                                       {user && !isBeingEdited && (
@@ -1218,7 +1741,75 @@ const MessageApp = ({ isFullPage = false }) => {
                           </div>
                         )}
 
-                        <div className="msg-input-row" style={{ position: 'relative' }}>
+                        {/* News Live Recommendations Tray (spreads above input bar) */}
+                        {showNewsAttach && (
+                          <div className="msg-news-recommendations-tray">
+                            <div className="msg-news-rec-header">
+                              <div className="msg-news-rec-title-wrap">
+                                <FiFileText size={14} className="msg-news-rec-icon" />
+                                <span className="msg-news-rec-title">
+                                  {newsSearchQuery.trim() ? 'Search Results' : 'Recommended News Stories'}
+                                </span>
+                              </div>
+                              <button 
+                                type="button" 
+                                className="msg-news-rec-close"
+                                onClick={() => {
+                                  setShowNewsAttach(false);
+                                  setNewsSearchQuery('');
+                                }}
+                                title="Close news search"
+                              >
+                                <FiX size={14} />
+                              </button>
+                            </div>
+
+                            {newsLoading ? (
+                              <div className="msg-news-rec-loading">
+                                <div className="spinner" style={{ width: 18, height: 18 }} />
+                                <span>Loading news recommendations...</span>
+                              </div>
+                            ) : newsArticles.length === 0 ? (
+                              <div className="msg-news-rec-empty">
+                                No articles found matching "{newsSearchQuery}".
+                              </div>
+                            ) : (
+                              <div className="msg-news-rec-list">
+                                {newsArticles.map((art) => (
+                                  <div 
+                                    key={art._id}
+                                    className="msg-news-rec-card"
+                                    onClick={() => handleSendNewsArticle(art)}
+                                    title="Click to send story to chat"
+                                  >
+                                    {art.coverImage ? (
+                                      <img 
+                                        src={getImageUrl(art.coverImage)} 
+                                        alt={art.title} 
+                                        className="msg-news-rec-thumb"
+                                        loading="lazy"
+                                      />
+                                    ) : (
+                                      <div className="msg-news-rec-thumb-placeholder">📰</div>
+                                    )}
+                                    <div className="msg-news-rec-info">
+                                      <span className="msg-news-rec-badge">
+                                        {getCategoryLabel(art.category)}
+                                      </span>
+                                      <h5 className="msg-news-rec-heading">{art.title}</h5>
+                                      {(art.lead || art.dek) && <p className="msg-news-rec-snippet">{art.lead || art.dek}</p>}
+                                    </div>
+                                    <button type="button" className="msg-news-rec-send-btn" title="Send story to chat">
+                                      <FiSend size={13} />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        <div className={`msg-input-row ${showNewsAttach ? 'news-search-expanded' : ''}`} style={{ position: 'relative' }}>
                           <button
                             type="button"
                             onClick={() => setShowStickerTray(prev => !prev)}
@@ -1230,37 +1821,76 @@ const MessageApp = ({ isFullPage = false }) => {
                           >
                             <FiSmile size={18} />
                           </button>
-                          <input 
-                            type="text" 
-                            name="chat_message_content"
-                            autoComplete="off"
-                            data-lpignore="true"
-                            data-form-type="other"
-                            placeholder="Write message... Use #tag or @mention." 
-                            className="msg-input-text"
-                            value={newMessage}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setNewMessage(val);
-                              const hashMatch = val.match(/#([a-zA-Z0-9_-]*)$/);
-                              if (hashMatch) {
-                                setShowTagSuggestions(true);
-                                setTagQuery(hashMatch[1].toLowerCase());
-                                setShowMentionSuggestions(false);
-                              } else {
-                                setShowTagSuggestions(false);
-                              }
-                              const mentionMatch = val.match(/@([a-zA-Z0-9_-]*)$/);
-                              if (mentionMatch) {
-                                setShowMentionSuggestions(true);
-                                setMentionQuery(mentionMatch[1].toLowerCase());
-                                setShowTagSuggestions(false);
-                              } else {
-                                setShowMentionSuggestions(false);
-                              }
+
+                          {showNewsAttach ? (
+                            <div className="msg-news-search-bar-wrap">
+                              <FiSearch size={16} className="msg-news-search-icon-spread" />
+                              <input
+                                type="text"
+                                autoFocus
+                                value={newsSearchQuery}
+                                onChange={(e) => setNewsSearchQuery(e.target.value)}
+                                placeholder="Type to search and share news articles..."
+                                className="msg-news-search-bar-input"
+                              />
+                              {newsSearchQuery && (
+                                <button 
+                                  type="button" 
+                                  onClick={() => setNewsSearchQuery('')}
+                                  className="msg-news-search-bar-clear"
+                                  title="Clear"
+                                >
+                                  <FiX size={14} />
+                                </button>
+                              )}
+                            </div>
+                          ) : (
+                            <input 
+                              type="text" 
+                              name="chat_message_content"
+                              autoComplete="off"
+                              data-lpignore="true"
+                              data-form-type="other"
+                              placeholder="Write message... Use #tag or @mention." 
+                              className="msg-input-text"
+                              value={newMessage}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setNewMessage(val);
+                                const hashMatch = val.match(/#([a-zA-Z0-9_\u00C0-\u017F-]*)$/);
+                                if (hashMatch) {
+                                  setShowTagSuggestions(true);
+                                  setTagQuery(hashMatch[1].toLowerCase());
+                                  setShowMentionSuggestions(false);
+                                } else {
+                                  setShowTagSuggestions(false);
+                                }
+                                const mentionMatch = val.match(/@([a-zA-Z0-9_\u00C0-\u017F-]*)$/);
+                                if (mentionMatch) {
+                                  setShowMentionSuggestions(true);
+                                  setMentionQuery(mentionMatch[1].toLowerCase());
+                                  setShowTagSuggestions(false);
+                                } else {
+                                  setShowMentionSuggestions(false);
+                                }
+                              }}
+                            />
+                          )}
+
+                          {/* Document / News Attachment Button */}
+                          <button
+                            type="button"
+                            className={`msg-news-attach-btn ${showNewsAttach ? 'active' : ''}`}
+                            onClick={() => {
+                              setShowNewsAttach(prev => !prev);
+                              if (showNewsAttach) setNewsSearchQuery('');
                             }}
-                          />
-                          <button type="submit" className="msg-send-btn" disabled={!newMessage.trim()}>
+                            title={showNewsAttach ? "Close news search" : "Attach / Share News Story"}
+                          >
+                            <FiFileText size={17} />
+                          </button>
+
+                          <button type="submit" className="msg-send-btn" disabled={!newMessage.trim() && !showNewsAttach}>
                             <FiSend size={16} />
                           </button>
                         </div>
@@ -1378,9 +2008,12 @@ const MessageApp = ({ isFullPage = false }) => {
                 <button 
                   className="msg-preview-view-btn" 
                   onClick={() => {
-                    setPreviewArticle(null);
-                    navigate(`/article/${previewArticle.slug}`);
-                    setIsOpen(false);
+                    const target = previewArticle.slug || previewArticle._id;
+                    if (target) {
+                      setPreviewArticle(null);
+                      navigate(`/article/${target}`);
+                      setIsOpen(false);
+                    }
                   }}
                 >
                   Read Full Story

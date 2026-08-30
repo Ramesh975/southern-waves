@@ -13,8 +13,47 @@ import toast from 'react-hot-toast';
 
 const StoriesPage = () => {
   const { user } = useAuth();
-  const { theme, accent } = useTheme();
+  const { theme, accent, themeEngine } = useTheme();
   const navigate = useNavigate();
+
+  const isLight = theme === 'light';
+  const isBlack = theme === 'black';
+  const isExpressive = themeEngine === 'expressive';
+
+  // Core colors
+  const baseBg = isLight ? '#fbf9f5' : (isBlack ? '#000000' : '#151515');
+  const textColor = isLight ? '#0d0d0d' : '#ffffff';
+  const textSecondary = isLight ? 'rgba(0, 0, 0, 0.65)' : 'rgba(255, 255, 255, 0.65)';
+  const borderLight = isLight ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.1)';
+  const borderStrong = isLight ? 'var(--color-gray-200, #e2e7f2)' : 'rgba(255, 255, 255, 0.15)';
+
+  // Radii
+  const radiusLg = isExpressive ? '28px' : '20px';
+  const radiusMd = isExpressive ? '16px' : '10px';
+  const radiusPill = isExpressive ? '30px' : '20px';
+
+  // Shadows
+  const shadowCard = isLight 
+    ? (isExpressive ? 'var(--shadow-lg)' : '0 20px 40px rgba(0,0,0,0.08)') 
+    : (isBlack ? 'none' : '0 25px 60px rgba(0,0,0,0.7)');
+  const shadowNav = isLight 
+    ? '0 8px 24px rgba(0,0,0,0.08)' 
+    : '0 8px 24px rgba(0,0,0,0.6)';
+
+  // Button background colors
+  const buttonBg = isLight ? 'rgba(0, 0, 0, 0.06)' : 'rgba(255, 255, 255, 0.1)';
+  const buttonBorder = isLight ? '1px solid rgba(0, 0, 0, 0.08)' : '1px solid rgba(255, 255, 255, 0.12)';
+  const buttonTextColor = isLight ? '#333333' : '#ffffff';
+
+  // Default Card Background (when no cover image is uploaded)
+  const defaultCardBg = useMemo(() => {
+    if (isExpressive) {
+      return `linear-gradient(135deg, color-mix(in srgb, var(--accent-color) ${isLight ? '15%' : '25%'}, ${baseBg}) 0%, color-mix(in srgb, var(--accent-color) ${isLight ? '8%' : '12%'}, ${baseBg}) 50%, ${baseBg} 100%)`;
+    }
+    return isLight
+      ? 'linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 50%, #d1d5db 100%)'
+      : 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #0f172a 100%)';
+  }, [isLight, isExpressive, baseBg]);
 
   const [articles, setArticles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -354,8 +393,11 @@ const StoriesPage = () => {
       style={{
         position: 'fixed',
         inset: 0,
-        background: '#09090b',
-        color: '#ffffff',
+        background: baseBg,
+        backgroundImage: isExpressive 
+          ? 'radial-gradient(ellipse 80% 50% at 50% -20%, color-mix(in srgb, var(--accent-color) 15%, transparent), transparent 70%), radial-gradient(ellipse 60% 40% at 100% 50%, color-mix(in srgb, var(--accent-color) 8%, transparent), transparent 60%)' 
+          : 'none',
+        color: textColor,
         zIndex: 9000,
         display: 'flex',
         flexDirection: 'column',
@@ -370,11 +412,11 @@ const StoriesPage = () => {
         alignItems: 'center',
         justifyContent: 'space-between',
         padding: '16px 28px',
-        background: 'linear-gradient(to bottom, rgba(0, 0, 0, 0.95), rgba(0, 0, 0, 0.6) 70%, transparent)',
+        background: `linear-gradient(to bottom, ${baseBg} 0%, color-mix(in srgb, ${baseBg} 80%, transparent) 70%, transparent 100%)`,
         zIndex: 35,
         opacity: isHolding ? 0.15 : 1,
         transition: 'opacity 0.25s ease',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.05)'
+        borderBottom: isLight ? '1px solid var(--color-gray-200, #cbd5e1)' : '1px solid rgba(255, 255, 255, 0.08)'
       }}>
         {/* Clean Typography Branding (No Logo) */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
@@ -392,7 +434,7 @@ const StoriesPage = () => {
               fontFamily: 'var(--font-display, "Playfair Display", serif)',
               fontSize: '20px',
               fontWeight: 900,
-              color: '#ffffff',
+              color: textColor,
               letterSpacing: '-0.4px',
               lineHeight: 1.15
             }}>
@@ -400,17 +442,17 @@ const StoriesPage = () => {
             </span>
           </Link>
 
-          <div style={{ width: '1px', height: '18px', background: 'rgba(255, 255, 255, 0.15)' }} />
+          <div style={{ width: '1px', height: '18px', background: isLight ? 'var(--color-gray-300, #cbd5e1)' : 'rgba(255, 255, 255, 0.15)' }} />
 
           {/* Stories Live Pill */}
           <div style={{
             display: 'inline-flex',
             alignItems: 'center',
             gap: '6px',
-            background: 'rgba(255, 255, 255, 0.05)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
+            background: isLight ? 'var(--color-gray-100, #f0f3f9)' : 'rgba(255, 255, 255, 0.05)',
+            border: isLight ? '1px solid var(--color-gray-200, #cbd5e1)' : '1px solid rgba(255, 255, 255, 0.1)',
             padding: '4px 11px',
-            borderRadius: '20px',
+            borderRadius: radiusPill,
             backdropFilter: 'blur(10px)'
           }}>
             <span style={{
@@ -425,7 +467,7 @@ const StoriesPage = () => {
               fontWeight: 800,
               letterSpacing: '0.6px',
               textTransform: 'uppercase',
-              color: '#ffffff'
+              color: isLight ? 'var(--color-gray-800, #333333)' : '#ffffff'
             }}>
               Stories
             </span>
@@ -438,10 +480,10 @@ const StoriesPage = () => {
               gap: '6px',
               fontSize: '11px',
               padding: '4px 12px',
-              borderRadius: '20px',
-              background: 'rgba(255, 255, 255, 0.06)',
-              border: '1px solid rgba(255, 255, 255, 0.12)',
-              color: '#93c5fd',
+              borderRadius: radiusPill,
+              background: isLight ? 'color-mix(in srgb, var(--accent-color) 8%, var(--color-white))' : 'rgba(255, 255, 255, 0.06)',
+              border: isLight ? '1px solid color-mix(in srgb, var(--accent-color) 25%, transparent)' : '1px solid rgba(255, 255, 255, 0.12)',
+              color: isLight ? 'var(--accent-color)' : '#93c5fd',
               fontWeight: 700,
               backdropFilter: 'blur(8px)'
             }}>
@@ -455,10 +497,10 @@ const StoriesPage = () => {
           <button
             onClick={handleToggleAutoScroll}
             style={{
-              background: autoScrollEnabled ? 'var(--accent-color, #0f9f59)' : 'rgba(255, 255, 255, 0.08)',
-              border: autoScrollEnabled ? '1px solid var(--accent-color, #0f9f59)' : '1px solid rgba(255, 255, 255, 0.15)',
-              color: '#ffffff',
-              borderRadius: '20px',
+              background: autoScrollEnabled ? 'var(--accent-color, #0f9f59)' : (isLight ? 'var(--color-gray-100, #f0f3f9)' : 'rgba(255, 255, 255, 0.08)'),
+              border: autoScrollEnabled ? '1px solid var(--accent-color, #0f9f59)' : (isLight ? '1px solid var(--color-gray-300, #cbd5e1)' : '1px solid rgba(255, 255, 255, 0.15)'),
+              color: autoScrollEnabled ? '#ffffff' : (isLight ? 'var(--color-gray-800, #333333)' : '#ffffff'),
+              borderRadius: radiusPill,
               padding: '6px 14px',
               fontSize: '11.5px',
               fontWeight: 800,
@@ -466,7 +508,7 @@ const StoriesPage = () => {
               alignItems: 'center',
               gap: '6px',
               cursor: 'pointer',
-              boxShadow: autoScrollEnabled ? '0 2px 10px rgba(0,0,0,0.3)' : 'none',
+              boxShadow: autoScrollEnabled ? (isLight ? '0 2px 10px rgba(0,0,0,0.1)' : '0 2px 10px rgba(0,0,0,0.3)') : 'none',
               transition: 'all 0.2s ease'
             }}
           >
@@ -475,10 +517,10 @@ const StoriesPage = () => {
           <button
             onClick={() => setIsPaused((p) => !p)}
             style={{
-              background: 'rgba(255, 255, 255, 0.1)',
-              border: '1px solid rgba(255, 255, 255, 0.12)',
-              color: '#fff',
-              borderRadius: '50%',
+              background: buttonBg,
+              border: buttonBorder,
+              color: buttonTextColor,
+              borderRadius: isExpressive ? '12px' : '50%',
               width: '38px',
               height: '38px',
               display: 'flex',
@@ -495,10 +537,10 @@ const StoriesPage = () => {
           <Link
             to="/settings?tab=recommendations"
             style={{
-              background: 'rgba(255, 255, 255, 0.1)',
-              border: '1px solid rgba(255, 255, 255, 0.12)',
-              color: '#fff',
-              borderRadius: '50%',
+              background: buttonBg,
+              border: buttonBorder,
+              color: buttonTextColor,
+              borderRadius: isExpressive ? '12px' : '50%',
               width: '38px',
               height: '38px',
               display: 'flex',
@@ -515,10 +557,10 @@ const StoriesPage = () => {
           <button
             onClick={() => navigate('/')}
             style={{
-              background: 'rgba(255, 255, 255, 0.1)',
-              border: '1px solid rgba(255, 255, 255, 0.12)',
-              color: '#fff',
-              borderRadius: '50%',
+              background: buttonBg,
+              border: buttonBorder,
+              color: buttonTextColor,
+              borderRadius: isExpressive ? '12px' : '50%',
               width: '38px',
               height: '38px',
               display: 'flex',
@@ -541,19 +583,19 @@ const StoriesPage = () => {
           top: '70px',
           left: '50%',
           transform: 'translateX(-50%)',
-          background: 'rgba(0,0,0,0.75)',
+          background: isLight ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.75)',
           backdropFilter: 'blur(8px)',
-          border: '1px solid rgba(255,255,255,0.2)',
-          color: '#ffffff',
+          border: isLight ? '1px solid var(--color-gray-300, #cbd5e1)' : '1px solid rgba(255,255,255,0.2)',
+          color: isLight ? 'var(--color-gray-800, #333333)' : '#ffffff',
           padding: '6px 14px',
-          borderRadius: '20px',
+          borderRadius: radiusPill,
           fontSize: '12px',
           fontWeight: 800,
           zIndex: 50,
           display: 'flex',
           alignItems: 'center',
           gap: '6px',
-          boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+          boxShadow: isLight ? '0 8px 24px rgba(0,0,0,0.08)' : '0 8px 24px rgba(0,0,0,0.5)',
           animation: 'pulse 1.5s infinite'
         }}>
           <span>⏸️</span> Holding to inspect • Release to continue
@@ -573,14 +615,23 @@ const StoriesPage = () => {
         {loading ? (
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: '32px', marginBottom: '8px' }}>🌊</div>
-            <p style={{ fontWeight: 700, color: '#aaa' }}>Loading Recommendation Feed...</p>
+            <p style={{ fontWeight: 700, color: isLight ? 'var(--color-gray-600, #666666)' : '#aaa' }}>Loading Recommendation Feed...</p>
           </div>
         ) : !currentStory ? (
-          <div style={{ textAlign: 'center', maxWidth: '400px' }}>
+          <div style={{ textAlign: 'center', maxWidth: '400px', color: textColor }}>
             <h3 style={{ fontSize: '20px', fontWeight: 800 }}>No Stories Available</h3>
             <button
               onClick={() => navigate('/')}
-              style={{ background: 'var(--accent-color, #c8102e)', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}
+              style={{ 
+                background: 'var(--accent-color, #c8102e)', 
+                color: '#fff', 
+                border: 'none', 
+                padding: '10px 20px', 
+                borderRadius: isExpressive ? '16px' : '8px', 
+                fontWeight: 700, 
+                cursor: 'pointer',
+                boxShadow: isLight ? '0 4px 12px rgba(0,0,0,0.1)' : '0 4px 12px rgba(0,0,0,0.4)'
+              }}
             >
               Back to Home
             </button>
@@ -633,10 +684,11 @@ const StoriesPage = () => {
                   style={{
                     position: 'absolute',
                     inset: 0,
-                    borderRadius: '20px',
+                    borderRadius: radiusLg,
                     overflow: 'hidden',
-                    background: '#18181b',
-                    boxShadow: isCurrent ? '0 25px 60px rgba(0,0,0,0.7)' : 'none',
+                    background: isLight ? 'var(--color-white, #ffffff)' : (isBlack ? '#0a0b10' : '#18181b'),
+                    border: isLight ? '1px solid var(--color-gray-200, #cbd5e1)' : (isBlack ? '1px solid rgba(255,255,255,0.08)' : 'none'),
+                    boxShadow: isCurrent ? shadowCard : 'none',
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'space-between',
@@ -655,13 +707,13 @@ const StoriesPage = () => {
                       backgroundImage: `url("${getImageUrl(storyItem.coverImage)}")`,
                       backgroundSize: 'cover',
                       backgroundPosition: 'center',
-                      filter: 'brightness(0.72)'
+                      filter: isLight ? 'brightness(0.85)' : 'brightness(0.72)'
                     }} />
                   ) : (
                     <div style={{
                       position: 'absolute',
                       inset: 0,
-                      background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #0f172a 100%)'
+                      background: defaultCardBg
                     }} />
                   )}
 
@@ -669,7 +721,9 @@ const StoriesPage = () => {
                   <div style={{
                     position: 'absolute',
                     inset: 0,
-                    background: 'linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 28%, rgba(0,0,0,0.3) 55%, rgba(0,0,0,0.85) 75%, rgba(0,0,0,0.98) 100%)',
+                    background: isLight 
+                      ? 'linear-gradient(to bottom, rgba(255,255,255,0.7) 0%, transparent 28%, rgba(255,255,255,0.3) 55%, rgba(255,255,255,0.75) 75%, rgba(255,255,255,0.92) 100%)'
+                      : 'linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 28%, rgba(0,0,0,0.3) 55%, rgba(0,0,0,0.85) 75%, rgba(0,0,0,0.98) 100%)',
                     zIndex: 2,
                     opacity: isHolding ? 0.2 : 1,
                     transition: 'opacity 0.25s ease'
@@ -706,14 +760,14 @@ const StoriesPage = () => {
                       <img
                         src={currentTrack?.avatar ? getImageUrl(currentTrack.avatar) : `https://ui-avatars.com/api/?name=${encodeURIComponent(currentTrack?.name || 'SW')}&background=c8102e&color=fff`}
                         alt=""
-                        style={{ width: '40px', height: '40px', borderRadius: '50%', border: '2px solid rgba(255,255,255,0.85)', objectFit: 'cover' }}
+                        style={{ width: '40px', height: '40px', borderRadius: '50%', border: isLight ? '2px solid rgba(0,0,0,0.15)' : '2px solid rgba(255,255,255,0.85)', objectFit: 'cover' }}
                       />
                       <div>
-                        <span style={{ fontSize: '13.5px', fontWeight: 800, color: '#fff', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span style={{ fontSize: '13.5px', fontWeight: 800, color: isLight ? '#0d0d0d' : '#fff', display: 'flex', alignItems: 'center', gap: '4px' }}>
                           {currentTrack?.name || 'Southern Waves Editorial'}
-                          <span style={{ fontSize: '11px', color: '#93c5fd' }}>↗</span>
+                          <span style={{ fontSize: '11px', color: isLight ? 'var(--accent-color)' : '#93c5fd' }}>↗</span>
                         </span>
-                        <span style={{ fontSize: '11px', color: '#cbd5e1' }}>
+                        <span style={{ fontSize: '11px', color: isLight ? 'var(--color-gray-600, #666666)' : '#cbd5e1' }}>
                           Story {idx + 1} of {currentAuthorStories.length}
                         </span>
                       </div>
@@ -727,13 +781,13 @@ const StoriesPage = () => {
                         fontWeight: 900,
                         textTransform: 'uppercase',
                         padding: '3px 9px',
-                        borderRadius: '10px',
+                        borderRadius: isExpressive ? '12px' : '10px',
                         letterSpacing: '0.5px'
                       }}>
                         {getCategoryLabel(storyItem.category)}
                       </span>
                       {storyItem.tags?.[0] && (
-                        <span style={{ fontSize: '10.5px', color: '#93c5fd', fontWeight: 700 }}>
+                        <span style={{ fontSize: '10.5px', color: isLight ? 'var(--accent-color)' : '#93c5fd', fontWeight: 700 }}>
                           #{storyItem.tags[0]}
                         </span>
                       )}
@@ -750,12 +804,12 @@ const StoriesPage = () => {
                     gap: '12px',
                     opacity: isHolding ? 0 : 1,
                     transition: 'opacity 0.2s ease',
-                    background: 'linear-gradient(to top, rgba(0, 0, 0, 0.96) 0%, rgba(5, 5, 8, 0.85) 50%, rgba(10, 10, 15, 0.4) 80%, transparent 100%)',
-                    backdropFilter: 'blur(16px) saturate(180%)',
-                    WebkitBackdropFilter: 'blur(16px) saturate(180%)',
-                    borderTop: '1px solid rgba(255, 255, 255, 0.08)',
-                    borderBottomLeftRadius: '20px',
-                    borderBottomRightRadius: '20px'
+                    background: isLight 
+                      ? 'linear-gradient(to top, rgba(255, 255, 255, 0.96) 0%, rgba(245, 245, 248, 0.85) 50%, rgba(240, 240, 245, 0.4) 80%, transparent 100%)'
+                      : 'linear-gradient(to top, rgba(0, 0, 0, 0.96) 0%, rgba(5, 5, 8, 0.85) 50%, rgba(10, 10, 15, 0.4) 80%, transparent 100%)',
+                    borderTop: isLight ? '1px solid rgba(0, 0, 0, 0.06)' : '1px solid rgba(255, 255, 255, 0.08)',
+                    borderBottomLeftRadius: radiusLg,
+                    borderBottomRightRadius: radiusLg
                   }}>
                     <h2 style={{
                       fontFamily: 'var(--font-display, "Playfair Display", serif)',
@@ -763,9 +817,9 @@ const StoriesPage = () => {
                       fontWeight: 800,
                       lineHeight: 1.3,
                       margin: 0,
-                      color: '#ffffff',
+                      color: textColor,
                       letterSpacing: '-0.2px',
-                      textShadow: '0 2px 14px rgba(0,0,0,0.95), 0 0 35px rgba(0,0,0,0.85)'
+                      textShadow: isLight ? '0 1px 4px rgba(255,255,255,0.8)' : '0 2px 14px rgba(0,0,0,0.95), 0 0 35px rgba(0,0,0,0.85)'
                     }}>
                       {storyItem.title}
                     </h2>
@@ -773,13 +827,13 @@ const StoriesPage = () => {
                     <p style={{
                       fontSize: '13px',
                       lineHeight: 1.55,
-                      color: 'rgba(255, 255, 255, 0.82)',
+                      color: isLight ? 'rgba(0, 0, 0, 0.8)' : 'rgba(255, 255, 255, 0.82)',
                       margin: 0,
                       display: '-webkit-box',
                       WebkitLineClamp: 3,
                       WebkitBoxOrient: 'vertical',
                       overflow: 'hidden',
-                      textShadow: '0 1px 4px rgba(0,0,0,0.8)'
+                      textShadow: isLight ? 'none' : '0 1px 4px rgba(0,0,0,0.8)'
                     }}>
                       {storyItem.lead}
                     </p>
@@ -798,7 +852,7 @@ const StoriesPage = () => {
                           background: 'var(--accent-color, #0f9f59)',
                           color: '#ffffff',
                           padding: '11px 16px',
-                          borderRadius: '10px',
+                          borderRadius: radiusMd,
                           fontWeight: 800,
                           fontSize: '13px',
                           textDecoration: 'none',
@@ -807,7 +861,7 @@ const StoriesPage = () => {
                           alignItems: 'center',
                           justifyContent: 'center',
                           gap: '6px',
-                          boxShadow: '0 4px 16px rgba(0,0,0,0.5)'
+                          boxShadow: isLight ? '0 4px 12px rgba(0,0,0,0.1)' : '0 4px 16px rgba(0,0,0,0.5)'
                         }}
                       >
                         Read Full Story <FiArrowRight size={14} />
@@ -816,10 +870,10 @@ const StoriesPage = () => {
                       <button
                         onClick={handleLike}
                         style={{
-                          background: likedArticles[storyItem._id] ? 'var(--color-red, #ef4444)' : 'rgba(255,255,255,0.1)',
-                          border: '1px solid rgba(255,255,255,0.12)',
-                          color: '#fff',
-                          borderRadius: '10px',
+                          background: likedArticles[storyItem._id] ? 'var(--color-red, #ef4444)' : (isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.1)'),
+                          border: isLight ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.12)',
+                          color: likedArticles[storyItem._id] ? '#fff' : (isLight ? 'var(--color-gray-800, #333333)' : '#fff'),
+                          borderRadius: radiusMd,
                           width: '42px',
                           height: '42px',
                           display: 'flex',
@@ -830,16 +884,16 @@ const StoriesPage = () => {
                           backdropFilter: 'blur(8px)'
                         }}
                       >
-                        <FiHeart size={18} fill={likedArticles[storyItem._id] ? '#fff' : 'none'} />
+                        <FiHeart size={18} fill={likedArticles[storyItem._id] ? '#fff' : 'none'} color={likedArticles[storyItem._id] ? '#fff' : (isLight ? '#333' : '#fff')} />
                       </button>
 
                       <button
                         onClick={handleShare}
                         style={{
-                          background: 'rgba(255,255,255,0.1)',
-                          border: '1px solid rgba(255,255,255,0.12)',
-                          color: '#fff',
-                          borderRadius: '10px',
+                          background: isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.1)',
+                          border: isLight ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.12)',
+                          color: isLight ? 'var(--color-gray-800, #333333)' : '#fff',
+                          borderRadius: radiusMd,
                           width: '42px',
                           height: '42px',
                           display: 'flex',
@@ -869,13 +923,13 @@ const StoriesPage = () => {
                 left: '28px',
                 top: '50%',
                 transform: 'translateY(-50%)',
-                background: 'rgba(0, 0, 0, 0.65)',
+                background: isLight ? 'rgba(255, 255, 255, 0.75)' : 'rgba(0, 0, 0, 0.65)',
                 backdropFilter: 'blur(12px)',
-                border: '1px solid rgba(255, 255, 255, 0.12)',
-                color: '#fff',
+                border: isLight ? '1px solid rgba(0, 0, 0, 0.12)' : '1px solid rgba(255, 255, 255, 0.12)',
+                color: isLight ? '#0d0d0d' : '#fff',
                 width: '48px',
                 height: '48px',
-                borderRadius: '50%',
+                borderRadius: isExpressive ? '16px' : '50%',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -883,7 +937,7 @@ const StoriesPage = () => {
                 opacity: horizontalIndex === 0 ? 0.2 : isHolding ? 0 : 1,
                 zIndex: 30,
                 transition: 'opacity 0.2s ease, transform 0.2s ease',
-                boxShadow: '0 8px 24px rgba(0,0,0,0.6)'
+                boxShadow: shadowNav
               }}
             >
               <FiChevronLeft size={24} />
@@ -897,13 +951,13 @@ const StoriesPage = () => {
                 right: '28px',
                 top: '50%',
                 transform: 'translateY(-50%)',
-                background: 'rgba(0, 0, 0, 0.65)',
+                background: isLight ? 'rgba(255, 255, 255, 0.75)' : 'rgba(0, 0, 0, 0.65)',
                 backdropFilter: 'blur(12px)',
-                border: '1px solid rgba(255, 255, 255, 0.12)',
-                color: '#fff',
+                border: isLight ? '1px solid rgba(0, 0, 0, 0.12)' : '1px solid rgba(255, 255, 255, 0.12)',
+                color: isLight ? '#0d0d0d' : '#fff',
                 width: '48px',
                 height: '48px',
-                borderRadius: '50%',
+                borderRadius: isExpressive ? '16px' : '50%',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -911,7 +965,7 @@ const StoriesPage = () => {
                 opacity: horizontalIndex === currentAuthorStories.length - 1 ? 0.2 : isHolding ? 0 : 1,
                 zIndex: 30,
                 transition: 'opacity 0.2s ease, transform 0.2s ease',
-                boxShadow: '0 8px 24px rgba(0,0,0,0.6)'
+                boxShadow: shadowNav
               }}
             >
               <FiChevronRight size={24} />
@@ -936,19 +990,19 @@ const StoriesPage = () => {
               onClick={prevRecommendedAuthor}
               disabled={verticalIndex === 0}
               style={{
-                background: 'rgba(0, 0, 0, 0.7)',
+                background: isLight ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.7)',
                 backdropFilter: 'blur(12px)',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
-                color: '#93c5fd',
+                border: isLight ? '1px solid rgba(0, 0, 0, 0.15)' : '1px solid rgba(255, 255, 255, 0.15)',
+                color: isLight ? 'var(--accent-color)' : '#93c5fd',
                 width: '40px',
                 height: '40px',
-                borderRadius: '50%',
+                borderRadius: isExpressive ? '12px' : '50%',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 cursor: verticalIndex === 0 ? 'not-allowed' : 'pointer',
                 opacity: verticalIndex === 0 ? 0.25 : 1,
-                boxShadow: '0 4px 16px rgba(0,0,0,0.6)'
+                boxShadow: isLight ? '0 4px 16px rgba(0,0,0,0.06)' : '0 4px 16px rgba(0,0,0,0.6)'
               }}
             >
               <FiChevronUp size={22} />
@@ -958,19 +1012,19 @@ const StoriesPage = () => {
               onClick={nextRecommendedAuthor}
               disabled={verticalIndex === recommendationTracks.length - 1}
               style={{
-                background: 'rgba(0, 0, 0, 0.7)',
+                background: isLight ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.7)',
                 backdropFilter: 'blur(12px)',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
-                color: '#93c5fd',
+                border: isLight ? '1px solid rgba(0, 0, 0, 0.15)' : '1px solid rgba(255, 255, 255, 0.15)',
+                color: isLight ? 'var(--accent-color)' : '#93c5fd',
                 width: '40px',
                 height: '40px',
-                borderRadius: '50%',
+                borderRadius: isExpressive ? '12px' : '50%',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 cursor: verticalIndex === recommendationTracks.length - 1 ? 'not-allowed' : 'pointer',
                 opacity: verticalIndex === recommendationTracks.length - 1 ? 0.25 : 1,
-                boxShadow: '0 4px 16px rgba(0,0,0,0.6)'
+                boxShadow: isLight ? '0 4px 16px rgba(0,0,0,0.06)' : '0 4px 16px rgba(0,0,0,0.6)'
               }}
             >
               <FiChevronDown size={22} />
@@ -986,9 +1040,9 @@ const StoriesPage = () => {
         gap: '16px',
         padding: '10px 20px',
         fontSize: '11.5px',
-        color: '#94a3b8',
-        background: 'rgba(0,0,0,0.8)',
-        borderTop: '1px solid rgba(255,255,255,0.06)',
+        color: isLight ? 'var(--color-gray-600, #666666)' : '#94a3b8',
+        background: isLight ? 'var(--color-paper)' : (isBlack ? '#000000' : 'rgba(0,0,0,0.8)'),
+        borderTop: isLight ? '1px solid var(--color-gray-200, #cbd5e1)' : '1px solid rgba(255,255,255,0.06)',
         flexWrap: 'wrap',
         opacity: isHolding ? 0.1 : 1,
         transition: 'opacity 0.2s ease'

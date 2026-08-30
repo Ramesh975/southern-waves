@@ -105,6 +105,7 @@ export const articleAPI = {
   getMostRead: (params) => API.get('/articles/most-read', { params }),
   getMostLiked: (params) => API.get('/articles/most-liked', { params }),
   getBySlug: (slug) => API.get(`/articles/${slug}`),
+  getById: (id) => API.get(`/articles/${id}`),
   getTrending: (params) => API.get('/articles/trending', { params }),
   getTrendingTags: (params) => API.get('/articles/tags/trending', { params }),
   getRecommendations: (params) => API.get('/articles/recommendations', { params }),
@@ -137,6 +138,7 @@ export const chatAPI = {
   markAsRead: (room) => API.post('/chat/read', { room }),
   getReplies: () => API.get('/chat/replies'),
   deleteMessage: (id) => API.delete(`/chat/${id}`),
+  search: (params) => API.get('/chat/search', { params }),
 };
 
 // --- Notifications ---

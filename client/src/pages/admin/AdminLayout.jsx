@@ -3,11 +3,11 @@ import { Link, NavLink, useNavigate, Outlet, useLocation } from 'react-router-do
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import {
-  FiHome, FiFileText, FiUsers, FiPlusCircle,
-  FiLogOut, FiSun, FiMoon, FiInbox, FiMenu, FiX,
-  FiBell, FiSearch, FiChevronRight, FiSettings, FiExternalLink,
-  FiArrowLeft, FiChevronDown, FiMessageSquare, FiBookmark, FiLayout,
-  FiUser, FiShield, FiAlertOctagon, FiUpload, FiSliders
+  FiChevronDown, FiChevronRight, FiMenu, FiX, FiLogOut,
+  FiExternalLink, FiSun, FiMoon, FiArrowLeft, FiMessageSquare,
+  FiSearch, FiLayers, FiZap, FiHome, FiFileText, FiUsers,
+  FiPlusCircle, FiInbox, FiBell, FiSettings, FiBookmark,
+  FiLayout, FiUser, FiShield, FiAlertOctagon, FiUpload, FiSliders
 } from 'react-icons/fi';
 import { IoContrast } from 'react-icons/io5';
 import { useChat } from '../../context/ChatContext';
@@ -15,10 +15,12 @@ import { articleAPI, commentAPI, filterAPI } from '../../services/api';
 import '../../components/NavbarModern.css';
 import './AdminLayout.css';
 import AccountSettingsModal from '../../components/AccountSettingsModal';
+import { getImageUrl } from '../../components/ArticleComponents';
+import GlobalSearchAssist from '../../components/GlobalSearchAssist';
 
 const AdminLayout = () => {
   const { user, isAdmin, isEditor, isModerator, logout, refreshUser } = useAuth();
-  const { theme, toggleTheme } = useTheme();
+  const { theme, setTheme, toggleTheme, themeEngine, setThemeEngine, toggleThemeEngine, accent, setAccent, ACCENT_COLORS } = useTheme();
   const { isOpen, setIsOpen, setActiveTab, replies, totalUnread, notifications, unreadNotificationsCount, markNotificationRead, markAllNotificationsRead } = useChat();
   const navigate = useNavigate();
   const location = useLocation();
@@ -27,9 +29,19 @@ const AdminLayout = () => {
   const [notifOpen, setNotifOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [customizerOpen, setCustomizerOpen] = useState(false);
   const [accountModalOpen, setAccountModalOpen] = useState(false);
   const [signOutConfirm, setSignOutConfirm] = useState(false);
+  const [searchAssistOpen, setSearchAssistOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
+  const customizerRef = useRef(null);
+
+  // Global search assist toggle listener
+  useEffect(() => {
+    const handleToggle = () => setSearchAssistOpen(prev => !prev);
+    window.addEventListener('toggle-global-search', handleToggle);
+    return () => window.removeEventListener('toggle-global-search', handleToggle);
+  }, []);
   
   const [pendingReviewsCount, setPendingReviewsCount] = useState(0);
   const [pendingCommentsCount, setPendingCommentsCount] = useState(0);
@@ -121,6 +133,7 @@ const AdminLayout = () => {
     setMenuOpen(false);
     setNotifOpen(false);
     setProfileMenuOpen(false);
+    setCustomizerOpen(false);
   }, [location.pathname]);
 
   // Click outside detection for dropdowns
@@ -133,6 +146,9 @@ const AdminLayout = () => {
       const notificationsWrapper = document.querySelector('.ad-notif-wrap');
       if (notificationsWrapper && !notificationsWrapper.contains(event.target)) {
         setNotifOpen(false);
+      }
+      if (customizerRef.current && !customizerRef.current.contains(event.target)) {
+        setCustomizerOpen(false);
       }
       if (adminRef.current && !adminRef.current.contains(event.target)) {
         setMenuOpen(false);
@@ -152,7 +168,6 @@ const AdminLayout = () => {
       label: 'Overview',
       items: [
         { to: '/admin', label: 'Dashboard', icon: <FiHome size={16} />, end: true },
-        { to: '/settings', label: 'Settings', icon: <FiSettings size={16} /> },
       ],
     },
     {
@@ -207,13 +222,20 @@ const AdminLayout = () => {
 
       {/* ── Sidebar ── */}
       <aside className={`ad-sidebar ${mobileSidebarOpen ? 'mobile-open' : ''}`}>
-        {/* Logo */}
+        {/* Brand Header without Logo */}
         <div className="ad-sidebar-brand">
-          <div className="ad-brand-mark">🌊</div>
-          {showLabels && (
+          {showLabels ? (
             <div className="ad-brand-text">
               <span className="ad-brand-name">SW Admin</span>
               <span className="ad-brand-sub">Southern Waves</span>
+              <div className="mobile-slide-accent-stripes" style={{ marginTop: '4px' }}>
+                <div className="mobile-accent-stripe long" style={{ height: '2px', width: '40px' }} />
+                <div className="mobile-accent-stripe short" style={{ height: '2px', width: '22px' }} />
+              </div>
+            </div>
+          ) : (
+            <div className="ad-brand-collapsed">
+              <span className="ad-brand-abbr">SW</span>
             </div>
           )}
           {!isMobile ? (
@@ -228,57 +250,36 @@ const AdminLayout = () => {
             <button
               className="ad-mobile-close-btn"
               onClick={() => setMobileSidebarOpen(false)}
-              style={{
-                background: 'rgba(255, 255, 255, 0.08)',
-                border: 'none',
-                color: '#fff',
-                width: 28, height: 28,
-                borderRadius: '50%',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', transition: 'background-color 0.2s'
-              }}
+              aria-label="Close sidebar"
             >
-              <FiX size={16} />
+              <FiX size={18} />
             </button>
           )}
         </div>
 
-        {/* User Card */}
-        <div className="ad-user-card">
-          <div className="ad-avatar">
-            {user?.name?.charAt(0)?.toUpperCase() || 'A'}
-          </div>
-          {showLabels && (
+        {/* User Card without Profile Photo */}
+        {showLabels && (
+          <div className="ad-user-card">
             <div className="ad-user-info">
               <span className="ad-user-name">{user?.name}</span>
               <span className="ad-role-badge" style={{ background: roleColor }}>{roleLabel}</span>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Sidebar Search */}
         {showLabels && (
-          <div style={{ padding: '8px 12px 16px', position: 'relative' }}>
-            <FiSearch style={{ position: 'absolute', left: 24, top: 18, color: 'rgba(255, 255, 255, 0.4)' }} size={13} />
-            <input
-              type="text"
-              placeholder="Quick search menu..."
-              value={sidebarSearch}
-              onChange={(e) => setSidebarSearch(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '6px 10px 6px 28px',
-                background: 'rgba(255, 255, 255, 0.08)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                borderRadius: '6px',
-                fontSize: '12px',
-                color: '#fff',
-                outline: 'none',
-                transition: 'all 0.2s'
-              }}
-              onFocus={(e) => e.target.style.borderColor = 'rgba(255, 255, 255, 0.3)'}
-              onBlur={(e) => e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)'}
-            />
+          <div className="ad-sidebar-search-wrapper">
+            <div className="ad-sidebar-search-box">
+              <FiSearch className="ad-sidebar-search-icon" size={14} />
+              <input
+                type="text"
+                placeholder="Quick search menu..."
+                value={sidebarSearch}
+                onChange={(e) => setSidebarSearch(e.target.value)}
+                className="ad-sidebar-search-input"
+              />
+            </div>
           </div>
         )}
 
@@ -300,7 +301,7 @@ const AdminLayout = () => {
                     <FiChevronDown 
                       size={12} 
                       style={{ 
-                        color: 'rgba(255, 255, 255, 0.4)',
+                        color: 'var(--admin-text-muted)',
                         transform: isExpanded ? 'none' : 'rotate(-90deg)', 
                         transition: 'transform 0.2s' 
                       }} 
@@ -355,26 +356,51 @@ const AdminLayout = () => {
           })}
         </nav>
 
-        {/* Bottom Actions */}
+        {/* Bottom Actions - Always Fixed, Icons Only with Top Tooltips */}
         <div className="ad-sidebar-footer">
-          <Link to="/" className="ad-nav-item" onClick={() => { if (isMobile) setMobileSidebarOpen(false); }} title={!showLabels ? 'View Site' : undefined}>
-            <span className="ad-nav-icon"><FiExternalLink size={16} /></span>
-            {showLabels && <span className="ad-nav-label">View Site</span>}
-          </Link>
-          <button className="ad-nav-item" onClick={toggleTheme} title={!showLabels ? 'Toggle Theme' : undefined}>
-            <span className="ad-nav-icon">
-              {theme === 'light' ? <FiMoon size={16} /> : theme === 'dark' ? <IoContrast size={16} /> : <FiSun size={16} />}
-            </span>
-            {showLabels && (
-              <span className="ad-nav-label">
-                {theme === 'light' ? 'Dark Mode' : theme === 'dark' ? 'Black Mode' : 'Light Mode'}
+          <div className="ad-footer-icons-row">
+            <Link 
+              to="/" 
+              className="ad-footer-icon-btn" 
+              onClick={() => { if (isMobile) setMobileSidebarOpen(false); }}
+              aria-label="View Site"
+            >
+              <FiExternalLink size={17} />
+              <span className="ad-tooltip-top">View Site</span>
+            </Link>
+
+            <button 
+              className="ad-footer-icon-btn" 
+              onClick={toggleTheme} 
+              aria-label="Toggle Theme"
+            >
+              {theme === 'light' ? <FiMoon size={17} /> : theme === 'dark' ? <IoContrast size={17} /> : <FiSun size={17} />}
+              <span className="ad-tooltip-top">
+                {theme === 'light' ? 'Switch to Dark Mode' : theme === 'dark' ? 'Switch to Black Mode' : 'Switch to Light Mode'}
               </span>
-            )}
-          </button>
-          <button className="ad-nav-item logout-btn" onClick={handleLogout} title={!showLabels ? 'Log Out' : undefined}>
-            <span className="ad-nav-icon"><FiLogOut size={16} /></span>
-            {showLabels && <span className="ad-nav-label">Log Out</span>}
-          </button>
+            </button>
+
+            <button 
+              className="ad-footer-icon-btn" 
+              onClick={toggleThemeEngine} 
+              aria-label="Toggle Theme Engine"
+              style={{ color: themeEngine === 'expressive' ? 'var(--accent-color)' : undefined }}
+            >
+              {themeEngine === 'expressive' ? <FiZap size={17} /> : <FiLayers size={17} />}
+              <span className="ad-tooltip-top">
+                {themeEngine === 'expressive' ? 'Spread Accent (M3 ON)' : 'Default Engine (M3 OFF)'}
+              </span>
+            </button>
+
+            <button 
+              className="ad-footer-icon-btn logout-btn" 
+              onClick={handleLogout} 
+              aria-label="Log Out"
+            >
+              <FiLogOut size={17} />
+              <span className="ad-tooltip-top">Log Out</span>
+            </button>
+          </div>
         </div>
       </aside>
 
@@ -422,24 +448,176 @@ const AdminLayout = () => {
               </div>
             </div>
 
+            {/* Global Search Assist Bar */}
+            <div 
+              className="gsa-trigger-bar ad-topbar-search-trigger"
+              onClick={() => setSearchAssistOpen(true)}
+              title="Global Search Assist (Ctrl+K)"
+            >
+              <span className="gsa-trigger-text">
+                <FiSearch size={15} color="var(--accent-color, #c8102e)" />
+                <span>Search anything across system...</span>
+              </span>
+              <span className="gsa-trigger-kbd">Ctrl+K</span>
+            </div>
+
             <div className="ad-topbar-right">
               <div 
-                className="nav-dropdown-wrapper"
+                className="nav-dropdown-wrapper ad-desktop-only-more"
                 onMouseEnter={handleMouseEnter}
                 onMouseLeave={handleMouseLeave}
               >
                 <button 
                   className={`nav-more-btn ${menuOpen ? 'active' : ''}`}
-                  onClick={() => { setMenuOpen(!menuOpen); setNotifOpen(false); }}
+                  onClick={() => { setMenuOpen(!menuOpen); setNotifOpen(false); setCustomizerOpen(false); }}
                 >
                   <span>more</span>
                   <FiChevronDown className="more-chevron" size={16} />
                 </button>
               </div>
 
-              <button className="nav-icon-btn theme-toggle" onClick={toggleTheme} aria-label="Toggle Theme">
-                {theme === 'light' ? <FiMoon size={20} /> : theme === 'dark' ? <IoContrast size={20} /> : <FiSun size={20} />}
+              {/* Global Search Assist Button (Mobile & Tablet) */}
+              <button 
+                className="nav-icon-btn ad-topbar-search-icon-btn" 
+                onClick={() => setSearchAssistOpen(true)} 
+                aria-label="Global Search Assist"
+                title="Global Search Assist (Ctrl+K)"
+              >
+                <FiSearch size={19} />
               </button>
+
+              {/* Appearance / Theme Customizer (Identical to General Navbar) */}
+              <div className="nav-customizer-wrapper" ref={customizerRef}>
+                <button
+                  className="nav-icon-btn theme-customizer-btn"
+                  onClick={() => {
+                    setCustomizerOpen(!customizerOpen);
+                    setMenuOpen(false);
+                    setNotifOpen(false);
+                    setProfileMenuOpen(false);
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    position: 'relative'
+                  }}
+                  title="Change Accent Color & Themes"
+                  aria-label="Customize Appearance"
+                >
+                  <div style={{
+                    width: '20px',
+                    height: '20px',
+                    borderRadius: '50%',
+                    backgroundColor: 'var(--accent-color)',
+                    border: '2px solid var(--color-white)',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+                    transition: 'transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                    transform: customizerOpen ? 'scale(1.2)' : 'scale(1)'
+                  }} />
+                </button>
+
+                {customizerOpen && (
+                  <div className="appearance-popover">
+                    <div className="popover-header">
+                      <h3>Appearance</h3>
+                    </div>
+
+                    <div className="popover-section">
+                      <span className="section-label">Accent Color</span>
+                      <div className="accent-color-row">
+                        {ACCENT_COLORS && Object.keys(ACCENT_COLORS).map((colorKey) => {
+                          const colorInfo = ACCENT_COLORS[colorKey];
+                          const isSelected = accent === colorKey;
+                          return (
+                            <button
+                              key={colorKey}
+                              className={`accent-color-option ${isSelected ? 'selected' : ''}`}
+                              onClick={() => setAccent(colorKey)}
+                              style={{
+                                width: '24px',
+                                height: '24px',
+                                borderRadius: '50%',
+                                backgroundColor: colorInfo.primary,
+                                border: isSelected ? '2px solid var(--color-black)' : '1px solid rgba(0,0,0,0.1)',
+                                boxShadow: isSelected ? '0 0 0 2px var(--accent-color)' : 'none',
+                                cursor: 'pointer',
+                                position: 'relative',
+                                padding: 0
+                              }}
+                              title={colorInfo.name}
+                            >
+                              {isSelected && (
+                                <span style={{
+                                  position: 'absolute',
+                                  inset: 0,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  color: '#fff',
+                                  fontSize: '10px',
+                                  fontWeight: 'bold'
+                                }}>✓</span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="popover-section">
+                      <span className="section-label">Theme Mode</span>
+                      <div className="theme-toggle-row">
+                        {[
+                          { id: 'light', label: 'Light', icon: <FiSun size={14} /> },
+                          { id: 'dark', label: 'Dark', icon: <FiMoon size={14} /> },
+                          { id: 'black', label: 'Black', icon: <IoContrast size={14} /> }
+                        ].map((mode) => {
+                          const isSelected = theme === mode.id;
+                          return (
+                            <button
+                              key={mode.id}
+                              className={`theme-mode-btn ${isSelected ? 'selected' : ''}`}
+                              onClick={() => setTheme(mode.id)}
+                            >
+                              {mode.icon}
+                              <span>{mode.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Material 3 Expressive / Spread Accent Engine */}
+                    <div className="popover-section" style={{ borderTop: '1px solid var(--color-gray-200)', paddingTop: '10px' }}>
+                      <span className="section-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span>Theme Engine</span>
+                        <span style={{ fontSize: '10px', color: 'var(--accent-color)', fontWeight: 800 }}>M3</span>
+                      </span>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                        <button
+                          className={`theme-mode-btn ${themeEngine === 'default' ? 'selected' : ''}`}
+                          onClick={() => setThemeEngine('default')}
+                          style={{ padding: '6px 8px', fontSize: '11px' }}
+                          title="Option 1: Classic Current Theme"
+                        >
+                          <FiLayers size={13} />
+                          <span>Default</span>
+                        </button>
+                        <button
+                          className={`theme-mode-btn ${themeEngine === 'expressive' ? 'selected' : ''}`}
+                          onClick={() => setThemeEngine('expressive')}
+                          style={{ padding: '6px 8px', fontSize: '11px' }}
+                          title="Option 2: Material 3 Expressive Spread Accent"
+                        >
+                          <FiZap size={13} />
+                          <span>Spread Accent</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {/* Messages Button */}
               {user && (
@@ -466,6 +644,7 @@ const AdminLayout = () => {
                     setNotifOpen(!notifOpen);
                     setProfileMenuOpen(false);
                     setMenuOpen(false);
+                    setCustomizerOpen(false);
                   }}
                   title="University Alerts"
                 >
@@ -492,12 +671,13 @@ const AdminLayout = () => {
                     setProfileMenuOpen(!profileMenuOpen);
                     setMenuOpen(false);
                     setNotifOpen(false);
+                    setCustomizerOpen(false);
                   }} 
                   title="Account options"
                 >
-                  <span className="nav-username">{user?.name?.split(' ')[0]}</span>
+                  <span className="nav-username ad-nav-username-desktop">{user?.name?.split(' ')[0]}</span>
                   {/* ADMIN TAG next to profile */}
-                  <span style={{
+                  <span className="ad-role-pill-desktop" style={{
                     fontSize: '9px',
                     fontWeight: 800,
                     textTransform: 'uppercase',
@@ -512,11 +692,14 @@ const AdminLayout = () => {
                     {user?.role === 'admin' ? 'Admin' : 'Editor'}
                   </span>
                   <div className="nav-profile-pic">
-                    {user?.avatar ? (
-                      <img src={user.avatar} alt={user.name} />
-                    ) : (
-                      <FiUser size={18} />
-                    )}
+                    <img 
+                      src={user?.avatar ? getImageUrl(user.avatar) : `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'Admin')}&background=c8102e&color=fff&size=80`} 
+                      alt={user?.name} 
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'Admin')}&background=c8102e&color=fff&size=80`;
+                      }}
+                    />
                   </div>
                 </div>
 
@@ -525,9 +708,13 @@ const AdminLayout = () => {
                   <div className="profile-popover">
                     <div className="profile-popover-header">
                       <img 
-                        src={user?.avatar || '/default-avatar.png'} 
+                        src={user?.avatar ? getImageUrl(user.avatar) : `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'Admin')}&background=c8102e&color=fff&size=100`} 
                         alt={user?.name} 
                         className="profile-popover-avatar"
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'Admin')}&background=c8102e&color=fff&size=100`;
+                        }}
                       />
                       <div className="profile-popover-info">
                         <h4 className="profile-popover-name">{user?.name}</h4>
@@ -742,7 +929,11 @@ const AdminLayout = () => {
         </div>
       )}
 
-      {/* ── Settings page handles settings now ── */}
+      {/* ── Global Search Assist (Omnibar / Command Palette) ── */}
+      <GlobalSearchAssist 
+        isOpen={searchAssistOpen} 
+        onClose={() => setSearchAssistOpen(false)} 
+      />
     </div>
   );
 };

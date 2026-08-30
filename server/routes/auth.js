@@ -70,7 +70,7 @@ router.get('/me', protect, getMe);
 router.put('/me', protect, upload.single('avatar'), updateProfile);
 router.post('/me/saved/:articleId', protect, saveArticle);
 router.delete('/me/saved/:articleId', protect, unsaveArticle);
-router.get('/users', protect, authorize('admin', 'moderator'), getAllUsers);
+router.get('/users', protect, authorize('admin', 'moderator', 'editor'), getAllUsers);
 router.put('/users/:id/role', protect, authorize('admin'), updateUserRole);
 
 // Blocking / Appeals

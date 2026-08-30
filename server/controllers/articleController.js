@@ -112,12 +112,17 @@ exports.getArticles = async (req, res, next) => {
   }
 };
 
-// @desc    Get single article by slug
+// @desc    Get single article by slug or ID
 // @route   GET /api/articles/:slug
 // @access  Public
 exports.getArticleBySlug = async (req, res, next) => {
   try {
-    const article = await Article.findOne({ slug: req.params.slug })
+    const mongoose = require('mongoose');
+    const lookupQuery = mongoose.Types.ObjectId.isValid(req.params.slug)
+      ? { $or: [{ slug: req.params.slug }, { _id: req.params.slug }] }
+      : { slug: req.params.slug };
+
+    const article = await Article.findOne(lookupQuery)
       .populate('author', 'name username showRealNamePublicly avatar bio role firstName lastName')
       .populate('references.article', 'title slug category coverImage author')
       .populate('securityChangedBy', 'name role');

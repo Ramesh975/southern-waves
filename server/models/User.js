@@ -120,6 +120,30 @@ const UserSchema = new mongoose.Schema(
         default: [],
       },
     },
+    hasCompletedOnboarding: {
+      type: Boolean,
+      default: false,
+    },
+    isPublicProfile: {
+      type: Boolean,
+      default: true,
+    },
+    appearanceSettings: {
+      theme: {
+        type: String,
+        enum: ['light', 'dark', 'black'],
+        default: 'dark',
+      },
+      themeEngine: {
+        type: String,
+        enum: ['default', 'expressive'],
+        default: 'default',
+      },
+      accentColor: {
+        type: String,
+        default: 'blue',
+      },
+    },
     isActive: {
       type: Boolean,
       default: true,

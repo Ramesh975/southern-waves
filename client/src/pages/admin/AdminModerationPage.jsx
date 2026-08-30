@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { filterAPI, authAPI } from '../../services/api';
 import { getImageUrl } from '../../components/ArticleComponents';
 import toast from 'react-hot-toast';
 import {
   FiAlertTriangle, FiCheck, FiX, FiTrash2, FiLock, FiSlash,
   FiUser, FiClock, FiMessageSquare, FiRefreshCw, FiFlag, FiShield,
-  FiSearch
+  FiSearch, FiEye
 } from 'react-icons/fi';
 
 const TABS = [
@@ -267,9 +268,11 @@ const FlaggedArticleCard = ({ article, getCatStyle, onApprove, onDismiss }) => {
               · {new Date(article.createdAt).toLocaleDateString()}
             </span>
           </div>
-          <h3 className="admin-card-title" style={{ fontSize: 16, marginBottom: 8 }}>
-            {article.title}
-          </h3>
+          <Link to={`/admin/article/${article._id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+            <h3 className="admin-card-title" style={{ fontSize: 16, marginBottom: 8, cursor: 'pointer' }}>
+              {article.title}
+            </h3>
+          </Link>
           <p style={{ fontSize: 14, color: 'var(--admin-text-muted)', lineHeight: 1.6, marginBottom: 12 }}>
             {article.lead}
           </p>
@@ -294,7 +297,10 @@ const FlaggedArticleCard = ({ article, getCatStyle, onApprove, onDismiss }) => {
         )}
       </div>
 
-      <div style={{ display: 'flex', gap: 12, marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--admin-border)' }}>
+      <div style={{ display: 'flex', gap: 12, marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--admin-border)', flexWrap: 'wrap' }}>
+        <Link to={`/admin/article/${article._id}`} className="btn-admin-secondary" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <FiEye size={14} /> Review in Hub
+        </Link>
         <button className="btn-admin-primary" style={{ background: '#16a34a', borderColor: '#16a34a' }} onClick={onApprove}>
           <FiCheck size={14} /> Approve & Publish
         </button>

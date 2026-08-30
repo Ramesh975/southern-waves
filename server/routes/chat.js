@@ -41,7 +41,7 @@ router.get('/', async (req, res, next) => {
         path: 'parentMessage',
         populate: { path: 'user', select: 'name' }
       })
-      .populate('parentArticle', 'title slug category coverImage')
+      .populate('parentArticle', 'title slug category coverImage lead dek author')
       .sort({ createdAt: -1 })
       .limit(PAGE_SIZE);
 
@@ -153,7 +153,7 @@ router.get('/replies', protect, async (req, res, next) => {
         path: 'parentMessage',
         populate: { path: 'user', select: 'name' }
       })
-      .populate('parentArticle', 'title slug category coverImage')
+      .populate('parentArticle', 'title slug category coverImage lead dek author')
       .sort({ createdAt: -1 })
       .limit(50);
 
@@ -321,7 +321,7 @@ router.post('/', protect, checkBlocked, async (req, res, next) => {
         path: 'parentMessage',
         populate: { path: 'user', select: 'name' }
       })
-      .populate('parentArticle', 'title slug category coverImage');
+      .populate('parentArticle', 'title slug category coverImage lead dek author');
 
     // Convert message document to plain object to attach tempId for optimistic updates
     const messageData = message.toObject();
@@ -458,6 +458,7 @@ router.put('/:id', protect, checkBlocked, async (req, res, next) => {
       path: 'parentMessage',
       populate: { path: 'user', select: 'name' }
     });
+    await message.populate('parentArticle', 'title slug category coverImage lead dek author');
 
     const io = req.app.get('io');
     if (io) {
@@ -487,14 +488,21 @@ router.post('/:id/react', protect, checkBlocked, async (req, res, next) => {
     const message = await ChatMessage.findById(req.params.id);
     if (!message) return res.status(404).json({ success: false, message: 'Message not found' });
 
-    // Check if user already reacted with this emoji
-    const existingReactionIndex = message.reactions.findIndex(
-      r => r.user.toString() === req.user.id && r.emoji === emoji
+    // Check if user has already reacted with any emoji
+    const existingUserReactionIndex = message.reactions.findIndex(
+      r => r.user.toString() === req.user.id
     );
 
-    if (existingReactionIndex !== -1) {
-      // Toggle off (remove)
-      message.reactions.splice(existingReactionIndex, 1);
+    if (existingUserReactionIndex !== -1) {
+      const existingEmoji = message.reactions[existingUserReactionIndex].emoji;
+      if (existingEmoji === emoji) {
+        // Toggle off (remove reaction)
+        message.reactions.splice(existingUserReactionIndex, 1);
+      } else {
+        // Replace previous reaction with new emoji
+        message.reactions.splice(existingUserReactionIndex, 1);
+        message.reactions.push({ user: req.user.id, emoji });
+      }
     } else {
       // Add reaction
       message.reactions.push({ user: req.user.id, emoji });
@@ -507,6 +515,7 @@ router.post('/:id/react', protect, checkBlocked, async (req, res, next) => {
       path: 'parentMessage',
       populate: { path: 'user', select: 'name' }
     });
+    await message.populate('parentArticle', 'title slug category coverImage lead dek author');
 
     const io = req.app.get('io');
     if (io) {
@@ -559,6 +568,83 @@ router.delete('/:id', protect, async (req, res, next) => {
     }
 
     res.json({ success: true, message: 'Message deleted successfully' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// @desc    Search across tags, chats/channels, and conversation messages
+// @route   GET /api/chat/search?q=...&type=all|tags|chats|messages
+// @access  Public
+router.get('/search', async (req, res, next) => {
+  try {
+    const { q = '', type = 'all' } = req.query;
+    const query = q.trim();
+    if (!query) {
+      return res.json({
+        success: true,
+        data: { tags: [], chats: [], messages: [] }
+      });
+    }
+
+    const regex = new RegExp(query.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&'), 'i');
+    let matchedTags = [];
+    let matchedChats = [];
+    let matchedMessages = [];
+
+    // 1. Tags
+    if (type === 'all' || type === 'tags') {
+      const allTags = await ChatMessage.distinct('tags');
+      const staticTrending = ['exam', 'results', 'madras', 'events', 'campus', 'sports', 'tech', 'admissions', 'protest', 'placement', 'library', 'internship', 'symposium', 'cultural'];
+      const combinedTags = Array.from(new Set([...(allTags || []), ...staticTrending])).filter(Boolean);
+      matchedTags = combinedTags
+        .filter(t => regex.test(t))
+        .map(t => ({
+          type: 'tag',
+          name: t,
+          roomKey: `tag:${t.toLowerCase()}`,
+          display: `#${t}`
+        }));
+    }
+
+    // 2. Chats / Category Groups
+    if (type === 'all' || type === 'chats') {
+      const categories = [
+        { name: 'news', display: '📰 News', description: 'Campus news and live reporting' },
+        { name: 'editorial', display: '✍️ Editorial', description: 'In-depth opinion, essays & perspective' },
+        { name: 'features', display: '🎬 Features', description: 'Spotlights, arts & long-form features' },
+        { name: 'know-your-past', display: '📖 Know Your Past', description: 'Heritage, archives & historical milestones' },
+        { name: 'tea-shop', display: '☕ Tea Shop', description: 'Open student lounge, casual chatter & debate' },
+        { name: 'pictures-speak', display: '📷 Pictures Speak', description: 'Visual journalism & photo gallery' }
+      ];
+      matchedChats = categories
+        .filter(cat => regex.test(cat.name) || regex.test(cat.display) || regex.test(cat.description))
+        .map(cat => ({
+          type: 'group',
+          name: cat.name,
+          roomKey: `category:${cat.name}`,
+          display: cat.display,
+          description: cat.description
+        }));
+    }
+
+    // 3. Conversation Messages
+    if (type === 'all' || type === 'messages') {
+      matchedMessages = await ChatMessage.find({ text: regex })
+        .populate('user', 'name avatar role')
+        .populate('parentArticle', 'title slug category coverImage lead dek')
+        .sort({ createdAt: -1 })
+        .limit(30);
+    }
+
+    res.json({
+      success: true,
+      data: {
+        tags: matchedTags,
+        chats: matchedChats,
+        messages: matchedMessages
+      }
+    });
   } catch (err) {
     next(err);
   }

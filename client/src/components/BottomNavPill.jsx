@@ -47,7 +47,7 @@ const BottomNavPill = ({
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
-  const { setIsOpen, openRoom } = useChat();
+  const { setIsOpen, openRoom, isOpen } = useChat();
 
   const [searchOpen, setSearchOpen] = useState(false);
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
@@ -130,6 +130,108 @@ const BottomNavPill = ({
   }, [moreOpen]);
 
   const [screenWidth, setScreenWidth] = useState(window.innerWidth);
+  const [isPillVisible, setIsPillVisible] = useState(true);
+  const [isBubbleEntering, setIsBubbleEntering] = useState(false);
+  const lastScrollYRef = useRef(0);
+  const idleTimerRef = useRef(null);
+
+  // Auto-restore bottom pill when chat modal or publish modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setIsPillVisible(true);
+      lastScrollYRef.current = window.scrollY || window.pageYOffset || 0;
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!publishOpen && !isModalOpen) {
+      setIsPillVisible(true);
+      lastScrollYRef.current = window.scrollY || window.pageYOffset || 0;
+    }
+  }, [publishOpen, isModalOpen]);
+
+  // Auto-hide when scrolling down, show when scrolling up or idle for 5s across all pages
+  useEffect(() => {
+    const handleScrollActivity = (currentY) => {
+      if (searchOpen || filterPanelOpen || publishOpen || isModalOpen || isOpen) {
+        setIsPillVisible(true);
+        return;
+      }
+
+      const delta = currentY - lastScrollYRef.current;
+
+      // If at the very top of page, keep pill visible
+      if (currentY <= 30) {
+        setIsPillVisible(true);
+      } else if (delta > 8) {
+        // User is scrolling DOWN -> Automatically Hide
+        setIsPillVisible(false);
+      } else if (delta < -8) {
+        // User is scrolling UP -> Show with bubble animation
+        setIsPillVisible(prev => {
+          if (!prev) {
+            setIsBubbleEntering(true);
+            setTimeout(() => setIsBubbleEntering(false), 600);
+          }
+          return true;
+        });
+      }
+
+      lastScrollYRef.current = currentY;
+
+      // Reset 5s Idle Timer: Show pill if user is idle for 5 seconds
+      if (idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current);
+      }
+      idleTimerRef.current = setTimeout(() => {
+        setIsPillVisible(prev => {
+          if (!prev) {
+            setIsBubbleEntering(true);
+            setTimeout(() => setIsBubbleEntering(false), 600);
+          }
+          return true;
+        });
+      }, 5000);
+    };
+
+    const onWindowScroll = () => {
+      if (isOpen || publishOpen || isModalOpen) return;
+      handleScrollActivity(window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0);
+    };
+
+    const onViewerScroll = (e) => {
+      if (isOpen || publishOpen || isModalOpen) return;
+      const target = e.target;
+      if (!target) return;
+      // Ignore scroll inside chat, modals, menus, and sidebars
+      if (target.closest && (
+        target.closest('.chat-modal') ||
+        target.closest('.msg-app') ||
+        target.closest('.message-app-container') ||
+        target.closest('.qpm-overlay') ||
+        target.closest('.quick-publish-modal') ||
+        target.closest('.mobile-popup-content') ||
+        target.closest('.ad-sidebar') ||
+        target.closest('.nm-search-results-panel')
+      )) {
+        return;
+      }
+      if (target.scrollTop !== undefined) {
+        handleScrollActivity(target.scrollTop);
+      }
+    };
+
+    window.addEventListener('scroll', onWindowScroll, { passive: true });
+    document.addEventListener('scroll', onViewerScroll, { passive: true, capture: true });
+
+    return () => {
+      window.removeEventListener('scroll', onWindowScroll);
+      document.removeEventListener('scroll', onViewerScroll, { capture: true });
+      if (idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current);
+      }
+    };
+  }, [searchOpen, filterPanelOpen, publishOpen, isModalOpen, isOpen]);
 
   useEffect(() => {
     const handleResize = () => setScreenWidth(window.innerWidth);
@@ -335,10 +437,11 @@ const BottomNavPill = ({
           transform: translateX(-50%);
           width: 90vw;
           max-width: 440px;
-          background: #fff;
+          background: var(--color-paper);
           border-radius: 16px;
-          box-shadow: 0 10px 40px rgba(0,0,0,0.12);
-          border: 1px solid #f0f0f0;
+          box-shadow: var(--shadow-xl);
+          border: 1px solid var(--color-gray-200);
+          color: var(--color-black);
           padding: 20px;
           z-index: 1000;
           display: flex;
@@ -359,37 +462,38 @@ const BottomNavPill = ({
         .kyp-advanced-icon {
           position: absolute;
           left: 12px;
-          color: #999;
+          color: var(--color-gray-400);
           pointer-events: none;
         }
         .kyp-advanced-search-input {
           width: 100%;
           padding: 10px 10px 10px 36px;
-          border: 1px solid #e5e7eb;
+          border: 1px solid var(--color-gray-200);
           border-radius: 8px;
           font-size: 13px;
           outline: none;
           transition: border-color 0.2s;
-          background: #fff;
-          color: #000;
+          background: var(--color-white);
+          color: var(--color-black);
         }
         .kyp-advanced-search-input:focus {
-          border-color: #ef4444;
+          border-color: var(--accent-color);
         }
         .kyp-advanced-select {
           width: 100%;
           padding: 10px;
-          border: 1px solid #e5e7eb;
+          border: 1px solid var(--color-gray-200);
           border-radius: 8px;
           font-size: 13px;
           outline: none;
-          background: #fff;
-          color: #000;
+          background: var(--color-white);
+          color: var(--color-black);
           cursor: pointer;
         }
         .kyp-segmented-control {
           display: flex;
-          background: #f3f4f6;
+          background: var(--color-gray-100);
+          border: 1px solid var(--color-gray-200);
           padding: 3px;
           border-radius: 8px;
           gap: 2px;
@@ -403,22 +507,22 @@ const BottomNavPill = ({
           font-weight: 700;
           border-radius: 6px;
           cursor: pointer;
-          color: #4b5563;
+          color: var(--color-gray-600);
           transition: all 0.15s ease;
           text-align: center;
         }
         .kyp-segmented-btn:hover {
-          color: #111;
+          color: var(--color-black);
         }
         .kyp-segmented-btn.active {
-          background: #fff;
-          color: #000;
-          box-shadow: 0 2px 5px rgba(0,0,0,0.06);
+          background: var(--color-white);
+          color: var(--color-black);
+          box-shadow: var(--shadow-sm);
         }
         .kyp-advanced-add-btn {
           width: 100%;
           padding: 10px;
-          background: #000;
+          background: var(--accent-color);
           color: #fff;
           font-weight: 750;
           border: none;
@@ -432,10 +536,13 @@ const BottomNavPill = ({
           transition: background 0.2s;
         }
         .kyp-advanced-add-btn:hover {
-          background: #222;
+          background: var(--accent-color-hover);
         }
       `}</style>
-      <div className={`nm-bottom-dock${searchOpen ? ' search-active' : ''}`}>
+      <div 
+        className={`nm-bottom-dock${(isOpen || publishOpen || isModalOpen) ? ' nm-dock-hidden' : ''}${searchOpen ? ' search-active' : ''}${!isPillVisible ? ' nm-dock-hidden' : ''}${isBubbleEntering ? ' nm-dock-bubble-in' : ''}`}
+        style={(isOpen || publishOpen || isModalOpen) ? { display: 'none', pointerEvents: 'none', visibility: 'hidden' } : {}}
+      >
         {/* Hidden tabs popup menu */}
         {moreOpen && hiddenTabsToRender.length > 0 && (
           <div className="nm-more-popup" onClick={e => e.stopPropagation()}>
@@ -576,123 +683,125 @@ const BottomNavPill = ({
         )}
 
         {/* Main navigation pill */}
-        {category === 'kyp' ? (
-          <div className={`nm-dock-pill ${searchOpen ? 'search-active' : ''}`}>
-            <button
-              className={`nm-dock-btn active`}
-              onClick={() => setFilterPanelOpen(false)}
-            >
-              <FiClock size={20} />
-              <span>Timeline</span>
-            </button>
-            <button
-              className={`nm-dock-btn nm-more-btn ${filterPanelOpen ? 'active' : ''}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                setFilterPanelOpen(!filterPanelOpen);
-              }}
-              style={{ position: 'relative' }}
-            >
-              <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-                <FiSliders size={20} />
-                {(subCategory !== '' || yearRange !== 'all') && (
-                  <span 
-                    style={{
-                      position: 'absolute',
-                      top: '-1px',
-                      right: '-1px',
-                      width: '7px',
-                      height: '7px',
-                      borderRadius: '50%',
-                      background: 'var(--accent-color, #c8102e)',
-                      border: '1.5px solid #fff'
-                    }}
-                  />
-                )}
-              </div>
-              <span>Filter</span>
-            </button>
-            <button className="nm-dock-btn" onClick={handleChatClick}>
-              <FiMessageSquare size={20} />
-              <span>Chat</span>
-            </button>
-          </div>
-        ) : (
-          <div className={`nm-dock-pill ${searchOpen ? 'search-active' : ''}`}>
-          {tabsToRender.map(tab => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
+        {!searchOpen && (
+          category === 'kyp' ? (
+            <div className="nm-dock-pill">
               <button
-                key={tab.id}
-                className={`nm-dock-btn${isActive ? ' active' : ''}`}
-                onClick={() => {
-                  setMoreOpen(false);
-                  handleTabClick(tab.id);
-                }}
+                className={`nm-dock-btn active`}
+                onClick={() => setFilterPanelOpen(false)}
               >
-                <Icon size={20} />
-                <span>{tab.label}</span>
+                <FiClock size={20} />
+                <span>Timeline</span>
               </button>
-            );
-          })}
-          
-          {hiddenTabsToRender.length > 0 && (
-            <button
-              className={`nm-dock-btn nm-more-btn${moreOpen ? ' active' : ''}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                setMoreOpen(!moreOpen);
-              }}
-            >
-              <FiMoreHorizontal size={20} />
-              <span>More</span>
-            </button>
-          )}
+              <button
+                className={`nm-dock-btn nm-more-btn ${filterPanelOpen ? 'active' : ''}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setFilterPanelOpen(!filterPanelOpen);
+                }}
+                style={{ position: 'relative' }}
+              >
+                <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <FiSliders size={20} />
+                  {(subCategory !== '' || yearRange !== 'all') && (
+                    <span 
+                      style={{
+                        position: 'absolute',
+                        top: '-1px',
+                        right: '-1px',
+                        width: '7px',
+                        height: '7px',
+                        borderRadius: '50%',
+                        background: 'var(--accent-color, #c8102e)',
+                        border: '1.5px solid #fff'
+                      }}
+                    />
+                  )}
+                </div>
+                <span>Filter</span>
+              </button>
+              <button className="nm-dock-btn" onClick={handleChatClick}>
+                <FiMessageSquare size={20} />
+                <span>Chat</span>
+              </button>
+            </div>
+          ) : (
+            <div className="nm-dock-pill">
+              {tabsToRender.map(tab => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    className={`nm-dock-btn${isActive ? ' active' : ''}`}
+                    onClick={() => {
+                      setMoreOpen(false);
+                      handleTabClick(tab.id);
+                    }}
+                  >
+                    <Icon size={20} />
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
+              
+              {hiddenTabsToRender.length > 0 && (
+                <button
+                  className={`nm-dock-btn nm-more-btn${moreOpen ? ' active' : ''}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setMoreOpen(!moreOpen);
+                  }}
+                >
+                  <FiMoreHorizontal size={20} />
+                  <span>More</span>
+                </button>
+              )}
 
-          {!customTabs && (
-            <button className="nm-dock-btn" onClick={handleChatClick}>
-              <FiMessageSquare size={20} />
-              <span>Chat</span>
-            </button>
-          )}
-        </div>
-      )}
+              {!customTabs && (
+                <button className="nm-dock-btn" onClick={handleChatClick}>
+                  <FiMessageSquare size={20} />
+                  <span>Chat</span>
+                </button>
+              )}
+            </div>
+          )
+        )}
 
         {/* Search pill */}
         {(!customTabs || showSearch) && (
           <div className={`nm-search-pill ${searchOpen ? 'expanded' : ''}`}>
-          {searchOpen ? (
-            <div className="nm-search-pill-content">
-              <FiSearch size={20} className="nm-search-pill-icon" />
-              <input
-                ref={inputRef}
-                type="text"
-                placeholder="Search stories, tags..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="nm-search-pill-input"
-              />
-              {searchQuery && (
-                <button className="nm-search-pill-clear" onClick={() => setSearchQuery('')}>
-                  <FiX size={16} />
+            {searchOpen ? (
+              <div className="nm-search-pill-content">
+                <FiSearch size={20} className="nm-search-pill-icon" />
+                <input
+                  ref={inputRef}
+                  type="text"
+                  placeholder="Search stories, tags..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className="nm-search-pill-input"
+                />
+                {searchQuery && (
+                  <button className="nm-search-pill-clear" onClick={() => setSearchQuery('')}>
+                    <FiX size={16} />
+                  </button>
+                )}
+                <button className="nm-search-pill-close" onClick={() => setSearchOpen(false)}>
+                  <FiX size={18} />
                 </button>
-              )}
-              <button className="nm-search-pill-close" onClick={() => setSearchOpen(false)}>
-                <FiX size={18} />
+              </div>
+            ) : (
+              <button className="nm-search-pill-trigger" onClick={() => setSearchOpen(true)} title="Search articles">
+                <FiSearch size={20} />
               </button>
-            </div>
-          ) : (
-            <button className="nm-search-pill-trigger" onClick={() => setSearchOpen(true)} title="Search articles">
-              <FiSearch size={20} />
-            </button>
-          )}
-        </div>
+            )}
+          </div>
         )}
 
         {/* Publish button next to search */}
-        {canPublish && (
-          <div className={`nm-publish-dock-btn-wrapper ${searchOpen ? 'search-active' : ''} ${isModalOpen ? 'modal-open' : ''}`}>
+        {canPublish && !searchOpen && (
+          <div className={`nm-publish-dock-btn-wrapper ${isModalOpen ? 'modal-open' : ''}`}>
             <button
               className={`nm-publish-dock-btn ${isModalOpen ? 'modal-open' : ''}`}
               onClick={handlePublishClick}

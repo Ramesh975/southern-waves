@@ -253,7 +253,14 @@ exports.register = async (req, res, next) => {
       phoneVerified: !!phoneVerified,
       isVerified: !!emailVerified,
       securityQuestions: formattedSecurityQuestions,
-      recommendationSettings: { preferredCategories: [], preferredTags: [] }
+      recommendationSettings: { preferredCategories: [], preferredTags: [] },
+      hasCompletedOnboarding: false,
+      isPublicProfile: true,
+      appearanceSettings: {
+        theme: 'dark',
+        themeEngine: 'default',
+        accentColor: 'blue'
+      }
     });
 
     sendTokenResponse(user, 201, res);
@@ -431,7 +438,8 @@ exports.updateProfile = async (req, res, next) => {
     const {
       name, bio, firstName, lastName, university, phone, academicMajor,
       yearOfStudy, recommendationSettings, username, age, gender,
-      educationLevel, showRealNamePublicly, securityQuestions, currentPassword
+      educationLevel, showRealNamePublicly, securityQuestions, currentPassword,
+      hasCompletedOnboarding, isPublicProfile, appearanceSettings, avatar
     } = req.body;
     
     const updateData = {};
@@ -447,6 +455,19 @@ exports.updateProfile = async (req, res, next) => {
     if (gender !== undefined) updateData.gender = gender;
     if (educationLevel !== undefined) updateData.educationLevel = educationLevel;
     if (showRealNamePublicly !== undefined) updateData.showRealNamePublicly = showRealNamePublicly === true || showRealNamePublicly === 'true';
+    if (hasCompletedOnboarding !== undefined) updateData.hasCompletedOnboarding = hasCompletedOnboarding === true || hasCompletedOnboarding === 'true';
+    if (isPublicProfile !== undefined) updateData.isPublicProfile = isPublicProfile === true || isPublicProfile === 'true';
+    if (avatar !== undefined && typeof avatar === 'string') updateData.avatar = avatar;
+
+    if (appearanceSettings !== undefined) {
+      let parsedAppearance = appearanceSettings;
+      if (typeof appearanceSettings === 'string') {
+        try { parsedAppearance = JSON.parse(appearanceSettings); } catch (e) {}
+      }
+      if (parsedAppearance && typeof parsedAppearance === 'object') {
+        updateData.appearanceSettings = parsedAppearance;
+      }
+    }
 
     // Handle security questions update (requires current password verification for safety)
     if (securityQuestions !== undefined) {

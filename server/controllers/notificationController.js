@@ -5,12 +5,14 @@ const Notification = require('../models/Notification');
 // @access  Private/Admin
 exports.createNotification = async (req, res, next) => {
   try {
-    const { title, message, type } = req.body;
+    const { title, message, type, priority, actionUrl } = req.body;
 
     const notification = await Notification.create({
       title,
       message,
-      type,
+      type: type || 'announcement',
+      priority: priority || 'normal',
+      actionUrl: actionUrl || '',
       sender: req.user.id,
       readBy: [],
     });

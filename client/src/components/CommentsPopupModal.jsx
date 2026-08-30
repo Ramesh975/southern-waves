@@ -129,7 +129,12 @@ const CommentsPopupModal = ({ article, onClose }) => {
                 className="nm-comments-modal-cover"
               />
             )}
-            <h2 className="nm-comments-modal-title">{article.title}</h2>
+            <div className="nm-comments-modal-article-text">
+              <h2 className="nm-comments-modal-title">{article.title}</h2>
+              {article.lead && (
+                <p className="nm-comments-modal-lead">{article.lead}</p>
+              )}
+            </div>
           </div>
 
           <div className="nm-comments-modal-divider" />

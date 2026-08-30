@@ -160,7 +160,7 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider value={{
-      user, loading, login, register, logout,
+      user, setUser, loading, login, register, logout,
       isAdmin, isModerator, isEditor, isStudent, isBlocked,
       refreshUser, changePassword, deactivateAccount,
       impersonating, switchAccount, revertToAdmin

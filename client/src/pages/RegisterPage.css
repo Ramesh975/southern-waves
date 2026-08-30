@@ -1,0 +1,451 @@
+/* ============================================================
+   SOUTHERN WAVES — REGISTRATION PAGE RESPONSIVE THEME STYLES
+   Adapts to: Light, Dark, Black (OLED) & Default vs Expressive
+   ============================================================ */
+
+.register-page {
+  min-height: 88vh;
+  padding: 36px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-background, #f9fafb);
+  color: var(--color-black, #111827);
+  transition: background-color 0.25s ease;
+  box-sizing: border-box;
+}
+
+[data-theme="dark"] .register-page {
+  background: var(--color-background, #0b0f19);
+  color: var(--color-white, #f8fafc);
+}
+
+[data-theme="black"] .register-page {
+  background: #000000 !important;
+  color: #ffffff !important;
+}
+
+[data-theme-engine="expressive"] .register-page,
+[data-spread-accent="true"] .register-page {
+  background-color: var(--color-paper);
+}
+
+/* ── Main Registration Card ── */
+.register-card {
+  max-width: 580px;
+  width: 100%;
+  border-radius: 20px;
+  border: 1px solid var(--color-gray-200);
+  background: var(--color-white);
+  color: var(--color-black);
+  padding: 36px 32px;
+  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.05);
+  box-sizing: border-box;
+  transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+}
+
+[data-theme="dark"] .register-card {
+  background: var(--color-paper, #111827);
+  border-color: var(--color-gray-200, rgba(255, 255, 255, 0.08));
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+}
+
+[data-theme="black"] .register-card {
+  background: #09090c !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8) !important;
+}
+
+[data-theme-engine="expressive"] .register-card,
+[data-spread-accent="true"] .register-card {
+  background: var(--color-white) !important;
+  border-radius: 24px !important;
+  border: 1px solid color-mix(in srgb, var(--accent-color) 16%, var(--color-gray-200)) !important;
+  box-shadow: 0 20px 50px color-mix(in srgb, var(--accent-color) 12%, rgba(0, 0, 0, 0.07)) !important;
+}
+
+/* ── Header ── */
+.register-header {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.register-brand {
+  font-family: var(--font-display, "Outfit", sans-serif);
+  font-size: 26px;
+  font-weight: 900;
+  color: var(--accent-color, #c8102e);
+  margin: 0;
+  letter-spacing: -0.5px;
+}
+
+.register-subtitle {
+  font-size: 13px;
+  color: var(--color-gray-500);
+  margin-top: 4px;
+  font-weight: 500;
+}
+
+/* ── Stepper Navigation ── */
+.register-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 30px;
+  position: relative;
+}
+
+.register-stepper-track-bg {
+  position: absolute;
+  top: 15px;
+  left: 8%;
+  right: 8%;
+  height: 2px;
+  background: var(--color-gray-200);
+  z-index: 0;
+}
+
+.register-stepper-track-fill {
+  position: absolute;
+  top: 15px;
+  left: 8%;
+  height: 2px;
+  background: var(--accent-color, #c8102e);
+  z-index: 0;
+  transition: width 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.register-stepper-item {
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.register-stepper-bubble {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--color-gray-200);
+  color: var(--color-gray-500);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 13px;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.register-stepper-bubble.active,
+.register-stepper-bubble.completed {
+  background: var(--accent-color, #c8102e);
+  color: #ffffff;
+}
+
+[data-theme-engine="expressive"] .register-stepper-bubble.active,
+[data-spread-accent="true"] .register-stepper-bubble.active {
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--accent-color) 40%, transparent);
+}
+
+.register-stepper-label {
+  font-size: 11px;
+  font-weight: 700;
+  margin-top: 6px;
+  color: var(--color-gray-400);
+  transition: color 0.2s ease;
+}
+
+.register-stepper-label.active {
+  color: var(--color-black);
+  font-weight: 800;
+}
+
+/* ── Step Heading ── */
+.register-step-heading {
+  font-size: 15px;
+  font-weight: 850;
+  margin-bottom: 18px;
+  color: var(--color-black);
+  border-bottom: 1px solid var(--color-gray-200);
+  padding-bottom: 8px;
+  letter-spacing: -0.2px;
+}
+
+[data-theme-engine="expressive"] .register-step-heading,
+[data-spread-accent="true"] .register-step-heading {
+  border-bottom-color: color-mix(in srgb, var(--accent-color) 20%, var(--color-gray-200));
+}
+
+/* ── Container / Info Boxes (Email, Phone, Security, Terms) ── */
+.register-box {
+  background: var(--color-gray-50);
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid var(--color-gray-200);
+  margin-bottom: 16px;
+  box-sizing: border-box;
+}
+
+[data-theme="dark"] .register-box {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: var(--color-gray-200, rgba(255, 255, 255, 0.08));
+}
+
+[data-theme="black"] .register-box {
+  background: #0d0d12 !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+[data-theme-engine="expressive"] .register-box,
+[data-spread-accent="true"] .register-box {
+  background: color-mix(in srgb, var(--accent-color) 5%, var(--color-white)) !important;
+  border: 1px solid color-mix(in srgb, var(--accent-color) 16%, var(--color-gray-200)) !important;
+  border-radius: 16px !important;
+}
+
+.register-box-label {
+  font-size: 13px;
+  font-weight: 750;
+  color: var(--color-black);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ── Inputs & Selects ── */
+.register-input,
+.register-card input.form-input,
+.register-card select.form-input {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1.5px solid var(--color-gray-200);
+  background: var(--color-white);
+  color: var(--color-black);
+  font-size: 13px;
+  font-weight: 500;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+[data-theme="dark"] .register-input,
+[data-theme="dark"] .register-card input.form-input,
+[data-theme="dark"] .register-card select.form-input {
+  background: var(--color-paper, #111827);
+  border-color: var(--color-gray-200, rgba(255, 255, 255, 0.12));
+  color: #ffffff;
+}
+
+[data-theme="black"] .register-input,
+[data-theme="black"] .register-card input.form-input,
+[data-theme="black"] .register-card select.form-input {
+  background: #07070a !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  color: #ffffff !important;
+}
+
+[data-theme-engine="expressive"] .register-input,
+[data-spread-accent="true"] .register-input,
+[data-theme-engine="expressive"] .register-card input.form-input,
+[data-spread-accent="true"] .register-card input.form-input,
+[data-theme-engine="expressive"] .register-card select.form-input,
+[data-spread-accent="true"] .register-card select.form-input {
+  border-radius: var(--radius-sm, 10px);
+  border-color: color-mix(in srgb, var(--accent-color) 16%, var(--color-gray-200));
+}
+
+.register-input:focus,
+.register-card input.form-input:focus,
+.register-card select.form-input:focus {
+  border-color: var(--accent-color) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-color) 18%, transparent) !important;
+}
+
+.register-card input.form-input:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  background: var(--color-gray-100);
+}
+
+/* ── Primary Action Buttons ── */
+.register-btn-primary {
+  width: 100%;
+  padding: 13px 20px;
+  border-radius: 10px;
+  background: var(--accent-color, #c8102e);
+  color: #ffffff !important;
+  font-weight: 850;
+  font-size: 13.5px;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--accent-color) 35%, transparent);
+}
+
+.register-btn-primary:hover:not(:disabled) {
+  background: var(--accent-color-hover, #9e0c23);
+  transform: translateY(-1px);
+}
+
+.register-btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+[data-theme-engine="expressive"] .register-btn-primary,
+[data-spread-accent="true"] .register-btn-primary {
+  border-radius: 9999px !important;
+}
+
+/* ── Back Navigation Button ── */
+.register-btn-back {
+  padding: 12px 18px;
+  border-radius: 10px;
+  background: var(--color-gray-100);
+  border: 1px solid var(--color-gray-200);
+  font-weight: 750;
+  color: var(--color-black);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  transition: all 0.18s ease;
+}
+
+[data-theme="dark"] .register-btn-back {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+[data-theme="black"] .register-btn-back {
+  background: #141419 !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  color: #ffffff !important;
+}
+
+[data-theme-engine="expressive"] .register-btn-back,
+[data-spread-accent="true"] .register-btn-back {
+  border-radius: 9999px !important;
+}
+
+.register-btn-back:hover {
+  background: var(--color-gray-200);
+}
+
+/* ── OTP Send & Verify Buttons ── */
+.register-btn-otp {
+  padding: 10px 18px;
+  min-height: 42px;
+  border-radius: 8px;
+  background: #111827;
+  color: #ffffff !important;
+  font-weight: 750;
+  font-size: 13px;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  transition: all 0.18s ease;
+}
+
+[data-theme="dark"] .register-btn-otp {
+  background: #374151;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+[data-theme="black"] .register-btn-otp {
+  background: #1c1c24 !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+}
+
+[data-theme-engine="expressive"] .register-btn-otp,
+[data-spread-accent="true"] .register-btn-otp {
+  border-radius: 9999px !important;
+}
+
+.register-btn-otp:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.register-btn-otp:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ── Terms & Privacy Modal ── */
+.register-terms-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10050;
+  padding: 20px;
+}
+
+.register-terms-modal {
+  max-width: 520px;
+  width: 100%;
+  background: var(--color-white);
+  color: var(--color-black);
+  border-radius: 18px;
+  padding: 26px;
+  box-shadow: 0 24px 50px rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--color-gray-200);
+}
+
+[data-theme="dark"] .register-terms-modal {
+  background: var(--color-paper, #111827);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="black"] .register-terms-modal {
+  background: #09090c !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+}
+
+[data-theme-engine="expressive"] .register-terms-modal,
+[data-spread-accent="true"] .register-terms-modal {
+  border-radius: 24px !important;
+  border-color: color-mix(in srgb, var(--accent-color) 20%, var(--color-gray-200)) !important;
+}
+
+.register-terms-content {
+  font-size: 13px;
+  color: var(--color-gray-600);
+  line-height: 1.6;
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+/* ── Responsive Mobile Rules ── */
+@media (max-width: 640px) {
+  .register-card {
+    padding: 24px 18px;
+    border-radius: 16px;
+  }
+  .register-brand {
+    font-size: 22px;
+  }
+  .register-stepper-bubble {
+    width: 26px;
+    height: 26px;
+    font-size: 11px;
+  }
+}

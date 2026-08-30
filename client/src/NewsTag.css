@@ -608,16 +608,37 @@
 
 .chat-reaction-menu {
   position: absolute;
-  bottom: 24px;
+  bottom: calc(100% + 4px);
   left: 0;
   background: var(--color-white);
   border: 1px solid var(--color-gray-200);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-  border-radius: 20px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  border-radius: 14px;
   padding: 6px;
+  display: grid;
+  grid-template-columns: repeat(6, 28px);
+  gap: 3px;
+  z-index: 100;
+}
+
+.chat-reaction-menu button {
+  width: 28px;
+  height: 28px;
   display: flex;
-  gap: 4px;
-  z-index: 10;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 15px;
+  transition: transform 0.15s ease, background 0.15s ease;
+  padding: 0;
+}
+
+.chat-reaction-menu button:hover {
+  transform: scale(1.25);
+  background: var(--color-gray-100);
 }
 
 .chat-reactions-display {

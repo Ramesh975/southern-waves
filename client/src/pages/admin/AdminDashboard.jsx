@@ -289,13 +289,15 @@ const AdminDashboard = () => {
                         </span>
                         <span className={`ad-status-dot ${a.status}`} />
                       </div>
-                      <p className="ad-article-title">{a.title}</p>
+                      <Link to={`/admin/article/${a._id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                        <p className="ad-article-title" style={{ transition: 'color 0.2s', cursor: 'pointer' }}>{a.title}</p>
+                      </Link>
                       <div className="ad-article-footer">
                         <span><FiClock size={12} /> {timeAgo(a.createdAt)}</span>
                         <span><FiEye size={12} /> {(a.views || 0).toLocaleString()}</span>
                         <div className="ad-article-actions">
                           <Link to={`/admin/edit-article/${a._id}`} className="admin-badge badge-warning">Edit</Link>
-                          <Link to={`/article/${a.slug}`} target="_blank" className="admin-badge badge-neutral">View</Link>
+                          <Link to={`/admin/article/${a._id}`} className="admin-badge badge-info">Manage</Link>
                         </div>
                       </div>
                     </div>

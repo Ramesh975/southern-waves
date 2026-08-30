@@ -10,6 +10,7 @@ import MessageApp from './components/MessageApp/MessageApp';
 // Layout
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
+import OnboardingWizardModal from './components/OnboardingWizardModal';
 
 // Public Pages
 import HomePage from './pages/HomePage';
@@ -30,11 +31,14 @@ import SettingsPage from './pages/SettingsPage';
 import KnowYourPastPage from './pages/KnowYourPastPage';
 import StoriesPage from './pages/StoriesPage';
 import UniversityRowPage from './pages/UniversityRowPage';
+import NotificationsPage from './pages/NotificationsPage';
+import AboutPage from './pages/AboutPage';
 
 // Admin Pages
 import AdminLayout from './pages/admin/AdminLayout';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminArticles from './pages/admin/AdminArticles';
+import AdminArticleDetail from './pages/admin/AdminArticleDetail';
 import ArticleEditor from './pages/admin/ArticleEditor';
 import AdminComments from './pages/admin/AdminComments';
 import AdminUsers from './pages/admin/AdminUsers';
@@ -76,41 +80,6 @@ const BackToTop = () => {
   );
 };
 
-// About page (simple)
-const AboutPage = () => (
-  <main style={{ padding: '48px 0' }}>
-    <div className="container" style={{ maxWidth: 760 }}>
-      <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 48, fontWeight: 700, textTransform: 'uppercase', marginBottom: 24 }}>About Us</h1>
-      <div className="rule-thick" style={{ marginBottom: 32 }} />
-      <p style={{ fontFamily: 'var(--font-serif)', fontSize: 20, fontStyle: 'italic', lineHeight: 1.7, marginBottom: 24, color: 'var(--color-gray-800)' }}>
-        Southern Waves is a student-run media platform dedicated to enlightening young minds across different walks of life.
-      </p>
-      <p style={{ fontSize: 15, lineHeight: 1.8, color: 'var(--color-gray-700)', marginBottom: 16 }}>
-        We are a medium for students to share information, voice their concerns, and celebrate their culture. From breaking campus news and sharp editorials to book reviews, historical explorations, and photographic essays — Southern Waves covers it all.
-      </p>
-      <p style={{ fontSize: 15, lineHeight: 1.8, color: 'var(--color-gray-700)', marginBottom: 16 }}>
-        Our mission is to bring students from different walks of life to travel on the same path — united by knowledge, curiosity, and the courage to speak truth.
-      </p>
-      <div style={{ marginTop: 40, padding: 24, background: 'var(--color-black)', color: 'var(--color-white)' }}>
-        <p style={{ fontFamily: 'var(--font-display)', fontSize: 22, color: 'var(--color-red)', marginBottom: 8 }}>Our Sections</p>
-        {[
-          ['📰 News', 'Student initiatives, campus problems, and student laws'],
-          ['✍️ Editorial', 'Multi-perspective analysis of current and unspoken stories'],
-          ['🎬 Features', 'Human interest stories, book and film reviews'],
-          ['📖 Know Your Past', 'Historical events that shaped student movements'],
-          ['☕ Tea Shop', 'Official circulars, student voices, and university happenings'],
-          ["📷 Picture's Speak", 'Photography conveying society\'s untold stories'],
-        ].map(([title, desc]) => (
-          <div key={title} style={{ padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-            <p style={{ fontWeight: 700, marginBottom: 4 }}>{title}</p>
-            <p style={{ fontSize: 13, color: 'var(--color-gray-400)' }}>{desc}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  </main>
-);
-
 const NotFoundPage = () => (
   <main style={{ minHeight: '60vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 48 }}>
     <p style={{ fontFamily: 'var(--font-display)', fontSize: 96, fontWeight: 700, color: 'var(--color-red)', lineHeight: 1 }}>404</p>
@@ -121,9 +90,12 @@ const NotFoundPage = () => (
 
 
 const AppInner = () => {
-  const { pathname } = useLocation();
+  const location = useLocation();
+  const { pathname } = location;
   const navigate = useNavigate();
   const { user, isBlocked, refreshUser } = useAuth();
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
+
   const isCategoryRoute = [
     '/news',
     '/editorial',
@@ -134,6 +106,16 @@ const AppInner = () => {
     '/pictures-speak',
   ].includes(pathname) || pathname.startsWith('/tag');
   const isOverlayRoute = pathname.startsWith('/admin') || pathname === '/chat';
+
+  // Check if first-time user needs onboarding or URL explicitly has ?onboarding=true
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    if (searchParams.get('onboarding') === 'true') {
+      setOnboardingOpen(true);
+    } else if (user && user.hasCompletedOnboarding === false && !pathname.startsWith('/admin')) {
+      setOnboardingOpen(true);
+    }
+  }, [user, location.search, pathname]);
 
   // Show blocked screen as overlay if user is logged in, blocked, and trying to access admin panel
   const isRestrictedPath = pathname.startsWith('/admin');
@@ -217,6 +199,7 @@ const AppInner = () => {
           {/* Protected Saved Articles & Author Studio Route */}
           <Route element={<ProtectedRoute allowedRoles={['student', 'moderator', 'editor', 'admin']} />}>
             <Route path="/chat" element={<ChatPage />} />
+            <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="/saved-articles" element={<SavedArticlesPage />} />
             <Route path="/my-uploads" element={<AuthorProfilePage />} />
             <Route path="/author-studio" element={<AuthorProfilePage />} />
@@ -228,8 +211,9 @@ const AppInner = () => {
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboard />} />
             
-            <Route element={<ProtectedRoute allowedRoles={['editor', 'admin']} />}>
+            <Route element={<ProtectedRoute allowedRoles={['editor', 'admin', 'moderator']} />}>
               <Route path="articles" element={<AdminArticles />} />
+              <Route path="article/:id" element={<AdminArticleDetail />} />
               <Route path="new-article" element={<ArticleEditor />} />
               <Route path="edit-article/:id" element={<ArticleEditor />} />
               <Route path="submissions" element={<AdminSubmissions />} />
@@ -252,13 +236,34 @@ const AppInner = () => {
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
 
-        {!isOverlayRoute && <Footer />}
+        {location.pathname === '/' && <Footer />}
       </div>
 
       {showBlockedOverlay && (
         <BlockedAccountScreen user={user} onAppealSubmitted={refreshUser} />
       )}
       {!isOverlayRoute && <MessageApp />}
+
+      {/* First-Time User Onboarding & Interactive Tutorial Modal */}
+      <OnboardingWizardModal 
+        isOpen={onboardingOpen} 
+        onClose={() => {
+          setOnboardingOpen(false);
+          const searchParams = new URLSearchParams(location.search);
+          if (searchParams.get('onboarding')) {
+            searchParams.delete('onboarding');
+            navigate({ pathname: location.pathname, search: searchParams.toString() }, { replace: true });
+          }
+        }}
+        onComplete={() => {
+          setOnboardingOpen(false);
+          const searchParams = new URLSearchParams(location.search);
+          if (searchParams.get('onboarding')) {
+            searchParams.delete('onboarding');
+            navigate({ pathname: location.pathname, search: searchParams.toString() }, { replace: true });
+          }
+        }}
+      />
     </>
   );
 };

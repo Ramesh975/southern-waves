@@ -14,7 +14,8 @@ const API_BASE = getApiBase();
 export const getImageUrl = (path) => {
   if (!path) return PLACEHOLDER_IMG;
   if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('data:') || path.startsWith('blob:')) return path;
-  return `${API_BASE}${path}`;
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  return `${API_BASE}${cleanPath}`;
 };
 
 export const getCategoryPath = (category) => {

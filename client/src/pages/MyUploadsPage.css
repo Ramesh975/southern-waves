@@ -523,7 +523,7 @@
 }
 
 .upload-card-action-btn.delete:hover {
-  background: #fee2e2;
+  background: rgba(239, 68, 68, 0.1);
   color: #b91c1c;
 }
 
@@ -763,7 +763,7 @@
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--color-white);
   transition: transform 0.2s;
 }
 

@@ -9,6 +9,7 @@ import {
   FiBook, FiArrowRight, FiArrowLeft, FiCheck, FiX, FiHelpCircle, FiClock,
   FiEye, FiEyeOff, FiKey, FiRefreshCw
 } from 'react-icons/fi';
+import './RegisterPage.css';
 
 const RegisterPage = () => {
   const { register, user, loading } = useAuth();
@@ -297,65 +298,36 @@ const RegisterPage = () => {
   ];
 
   return (
-    <div className="auth-page" style={{
-      minHeight: '85vh',
-      padding: isMobile ? '16px 12px' : '32px 16px',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: 'var(--color-bg-primary, #f9fafb)',
-    }}>
-      <div className="auth-card" style={{
-        maxWidth: '580px',
-        width: '100%',
-        borderRadius: '20px',
-        border: '1px solid var(--color-gray-200, #e5e7eb)',
-        background: 'var(--color-white, #ffffff)',
-        color: 'var(--color-black, #111827)',
-        padding: isMobile ? '24px 16px' : '36px 30px',
-        boxShadow: '0 20px 40px rgba(0,0,0,0.06)',
-      }}>
+    <div className="register-page">
+      <div className="register-card">
         
         {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: isMobile ? '20px' : '28px' }}>
-          <p className="auth-logo" style={{ fontSize: isMobile ? '22px' : '26px', fontWeight: 900, color: 'var(--accent-color, #c8102e)', margin: 0 }}>
+        <div className="register-header">
+          <p className="register-brand">
             Southern Waves
           </p>
-          <p className="auth-subtitle" style={{ fontSize: '13px', color: 'var(--color-gray-500)', marginTop: '4px' }}>
+          <p className="register-subtitle">
             5-Step Student Identity Registration
           </p>
         </div>
 
         {/* Wizard Step Progress Bar */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: isMobile ? '24px' : '32px', position: 'relative' }}>
-          <div style={{ position: 'absolute', top: '14px', left: '8%', right: '8%', height: '2px', background: 'var(--color-gray-200)', zIndex: 0 }} />
-          <div style={{
-            position: 'absolute', top: '14px', left: '8%',
-            width: `${((step - 1) / 4) * 84}%`,
-            height: '2px', background: 'var(--accent-color, #c8102e)', zIndex: 0, transition: 'all 0.3s ease'
-          }} />
+        <div className="register-stepper">
+          <div className="register-stepper-track-bg" />
+          <div 
+            className="register-stepper-track-fill"
+            style={{ width: `${((step - 1) / 4) * 84}%` }} 
+          />
 
           {STEPS_LIST.map((s) => (
-            <div key={s.num} style={{ zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <div key={s.num} className="register-stepper-item">
               <div
-                style={{
-                  width: isMobile ? '26px' : '30px',
-                  height: isMobile ? '26px' : '30px',
-                  borderRadius: '50%',
-                  background: step >= s.num ? 'var(--accent-color, #c8102e)' : 'var(--color-gray-200)',
-                  color: step >= s.num ? '#ffffff' : 'var(--color-gray-500)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 800,
-                  fontSize: isMobile ? '11px' : '13px',
-                  transition: 'all 0.3s ease'
-                }}
+                className={`register-stepper-bubble ${step === s.num ? 'active' : step > s.num ? 'completed' : ''}`}
               >
                 {step > s.num ? <FiCheck size={isMobile ? 14 : 16} /> : s.num}
               </div>
               {!isMobile && (
-                <span style={{ fontSize: '11px', fontWeight: 700, marginTop: '6px', color: step === s.num ? 'var(--color-black)' : 'var(--color-gray-400)' }}>
+                <span className={`register-stepper-label ${step === s.num ? 'active' : ''}`}>
                   {s.label}
                 </span>
               )}
@@ -366,7 +338,7 @@ const RegisterPage = () => {
         {/* STEP 1: Basic Details (Name, Age, Gender) */}
         {step === 1 && (
           <form onSubmit={handleNextStep1}>
-            <h3 style={{ fontSize: '15px', fontWeight: 800, marginBottom: '18px', color: 'var(--color-black)', borderBottom: '1px solid var(--color-gray-200)', paddingBottom: '8px' }}>
+            <h3 className="register-step-heading">
               Step 1 of 5: Personal Details
             </h3>
 
@@ -424,8 +396,9 @@ const RegisterPage = () => {
               </div>
             </div>
 
-            <button type="submit" className="btn-primary" style={{ width: '100%', padding: '14px', borderRadius: '10px', background: 'var(--accent-color, #c8102e)', color: '#fff', fontWeight: 800, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-              Continue to Contact Verification <FiArrowRight size={18} />
+            <button type="submit" className="register-btn-primary">
+              <span>Continue to Contact Verification</span>
+              <FiArrowRight size={18} />
             </button>
           </form>
         )}
@@ -433,14 +406,14 @@ const RegisterPage = () => {
         {/* STEP 2: Contact & Verification (Mobile & Email OTP) */}
         {step === 2 && (
           <div>
-            <h3 style={{ fontSize: '15px', fontWeight: 800, marginBottom: '18px', color: 'var(--color-black)', borderBottom: '1px solid var(--color-gray-200)', paddingBottom: '8px' }}>
+            <h3 className="register-step-heading">
               Step 2 of 5: Contact & Live Verification
             </h3>
 
             {/* Email Box */}
-            <div style={{ background: 'var(--color-gray-100)', padding: '16px', borderRadius: '12px', marginBottom: '16px', border: '1px solid var(--color-gray-200)' }}>
+            <div className="register-box">
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <label style={{ fontSize: '13px', fontWeight: 700, color: 'var(--color-black)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <label className="register-box-label">
                   <FiMail size={16} /> Email Address
                 </label>
                 {emailVerified && (
@@ -458,29 +431,14 @@ const RegisterPage = () => {
                   placeholder="student@university.edu"
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  style={{ flex: 1, background: emailVerified ? 'var(--color-gray-200)' : 'var(--color-white)' }}
+                  style={{ flex: 1 }}
                 />
                 {!emailVerified && (
                   <button
                     type="button"
                     disabled={sendingEmailOtp || emailTimer > 0 || !form.email}
                     onClick={handleSendEmailOtp}
-                    style={{
-                      padding: '10px 18px',
-                      minHeight: '44px',
-                      borderRadius: '8px',
-                      background: 'var(--color-black)',
-                      color: '#fff',
-                      fontWeight: 700,
-                      fontSize: '13px',
-                      border: 'none',
-                      cursor: (sendingEmailOtp || emailTimer > 0 || !form.email) ? 'not-allowed' : 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      whiteSpace: 'nowrap',
-                      opacity: (sendingEmailOtp || emailTimer > 0 || !form.email) ? 0.6 : 1
-                    }}
+                    className="register-btn-otp"
                   >
                     {sendingEmailOtp ? 'Sending...' : emailTimer > 0 ? `${emailTimer}s` : emailOtpSent ? 'Resend OTP' : 'Send OTP'}
                   </button>
@@ -503,21 +461,8 @@ const RegisterPage = () => {
                     type="button"
                     disabled={verifyingEmail || emailOtp.length < 6}
                     onClick={handleVerifyEmailOtp}
-                    style={{
-                      padding: '10px 18px',
-                      minHeight: '44px',
-                      borderRadius: '8px',
-                      background: 'var(--accent-color)',
-                      color: '#fff',
-                      fontWeight: 700,
-                      fontSize: '13px',
-                      border: 'none',
-                      cursor: (verifyingEmail || emailOtp.length < 6) ? 'not-allowed' : 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      whiteSpace: 'nowrap'
-                    }}
+                    className="register-btn-primary"
+                    style={{ width: isMobile ? '100%' : 'auto', minHeight: '42px', padding: '0 20px' }}
                   >
                     {verifyingEmail ? 'Verifying...' : 'Verify Email'}
                   </button>
@@ -526,9 +471,9 @@ const RegisterPage = () => {
             </div>
 
             {/* Mobile Phone Box */}
-            <div style={{ background: 'var(--color-gray-100)', padding: '16px', borderRadius: '12px', marginBottom: '20px', border: '1px solid var(--color-gray-200)' }}>
+            <div className="register-box" style={{ marginBottom: '20px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <label style={{ fontSize: '13px', fontWeight: 700, color: 'var(--color-black)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <label className="register-box-label">
                   <FiPhone size={16} /> Mobile Phone (+91)
                 </label>
                 {phoneVerified && (
@@ -546,29 +491,14 @@ const RegisterPage = () => {
                   placeholder="+91 9876543210"
                   value={form.phone}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                  style={{ flex: 1, background: phoneVerified ? 'var(--color-gray-200)' : 'var(--color-white)' }}
+                  style={{ flex: 1 }}
                 />
                 {!phoneVerified && (
                   <button
                     type="button"
                     disabled={sendingPhoneOtp || phoneTimer > 0 || !form.phone}
                     onClick={handleSendPhoneOtp}
-                    style={{
-                      padding: '10px 18px',
-                      minHeight: '44px',
-                      borderRadius: '8px',
-                      background: 'var(--color-black)',
-                      color: '#fff',
-                      fontWeight: 700,
-                      fontSize: '13px',
-                      border: 'none',
-                      cursor: (sendingPhoneOtp || phoneTimer > 0 || !form.phone) ? 'not-allowed' : 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      whiteSpace: 'nowrap',
-                      opacity: (sendingPhoneOtp || phoneTimer > 0 || !form.phone) ? 0.6 : 1
-                    }}
+                    className="register-btn-otp"
                   >
                     {sendingPhoneOtp ? 'Sending...' : phoneTimer > 0 ? `${phoneTimer}s` : phoneOtpSent ? 'Resend OTP' : 'Send OTP'}
                   </button>
@@ -591,21 +521,8 @@ const RegisterPage = () => {
                     type="button"
                     disabled={verifyingPhone || phoneOtp.length < 6}
                     onClick={handleVerifyPhoneOtp}
-                    style={{
-                      padding: '10px 18px',
-                      minHeight: '44px',
-                      borderRadius: '8px',
-                      background: 'var(--accent-color)',
-                      color: '#fff',
-                      fontWeight: 700,
-                      fontSize: '13px',
-                      border: 'none',
-                      cursor: (verifyingPhone || phoneOtp.length < 6) ? 'not-allowed' : 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      whiteSpace: 'nowrap'
-                    }}
+                    className="register-btn-primary"
+                    style={{ width: isMobile ? '100%' : 'auto', minHeight: '42px', padding: '0 20px' }}
                   >
                     {verifyingPhone ? 'Verifying...' : 'Verify Mobile'}
                   </button>
@@ -614,11 +531,12 @@ const RegisterPage = () => {
             </div>
 
             <div style={{ display: 'flex', gap: '12px' }}>
-              <button type="button" onClick={() => setStep(1)} style={{ padding: '12px 20px', borderRadius: '10px', background: 'var(--color-gray-100)', border: 'none', fontWeight: 700, color: 'var(--color-gray-700)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <button type="button" onClick={() => setStep(1)} className="register-btn-back">
                 <FiArrowLeft size={16} /> Back
               </button>
-              <button type="button" onClick={handleNextStep2} style={{ flex: 1, padding: '12px 20px', borderRadius: '10px', background: 'var(--accent-color)', border: 'none', color: '#fff', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                Continue to Academics <FiArrowRight size={16} />
+              <button type="button" onClick={handleNextStep2} className="register-btn-primary" style={{ flex: 1 }}>
+                <span>Continue to Academics</span>
+                <FiArrowRight size={16} />
               </button>
             </div>
           </div>
@@ -627,7 +545,7 @@ const RegisterPage = () => {
         {/* STEP 3: Education & Academic Details */}
         {step === 3 && (
           <form onSubmit={handleNextStep3}>
-            <h3 style={{ fontSize: '15px', fontWeight: 800, marginBottom: '18px', color: 'var(--color-black)', borderBottom: '1px solid var(--color-gray-200)', paddingBottom: '8px' }}>
+            <h3 className="register-step-heading">
               Step 3 of 5: Education & Academic Details
             </h3>
 
@@ -782,11 +700,12 @@ const RegisterPage = () => {
             </div>
 
             <div style={{ display: 'flex', gap: '12px' }}>
-              <button type="button" onClick={() => setStep(2)} style={{ padding: '12px 20px', borderRadius: '10px', background: 'var(--color-gray-100)', border: 'none', fontWeight: 700, color: 'var(--color-gray-700)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <button type="button" onClick={() => setStep(2)} className="register-btn-back">
                 <FiArrowLeft size={16} /> Back
               </button>
-              <button type="submit" style={{ flex: 1, padding: '12px 20px', borderRadius: '10px', background: 'var(--accent-color)', border: 'none', color: '#fff', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                Continue to Credentials <FiArrowRight size={16} />
+              <button type="submit" className="register-btn-primary" style={{ flex: 1 }}>
+                <span>Continue to Credentials</span>
+                <FiArrowRight size={16} />
               </button>
             </div>
           </form>
@@ -795,7 +714,7 @@ const RegisterPage = () => {
         {/* STEP 4: Credentials & Username */}
         {step === 4 && (
           <form onSubmit={handleNextStep4}>
-            <h3 style={{ fontSize: '15px', fontWeight: 800, marginBottom: '18px', color: 'var(--color-black)', borderBottom: '1px solid var(--color-gray-200)', paddingBottom: '8px' }}>
+            <h3 className="register-step-heading">
               Step 4 of 5: Setup Username & Credentials
             </h3>
 
@@ -828,14 +747,14 @@ const RegisterPage = () => {
 
             {/* Password Suggestion Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-              <span style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--color-black)' }}>Password Setup</span>
+              <span style={{ fontSize: '12.5px', fontWeight: 750, color: 'var(--color-black)' }}>Password Setup</span>
               <button
                 type="button"
                 onClick={generateStrongPassword}
                 style={{
-                  background: 'rgba(0,85,164,0.08)',
+                  background: 'color-mix(in srgb, var(--accent-color) 12%, transparent)',
                   color: 'var(--accent-color)',
-                  border: '1px solid var(--accent-color)',
+                  border: '1px solid color-mix(in srgb, var(--accent-color) 25%, transparent)',
                   padding: '4px 10px',
                   borderRadius: '6px',
                   fontSize: '11.5px',
@@ -923,17 +842,17 @@ const RegisterPage = () => {
             </div>
 
             <div style={{ display: 'flex', gap: '12px' }}>
-              <button type="button" onClick={() => setStep(3)} style={{ padding: '12px 20px', borderRadius: '10px', background: 'var(--color-gray-100)', border: 'none', fontWeight: 700, color: 'var(--color-gray-700)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <button type="button" onClick={() => setStep(3)} className="register-btn-back">
                 <FiArrowLeft size={16} /> Back
               </button>
               <button
                 type="submit"
                 disabled={usernameStatus.available !== true}
-                style={{
-                  flex: 1, padding: '14px', borderRadius: '10px', background: 'var(--accent-color)', color: '#fff', fontWeight: 800, fontSize: '14px', border: 'none', cursor: usernameStatus.available !== true ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
-                }}
+                className="register-btn-primary"
+                style={{ flex: 1 }}
               >
-                Continue to Security Questions <FiArrowRight size={16} />
+                <span>Continue to Security Questions</span>
+                <FiArrowRight size={16} />
               </button>
             </div>
           </form>
@@ -974,18 +893,18 @@ const RegisterPage = () => {
                 ]
               });
               toast.success('Registration successful! Welcome to Southern Waves');
-              navigate('/');
+              navigate('/?onboarding=true');
             } catch (err) {
               toast.error(err.response?.data?.message || 'Registration failed');
             } finally {
               setSubmitting(false);
             }
           }}>
-            <h3 style={{ fontSize: '15px', fontWeight: 800, marginBottom: '18px', color: 'var(--color-black)', borderBottom: '1px solid var(--color-gray-200)', paddingBottom: '8px' }}>
+            <h3 className="register-step-heading">
               Step 5 of 5: Account Recovery & Security Questions
             </h3>
 
-            <div style={{ background: 'var(--color-gray-100)', border: '1px solid var(--color-gray-200)', padding: '12px 14px', borderRadius: '10px', marginBottom: '20px', fontSize: '12px', color: 'var(--color-black)', lineHeight: 1.5 }}>
+            <div className="register-box" style={{ fontSize: '12px', lineHeight: 1.5 }}>
               🛡️ <strong>Anti-Misuse Protection:</strong> Configuring 2 Security Questions ensures only you can recover your Account ID or reset your password even if someone gains temporary access to an email or phone number.
             </div>
 
@@ -1036,8 +955,8 @@ const RegisterPage = () => {
             </div>
 
             {/* Terms & Conditions Checkbox */}
-            <div style={{ background: 'var(--color-gray-100)', padding: '14px', borderRadius: '10px', marginBottom: '24px', border: '1px solid var(--color-gray-200)' }}>
-              <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer', fontSize: '12px', color: 'var(--color-gray-700)', lineHeight: '1.4' }}>
+            <div className="register-box" style={{ marginBottom: '24px' }}>
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer', fontSize: '12px', color: 'var(--color-gray-600)', lineHeight: '1.4' }}>
                 <input
                   type="checkbox"
                   checked={form.agreeTerms}
@@ -1060,17 +979,16 @@ const RegisterPage = () => {
             </div>
 
             <div style={{ display: 'flex', gap: '12px' }}>
-              <button type="button" onClick={() => setStep(4)} style={{ padding: '12px 20px', borderRadius: '10px', background: 'var(--color-gray-100)', border: 'none', fontWeight: 700, color: 'var(--color-gray-700)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <button type="button" onClick={() => setStep(4)} className="register-btn-back">
                 <FiArrowLeft size={16} /> Back
               </button>
               <button
                 type="submit"
                 disabled={submitting || !form.agreeTerms || !form.securityAnswer1.trim() || !form.securityAnswer2.trim()}
-                style={{
-                  flex: 1, padding: '14px', borderRadius: '10px', background: 'var(--accent-color)', color: '#fff', fontWeight: 800, fontSize: '14px', border: 'none', cursor: (submitting || !form.agreeTerms) ? 'not-allowed' : 'pointer'
-                }}
+                className="register-btn-primary"
+                style={{ flex: 1 }}
               >
-                {submitting ? 'Creating Account...' : 'Complete Setup & Register'}
+                <span>{submitting ? 'Creating Account...' : 'Complete Setup & Register'}</span>
               </button>
             </div>
           </form>
@@ -1087,8 +1005,8 @@ const RegisterPage = () => {
 
       {/* Terms & Conditions Modal */}
       {showTermsModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
-          <div style={{ maxWidth: '520px', width: '100%', background: 'var(--color-white)', color: 'var(--color-black)', borderRadius: '16px', padding: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.2)', border: '1px solid var(--color-gray-200)' }}>
+        <div className="register-terms-modal-overlay">
+          <div className="register-terms-modal">
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
               <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: 'var(--accent-color)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <FiShield size={18} /> Terms & Identity Guidelines
@@ -1098,7 +1016,7 @@ const RegisterPage = () => {
               </button>
             </div>
             
-            <div style={{ fontSize: '12.5px', color: 'var(--color-gray-700)', lineHeight: '1.6', maxHeight: '300px', overflowY: 'auto', paddingRight: '6px' }}>
+            <div className="register-terms-content">
               <p><strong>1. Username Handle System</strong><br />
               All public interactions (articles, teashop posts, comments) display your primary @username handle by default. Real names are hidden from the public unless enabled in your Settings.</p>
               
@@ -1111,9 +1029,10 @@ const RegisterPage = () => {
 
             <button
               onClick={() => setShowTermsModal(false)}
-              style={{ width: '100%', marginTop: '16px', padding: '12px', borderRadius: '10px', background: 'var(--accent-color)', color: '#fff', fontWeight: 700, border: 'none', cursor: 'pointer' }}
+              className="register-btn-primary"
+              style={{ marginTop: '16px' }}
             >
-              I Understand & Accept
+              <span>I Understand & Accept</span>
             </button>
           </div>
         </div>

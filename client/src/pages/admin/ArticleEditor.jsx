@@ -41,6 +41,7 @@ const ArticleEditor = () => {
     <QuickPublishModal
       editingArticle={editingArticle}
       defaultCategory="news"
+      inline={true}
       onClose={() => navigate(-1)}
       onPublishSuccess={() => navigate(-1)}
     />

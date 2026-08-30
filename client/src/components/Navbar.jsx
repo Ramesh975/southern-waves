@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useChat } from '../context/ChatContext';
 import { articleAPI, authAPI } from '../services/api';
 import { formatDistanceToNow } from 'date-fns';
-import { FiArrowLeft, FiChevronDown, FiBell, FiSun, FiMoon, FiUser, FiMenu, FiX, FiSearch, FiArrowRight, FiMessageSquare, FiBookmark, FiLogOut, FiLayout, FiSettings, FiUpload } from 'react-icons/fi';
+import { FiArrowLeft, FiChevronDown, FiChevronRight, FiBell, FiSun, FiMoon, FiUser, FiMenu, FiX, FiSearch, FiArrowRight, FiMessageSquare, FiBookmark, FiLogOut, FiLayout, FiSettings, FiUpload, FiLayers, FiZap, FiCheck, FiCheckCircle, FiExternalLink, FiCompass } from 'react-icons/fi';
 import { IoContrast } from 'react-icons/io5';
 import './NavbarModern.css';
 import AccountSettingsModal from './AccountSettingsModal';
@@ -29,7 +30,7 @@ const ROUTE_NAMES = {
 
 const Navbar = () => {
   const { user, logout, refreshUser, impersonating, revertToAdmin } = useAuth();
-  const { theme, setTheme, toggleTheme, styleMode, setStyleMode, accent, setAccent, ACCENT_COLORS } = useTheme();
+  const { theme, setTheme, toggleTheme, styleMode, setStyleMode, themeEngine, setThemeEngine, accent, setAccent, ACCENT_COLORS } = useTheme();
   const { isOpen, setIsOpen, openRoom, setActiveRoom, setActiveTab, replies, totalUnread, notifications, unreadNotificationsCount, markNotificationRead, markAllNotificationsRead, fetchNotifications } = useChat();
   const [customizerOpen, setCustomizerOpen] = useState(false);
   const [signOutConfirm, setSignOutConfirm] = useState(false);
@@ -50,6 +51,7 @@ const Navbar = () => {
   const [initialLoading, setInitialLoading] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 520);
   const navbarRef = useRef(null);
   const searchInputRef = useRef(null);
   const timeoutRef = useRef(null);
@@ -94,8 +96,15 @@ const Navbar = () => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20);
     };
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 520);
+    };
     window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', handleResize);
+    };
   }, []);
 
   useEffect(() => {
@@ -129,7 +138,12 @@ const Navbar = () => {
         setProfileMenuOpen(false);
       }
       const notificationsWrapper = document.querySelector('.nav-notifications-wrapper');
-      if (notificationsWrapper && !notificationsWrapper.contains(event.target)) {
+      const notificationsPopover = document.querySelector('.notifications-popover');
+      if (
+        notificationsWrapper && 
+        !notificationsWrapper.contains(event.target) &&
+        (!notificationsPopover || !notificationsPopover.contains(event.target))
+      ) {
         setNotificationsOpen(false);
       }
       if (navbarRef.current && !navbarRef.current.contains(event.target)) {
@@ -138,7 +152,11 @@ const Navbar = () => {
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
   }, []);
 
   // Focus search input when open
@@ -393,6 +411,34 @@ const Navbar = () => {
                       })}
                     </div>
                   </div>
+
+                  {/* Material 3 Expressive / Spread Accent Engine */}
+                  <div className="popover-section" style={{ borderTop: '1px solid var(--color-gray-200)', paddingTop: '10px' }}>
+                    <span className="section-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span>Theme Engine</span>
+                      <span style={{ fontSize: '10px', color: 'var(--accent-color)', fontWeight: 800 }}>M3</span>
+                    </span>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                      <button
+                        className={`theme-mode-btn ${themeEngine === 'default' ? 'selected' : ''}`}
+                        onClick={() => setThemeEngine('default')}
+                        style={{ padding: '6px 8px', fontSize: '11px' }}
+                        title="Option 1: Classic Current Theme"
+                      >
+                        <FiLayers size={13} />
+                        <span>Default</span>
+                      </button>
+                      <button
+                        className={`theme-mode-btn ${themeEngine === 'expressive' ? 'selected' : ''}`}
+                        onClick={() => setThemeEngine('expressive')}
+                        style={{ padding: '6px 8px', fontSize: '11px' }}
+                        title="Option 2: Material 3 Expressive Spread Accent"
+                      >
+                        <FiZap size={13} />
+                        <span>Spread Accent</span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -437,14 +483,40 @@ const Navbar = () => {
               </button>
 
               {notificationsOpen && (
-                <NotificationsPopover 
-                  notifications={notifications}
-                  markNotificationRead={markNotificationRead}
-                  markAllNotificationsRead={markAllNotificationsRead}
-                  setNotificationsOpen={setNotificationsOpen}
-                  fetchNotifications={fetchNotifications}
-                  currentUser={user}
-                />
+                isMobile ? (
+                  createPortal(
+                    <>
+                      <div 
+                        className="mobile-notifications-backdrop" 
+                        onClick={() => setNotificationsOpen(false)} 
+                      />
+                      <NotificationsPopover 
+                        notifications={notifications}
+                        markNotificationRead={markNotificationRead}
+                        markAllNotificationsRead={markAllNotificationsRead}
+                        setNotificationsOpen={setNotificationsOpen}
+                        fetchNotifications={fetchNotifications}
+                        currentUser={user}
+                        navigate={navigate}
+                        openRoom={openRoom}
+                        setIsOpen={setIsOpen}
+                      />
+                    </>,
+                    document.body
+                  )
+                ) : (
+                  <NotificationsPopover 
+                    notifications={notifications}
+                    markNotificationRead={markNotificationRead}
+                    markAllNotificationsRead={markAllNotificationsRead}
+                    setNotificationsOpen={setNotificationsOpen}
+                    fetchNotifications={fetchNotifications}
+                    currentUser={user}
+                    navigate={navigate}
+                    openRoom={openRoom}
+                    setIsOpen={setIsOpen}
+                  />
+                )
               )}
             </div>
 
@@ -462,11 +534,14 @@ const Navbar = () => {
                 >
                   <span className="nav-username">{user.name.split(' ')[0]}</span>
                   <div className="nav-profile-pic">
-                    {user.avatar ? (
-                      <img src={user.avatar} alt={user.name} />
-                    ) : (
-                      <FiUser size={18} />
-                    )}
+                    <img 
+                      src={user.avatar ? getImageUrl(user.avatar) : `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=c8102e&color=fff&size=80`} 
+                      alt={user.name}
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=c8102e&color=fff&size=80`;
+                      }}
+                    />
                   </div>
                 </div>
 
@@ -475,9 +550,13 @@ const Navbar = () => {
                   <div className="profile-popover">
                     <div className="profile-popover-header">
                       <img 
-                        src={user.avatar || '/default-avatar.png'} 
+                        src={user.avatar ? getImageUrl(user.avatar) : `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=c8102e&color=fff&size=100`} 
                         alt={user.name} 
                         className="profile-popover-avatar"
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=c8102e&color=fff&size=100`;
+                        }}
                       />
                       <div className="profile-popover-info">
                         <h4 className="profile-popover-name">{user.name}</h4>
@@ -537,17 +616,23 @@ const Navbar = () => {
                       )}
 
                       {/* Option 2: Notifications */}
-                      <button 
+                      <Link 
+                        to="/notifications" 
                         className="profile-popover-item" 
                         onClick={() => {
                           setProfileMenuOpen(false);
-                          setIsOpen(true);
-                          setActiveTab('board_alerts');
                         }}
                       >
-                        <FiBell size={16} />
-                        <span>Notifications</span>
-                      </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+                          <FiBell size={16} />
+                          <span>Notifications</span>
+                        </div>
+                        {unreadNotificationsCount > 0 && (
+                          <span style={{ background: 'var(--accent-color)', color: '#fff', fontSize: '10px', fontWeight: 800, padding: '2px 7px', borderRadius: '10px' }}>
+                            {unreadNotificationsCount}
+                          </span>
+                        )}
+                      </Link>
 
                       {/* Option 3: Accounts */}
                       <button 
@@ -691,6 +776,7 @@ const Navbar = () => {
                               alt="" 
                               className="navbar-search-result-thumb" 
                               style={{ width: '42px', height: '42px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }}
+                              onError={(e) => { e.target.style.display = 'none'; }}
                             />
                           )}
                           <div className="navbar-search-result-info" style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: 1, minWidth: 0 }}>
@@ -823,29 +909,51 @@ const Navbar = () => {
           onClick={(e) => e.stopPropagation()}
         >
           <div className="mobile-popup-header">
-            <span className="brand-text">Southern Waves</span>
-            <button 
-              className="nav-icon-btn close-btn" 
-              onClick={() => setMobileMenuOpen(false)}
-              aria-label="Close menu"
-            >
-              <FiX size={24} />
-            </button>
+            <div>
+              <span className="brand-text">Southern Waves</span>
+              <div className="mobile-slide-accent-stripes" style={{ marginTop: '6px' }}>
+                <div className="mobile-accent-stripe long" />
+                <div className="mobile-accent-stripe short" />
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button 
+                className="nav-icon-btn close-btn" 
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  navigate('/search');
+                }}
+                aria-label="Search"
+                title="Search Articles"
+              >
+                <FiSearch size={18} />
+              </button>
+              <button 
+                className="nav-icon-btn close-btn" 
+                onClick={() => setMobileMenuOpen(false)}
+                aria-label="Close menu"
+              >
+                <FiX size={20} />
+              </button>
+            </div>
           </div>
 
-          {/* Mobile search bar */}
-          <form onSubmit={handleSearch} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '24px', padding: '0 8px' }}>
-            <FiSearch size={18} color="var(--color-gray-400)" />
-            <input 
-              type="text" 
-              placeholder="Search..." 
-              style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: '16px', width: '100%' }}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </form>
-
           <div className="mobile-popup-links">
+            <button
+              type="button"
+              className="mobile-link"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                navigate('/search');
+              }}
+              style={{ cursor: 'pointer', textAlign: 'left', width: '100%', marginBottom: '4px' }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <FiSearch size={17} style={{ color: 'var(--accent-color)' }} />
+                <span>Search Articles</span>
+              </div>
+              <FiChevronRight size={16} style={{ color: 'var(--color-gray-400)' }} />
+            </button>
             <NavLink to="/news" className="mobile-link" onClick={() => setMobileMenuOpen(false)}>
               News
             </NavLink>
@@ -1054,6 +1162,58 @@ const Navbar = () => {
                     </div>
                   </div>
 
+                  {/* Design Engine: Default vs Spread Accent */}
+                  <div>
+                    <span className="section-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                      <span>Design Engine</span>
+                      <span style={{ fontSize: '10px', color: 'var(--accent-color)', fontWeight: 800 }}>M3</span>
+                    </span>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                      <button
+                        onClick={() => setThemeEngine('default')}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                          padding: '10px 8px',
+                          borderRadius: '10px',
+                          border: themeEngine === 'default' ? '2px solid var(--accent-color)' : '1.5px solid rgba(0,0,0,0.12)',
+                          background: themeEngine === 'default' ? 'color-mix(in srgb, var(--accent-color) 16%, var(--color-white))' : 'var(--color-white)',
+                          color: themeEngine === 'default' ? 'var(--accent-color)' : 'var(--color-black)',
+                          fontSize: '12px',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease'
+                        }}
+                      >
+                        <FiLayers size={14} />
+                        <span>Default</span>
+                      </button>
+                      <button
+                        onClick={() => setThemeEngine('expressive')}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                          padding: '10px 8px',
+                          borderRadius: '10px',
+                          border: themeEngine === 'expressive' ? '2px solid var(--accent-color)' : '1.5px solid rgba(0,0,0,0.12)',
+                          background: themeEngine === 'expressive' ? 'color-mix(in srgb, var(--accent-color) 16%, var(--color-white))' : 'var(--color-white)',
+                          color: themeEngine === 'expressive' ? 'var(--accent-color)' : 'var(--color-black)',
+                          fontSize: '12px',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease'
+                        }}
+                      >
+                        <FiZap size={14} />
+                        <span>Spread Accent</span>
+                      </button>
+                    </div>
+                  </div>
+
                 </div>
               )}
             </div>
@@ -1064,7 +1224,14 @@ const Navbar = () => {
               <div className="mobile-popup-user">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
                   <div className="nav-profile-pic">
-                    {user.avatar ? <img src={user.avatar} alt={user.name} /> : <FiUser size={18} />}
+                    <img 
+                      src={user.avatar ? getImageUrl(user.avatar) : `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=c8102e&color=fff&size=80`} 
+                      alt={user.name}
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=c8102e&color=fff&size=80`;
+                      }}
+                    />
                   </div>
                   <div>
                     <div style={{ fontWeight: 800, fontSize: '15px', color: 'var(--color-black)' }}>{user.name}</div>
@@ -1245,97 +1412,188 @@ const Navbar = () => {
   );
 };
 
-const NotificationsPopover = ({ notifications, markNotificationRead, markAllNotificationsRead, setNotificationsOpen, fetchNotifications, currentUser }) => {
-  const [filter, setFilter] = useState('all');
+const CATEGORY_COLORS = {
+  announcement: '#3b82f6',
+  board_news: '#0ea5e9',
+  sensitivity: '#ef4444',
+  appeal: '#f59e0b',
+  message: '#22c55e',
+  editorial: '#a855f7',
+};
+
+const triggerSnapParticles = (el, color = '#ef4444') => {
+  if (!el) return;
+  const rect = el.getBoundingClientRect();
+  const count = 36;
+  for (let i = 0; i < count; i++) {
+    const p = document.createElement('div');
+    p.className = 'snap-particle';
+    const dx = (Math.random() - 0.5) * 180;
+    const dy = (Math.random() - 0.5) * 120 - 40;
+    const rot = (Math.random() - 0.5) * 720;
+    p.style.cssText = `
+      left: ${rect.left + Math.random() * rect.width}px;
+      top: ${rect.top + Math.random() * rect.height}px;
+      background: ${color};
+      --snap-translate: translate(${dx}px, ${dy}px);
+      --snap-rotate: ${rot}deg;
+      animation-delay: ${Math.random() * 150}ms;
+    `;
+    document.body.appendChild(p);
+    setTimeout(() => p.remove(), 900);
+  }
+};
+
+const SwipableNotifItem = ({ n, onMarkRead, onDelete, children }) => {
+  const [dragX, setDragX] = useState(0);
+  const [swiping, setSwiping] = useState(false);
+  const [swipeOut, setSwipeOut] = useState(null); // 'left' | 'right'
+  const [dismissed, setDismissed] = useState(false);
+  const startXRef = useRef(null);
+  const cardRef = useRef(null);
+
+  if (dismissed) return null;
+
+  const handleTouchStart = (e) => {
+    startXRef.current = e.touches[0].clientX;
+    setSwiping(true);
+  };
+
+  const handleTouchMove = (e) => {
+    if (startXRef.current === null) return;
+    const delta = e.touches[0].clientX - startXRef.current;
+    setDragX(Math.max(-120, Math.min(120, delta)));
+  };
+
+  const handleTouchEnd = async () => {
+    if (startXRef.current === null) return;
+    const delta = dragX;
+    setSwiping(false);
+    startXRef.current = null;
+
+    if (delta < -55) {
+      // Swipe left = mark as read
+      setSwipeOut('left');
+      setTimeout(() => {
+        onMarkRead(n._id);
+        setDismissed(true);
+        setSwipeOut(null);
+      }, 300);
+    } else if (delta > 55) {
+      // Swipe right = snap dismiss
+      triggerSnapParticles(cardRef.current, CATEGORY_COLORS[n.type] || '#6b7280');
+      setSwipeOut('right');
+      setTimeout(() => {
+        if (onDelete) onDelete(n._id);
+        else onMarkRead(n._id);
+        setDismissed(true);
+        setSwipeOut(null);
+      }, 320);
+    } else {
+      setDragX(0);
+    }
+  };
+
+  const handleMouseDown = (e) => {
+    if (e.button !== 0) return; // Only left click
+    if (e.target.closest('button') || e.target.closest('a') || e.target.closest('textarea')) return;
+    startXRef.current = e.clientX;
+    setSwiping(true);
+    
+    const handleMouseMove = (moveEvent) => {
+      if (startXRef.current === null) return;
+      const delta = moveEvent.clientX - startXRef.current;
+      setDragX(Math.max(-120, Math.min(120, delta)));
+    };
+
+    const handleMouseUp = () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      handleTouchEnd();
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
+  const showLeftHint = dragX < -20;
+  const showRightHint = dragX > 20;
+
+  const cardClass = [
+    'notif-swipe-card',
+    swiping ? '' : 'releasing',
+    swipeOut === 'left' ? 'swiping-out-left' : '',
+    swipeOut === 'right' ? 'swiping-out-right' : '',
+  ].join(' ');
+
+  return (
+    <div className="notif-swipe-wrapper">
+      <div className={`notif-swipe-hint left ${showLeftHint ? 'visible' : ''}`}>✓</div>
+      <div className={`notif-swipe-hint right ${showRightHint ? 'visible' : ''}`}>🗑</div>
+      <div
+        ref={cardRef}
+        className={cardClass}
+        style={{ 
+          transform: swipeOut ? undefined : `translateX(${dragX}px)`,
+          cursor: swiping ? 'grabbing' : 'grab' 
+        }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onMouseDown={handleMouseDown}
+      >
+        {children}
+      </div>
+    </div>
+  );
+};
+
+const NotificationsPopover = ({ 
+  notifications, 
+  markNotificationRead, 
+  markAllNotificationsRead, 
+  setNotificationsOpen, 
+  fetchNotifications, 
+  currentUser,
+  navigate,
+  openRoom,
+  setIsOpen 
+}) => {
+  const unreadCount = notifications.filter(n => !n.isRead).length;
   const [expandedId, setExpandedId] = useState(null);
   const [actionLoadingId, setActionLoadingId] = useState(null);
   const [responseTexts, setResponseTexts] = useState({});
 
-  // Define tab options. Admin/Moderator gets 'Appeals' tab.
   const isModOrAdmin = currentUser && ['admin', 'moderator', 'editor'].includes(currentUser.role);
-  const tabs = [
-    { id: 'all', label: 'All' },
-    { id: 'board_news', label: 'News' },
-    { id: 'announcement', label: 'Alerts' },
-    { id: 'sensitivity', label: 'Critical' },
-  ];
-  if (isModOrAdmin) {
-    tabs.push({ id: 'appeal', label: 'Appeals' });
-  }
 
-  const filtered = notifications.filter(n => {
-    if (filter === 'all') return true;
-    return n.type === filter;
-  });
+  // ONLY show unread notifications in the popover
+  const filtered = notifications.filter(n => !n.isRead);
 
   const getLabel = (type) => {
-    if (type === 'board_news') return 'Board News';
-    if (type === 'sensitivity') return 'Critical Alert';
-    if (type === 'appeal') return 'User Appeal';
+    if (type === 'board_news') return 'News';
+    if (type === 'sensitivity') return 'Critical';
+    if (type === 'appeal') return 'Appeal';
+    if (type === 'message') return 'Chat';
+    if (type === 'editorial') return 'Editorial';
     return 'Announcement';
   };
 
-  const getTypeStyle = (type, isRead) => {
-    if (type === 'sensitivity') {
-      return {
-        borderLeft: '4px solid #ef4444',
-        background: isRead ? 'var(--color-white)' : 'rgba(239, 68, 68, 0.04)'
-      };
-    }
-    if (type === 'board_news') {
-      return {
-        borderLeft: '4px solid var(--accent-color)',
-        background: isRead ? 'var(--color-white)' : 'rgba(59, 130, 246, 0.04)'
-      };
-    }
-    if (type === 'appeal') {
-      return {
-        borderLeft: '4px solid #f59e0b',
-        background: isRead ? 'var(--color-white)' : 'rgba(245, 158, 11, 0.04)'
-      };
-    }
-    return {
-      borderLeft: '4px solid #6b7280',
-      background: isRead ? 'var(--color-white)' : 'rgba(107, 114, 128, 0.04)'
-    };
-  };
-
   const formatTime = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    try {
+      return formatDistanceToNow(new Date(dateString), { addSuffix: true });
+    } catch {
+      return '';
+    }
   };
 
-  const handleResolveAppeal = async (e, n, actionType) => {
+  const handleResolveAppeal = async (e, n, action) => {
     e.stopPropagation();
-    const senderId = typeof n.sender === 'object' ? n.sender?._id : n.sender;
-    if (!senderId) {
-      toast.error('User details not found.');
-      return;
-    }
-
-    const responseNote = responseTexts[n._id] || '';
-    setActionLoadingId(`${n._id}:${actionType}`);
+    const reason = responseTexts[n._id] || '';
+    setActionLoadingId(n._id);
     try {
-      if (actionType === 'approve') {
-        // Call unblock API
-        await authAPI.unblockUser(senderId);
-        toast.success('Appeal approved and user unblocked!');
-      } else {
-        // Call reject API with response note
-        await authAPI.rejectAppeal(senderId, responseNote);
-        toast.success('Appeal rejected and user notified.');
-      }
-      
-      // Mark notification as read
-      await markNotificationRead(n._id);
-      
-      // Refresh notifications list
-      if (fetchNotifications) {
-        await fetchNotifications();
-      }
-
-      // Clear this card's response note
-      setResponseTexts(prev => ({ ...prev, [n._id]: '' }));
+      await articleAPI.resolveAppeal(n.referenceId, { action, reason });
+      toast.success(`Appeal ${action}d successfully.`);
+      if (fetchNotifications) fetchNotifications();
     } catch (err) {
       console.error(err);
       toast.error(err.response?.data?.message || 'Failed to resolve appeal.');
@@ -1344,74 +1602,65 @@ const NotificationsPopover = ({ notifications, markNotificationRead, markAllNoti
     }
   };
 
+  const handleItemClick = (n) => {
+    if (!n.isRead) markNotificationRead(n._id);
+    if (n.actionUrl) {
+      setNotificationsOpen(false);
+      if (n.actionUrl.startsWith('http')) {
+        window.open(n.actionUrl, '_blank');
+      } else {
+        navigate(n.actionUrl);
+      }
+    } else if (n.type === 'message') {
+      setNotificationsOpen(false);
+      if (openRoom && setIsOpen) {
+        openRoom('group', 'news');
+        setIsOpen(true);
+      }
+    } else {
+      setExpandedId(expandedId === n._id ? null : n._id);
+    }
+  };
+
   return (
-    <div className="profile-popover notifications-popover" style={{ 
-      width: '380px', 
-      padding: '20px', 
-      gap: '16px', 
-      textAlign: 'left',
-      boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.05)',
-      borderRadius: '8px',
-      border: '1.5px solid var(--color-black)'
-    }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--color-gray-250)', paddingBottom: '10px' }}>
-        <h4 style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: '13px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--color-black)', letterSpacing: '0.5px' }}>
-          System Alerts & Actions
-        </h4>
-        {notifications.some(n => !n.isRead) && (
-          <button 
-            onClick={markAllNotificationsRead}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'var(--accent-color)',
-              fontSize: '11px',
-              fontWeight: 800,
-              cursor: 'pointer',
-              padding: 0,
-              textTransform: 'uppercase',
-              letterSpacing: '0.2px'
-            }}
-          >
-            Mark all read
-          </button>
-        )}
+    <div className="notifications-popover" onClick={e => e.stopPropagation()}>
+      {/* Popover Header with Notification Assist */}
+      <div className="notif-popover-header">
+        <div className="notif-popover-title-row">
+          <FiBell size={17} color="var(--accent-color)" />
+          <h4 className="notif-popover-title">Notification Assist</h4>
+          {unreadCount > 0 && (
+            <span className="notif-popover-count-badge">{unreadCount} new</span>
+          )}
+        </div>
+        <button 
+          onClick={() => setNotificationsOpen(false)}
+          className="notif-popover-close-btn"
+          title="Close"
+          style={{
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            color: 'var(--color-gray-500)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '6px',
+            borderRadius: '50%',
+            transition: 'background 0.2s',
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--color-gray-100)'}
+          onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
+        >
+          <FiX size={18} />
+        </button>
       </div>
 
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: '5px', overflowX: 'auto', paddingBottom: '4px', scrollbarWidth: 'none' }}>
-        {tabs.map(tab => (
-          <button
-            key={tab.id}
-            onClick={(e) => {
-              e.stopPropagation();
-              setFilter(tab.id); 
-              setExpandedId(null); 
-            }}
-            style={{
-              padding: '5px 12px',
-              fontSize: '11px',
-              fontWeight: 800,
-              borderRadius: '20px',
-              border: filter === tab.id ? '1.5px solid var(--color-black)' : '1.5px solid var(--color-gray-200)',
-              background: filter === tab.id ? 'var(--color-black)' : 'transparent',
-              color: filter === tab.id ? 'var(--color-white)' : 'var(--color-gray-600)',
-              cursor: 'pointer',
-              whiteSpace: 'nowrap',
-              transition: 'all 0.15s ease'
-            }}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* List Container */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '310px', overflowY: 'auto', paddingRight: '4px' }}>
+      {/* Notification Items List */}
+      <div className="notif-popover-list">
         {filtered.length === 0 ? (
-          <div style={{ padding: '32px 0', textAlign: 'center', fontSize: '12.5px', color: 'var(--color-gray-500)', fontWeight: 500 }}>
-            No updates in this section.
+          <div style={{ padding: '48px 0', textAlign: 'center', fontSize: '13px', color: 'var(--color-gray-500)', fontWeight: 600 }}>
+            ✨ No unread notifications.
           </div>
         ) : (
           filtered.map(n => {
@@ -1419,56 +1668,38 @@ const NotificationsPopover = ({ notifications, markNotificationRead, markAllNoti
             const senderUser = typeof n.sender === 'object' ? n.sender : null;
             
             return (
+              <SwipableNotifItem key={n._id} n={n} onMarkRead={markNotificationRead} onDelete={null}>
               <div
-                key={n._id}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setExpandedId(isExpanded ? null : n._id);
-                  if (!n.isRead) markNotificationRead(n._id);
-                }}
-                style={{
-                  padding: '12px 14px',
-                  borderRadius: '6px',
-                  border: '1.5px solid var(--color-gray-200)',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '6px',
-                  textAlign: 'left',
-                  boxShadow: n.isRead ? 'none' : '0 2px 8px rgba(0,0,0,0.02)',
-                  ...getTypeStyle(n.type, n.isRead)
-                }}
+                onClick={() => handleItemClick(n)}
+                className="notif-popover-item unread"
               >
                 {/* Meta details */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
-                  <span style={{
-                    fontSize: '9.5px',
-                    fontWeight: 800,
-                    textTransform: 'uppercase',
-                    padding: '2px 6px',
-                    borderRadius: '4px',
-                    background: n.type === 'sensitivity' ? '#fee2e2' : n.type === 'board_news' ? '#e0f2fe' : n.type === 'appeal' ? '#fef3c7' : '#f3f4f6',
-                    color: n.type === 'sensitivity' ? '#dc2626' : n.type === 'board_news' ? '#2563eb' : n.type === 'appeal' ? '#d97706' : '#4b5563',
-                    letterSpacing: '0.2px'
-                  }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span className={`notif-popover-tag notif-popover-tag-${n.type}`}>
                     {getLabel(n.type)}
                   </span>
-                  <span style={{ fontSize: '9px', color: 'var(--color-gray-400)', fontWeight: 600 }}>
-                    {formatTime(n.createdAt)}
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '10.5px', color: 'var(--color-gray-400)', fontWeight: 600 }}>
+                      {formatTime(n.createdAt)}
+                    </span>
+                    <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--accent-color)' }} />
+                  </div>
                 </div>
 
                 {/* Sender & Title Layout */}
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  {n.type === 'appeal' && senderUser && (
+                <div style={{ display: 'flex', gap: '9px', alignItems: 'center' }}>
+                  {senderUser && (
                     <img 
-                      src={senderUser.avatar || '/default-avatar.png'} 
+                      src={senderUser.avatar ? getImageUrl(senderUser.avatar) : `https://ui-avatars.com/api/?name=${encodeURIComponent(senderUser.name || 'U')}&background=random&size=60`} 
                       alt="" 
-                      style={{ width: '22px', height: '22px', borderRadius: '50%', border: '1px solid var(--color-gray-250)', objectFit: 'cover' }} 
+                      style={{ width: '24px', height: '24px', borderRadius: '50%', border: '1px solid var(--color-gray-200)', objectFit: 'cover', flexShrink: 0 }} 
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(senderUser.name || 'U')}&background=random&size=60`;
+                      }}
                     />
                   )}
-                  <div style={{ fontWeight: n.isRead ? 600 : 800, fontSize: '12.5px', color: 'var(--color-black)' }}>
+                  <div style={{ fontWeight: 850, fontSize: '13px', color: 'var(--color-black)', lineHeight: 1.35 }}>
                     {n.title}
                   </div>
                 </div>
@@ -1476,8 +1707,8 @@ const NotificationsPopover = ({ notifications, markNotificationRead, markAllNoti
                 {/* Message Body */}
                 <div style={{
                   fontSize: '12px',
-                  color: 'var(--color-gray-600)',
-                  lineHeight: 1.4,
+                  color: 'var(--color-gray-500)',
+                  lineHeight: 1.45,
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   display: '-webkit-box',
@@ -1488,32 +1719,83 @@ const NotificationsPopover = ({ notifications, markNotificationRead, markAllNoti
                   {n.message}
                 </div>
 
-                {/* Expanded Action Panel */}
+                {/* Card Action Bar */}
+                <div className="notif-popover-item-actions">
+                  <button
+                    type="button"
+                    className="notif-popover-action-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      markNotificationRead(n._id);
+                    }}
+                    title="Mark as read"
+                  >
+                    <FiCheck size={12} color="var(--accent-color)" />
+                    <span>Mark Read</span>
+                  </button>
+
+                  {n.type === 'message' && (
+                    <button
+                      type="button"
+                      className="notif-popover-action-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setNotificationsOpen(false);
+                        if (openRoom && setIsOpen) {
+                          openRoom('group', 'news');
+                          setIsOpen(true);
+                        }
+                      }}
+                      style={{ color: 'var(--accent-color)' }}
+                    >
+                      <FiMessageSquare size={12} />
+                      <span>Chat / Reply</span>
+                    </button>
+                  )}
+
+                  {n.actionUrl && (
+                    <button
+                      type="button"
+                      className="notif-popover-action-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setNotificationsOpen(false);
+                        if (n.actionUrl.startsWith('http')) {
+                          window.open(n.actionUrl, '_blank');
+                        } else {
+                          navigate(n.actionUrl);
+                        }
+                      }}
+                    >
+                      <FiExternalLink size={12} />
+                      <span>Open</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Expanded Action Panel for Appeals */}
                 {isExpanded && n.type === 'appeal' && isModOrAdmin && (
                   <div 
                     onClick={e => e.stopPropagation()} 
                     style={{ 
-                      marginTop: '10px', 
-                      paddingTop: '10px', 
+                      marginTop: '8px', 
+                      paddingTop: '8px', 
                       borderTop: '1px solid var(--color-gray-200)',
                       display: 'flex',
                       flexDirection: 'column',
                       gap: '8px'
                     }}
                   >
-                    <label style={{ fontSize: '9.5px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--color-gray-500)', letterSpacing: '0.3px' }}>
-                      Appeal Decision Response
-                    </label>
                     <textarea
                       value={responseTexts[n._id] || ''}
                       onChange={(e) => setResponseTexts({ ...responseTexts, [n._id]: e.target.value })}
-                      placeholder="Type response reason to send back to the user..."
+                      placeholder="Type response reason to send back to user..."
                       rows={2}
                       style={{
                         width: '100%', boxSizing: 'border-box',
                         background: 'var(--color-white)',
-                        border: '1.5px solid var(--color-gray-300)',
-                        borderRadius: '4px',
+                        border: '1px solid var(--color-gray-300)',
+                        borderRadius: '6px',
                         padding: '6px 8px',
                         fontSize: '11px',
                         color: 'var(--color-black)',
@@ -1527,49 +1809,127 @@ const NotificationsPopover = ({ notifications, markNotificationRead, markAllNoti
                         onClick={(e) => handleResolveAppeal(e, n, 'reject')}
                         disabled={actionLoadingId !== null}
                         style={{
-                          padding: '6px 12px',
+                          padding: '5px 10px',
                           background: 'transparent',
-                          border: '1.5px solid #dc2626',
+                          border: '1px solid #dc2626',
                           borderRadius: '4px',
                           color: '#dc2626',
                           fontSize: '11px',
                           fontWeight: 700,
                           cursor: 'pointer',
-                          opacity: actionLoadingId !== null ? 0.6 : 1,
-                          transition: 'all 0.15s ease'
+                          opacity: actionLoadingId !== null ? 0.6 : 1
                         }}
-                        onMouseEnter={e => { e.target.style.background = '#fef2f2'; }}
-                        onMouseLeave={e => { e.target.style.background = 'transparent'; }}
                       >
-                        {actionLoadingId === `${n._id}:reject` ? 'Rejecting...' : 'Reject Appeal'}
+                        Reject
                       </button>
                       <button
                         onClick={(e) => handleResolveAppeal(e, n, 'approve')}
                         disabled={actionLoadingId !== null}
                         style={{
-                          padding: '6px 12px',
+                          padding: '5px 10px',
                           background: '#16a34a',
-                          border: '1.5px solid #16a34a',
+                          border: '1px solid #16a34a',
                           borderRadius: '4px',
                           color: '#fff',
                           fontSize: '11px',
                           fontWeight: 700,
                           cursor: 'pointer',
-                          opacity: actionLoadingId !== null ? 0.6 : 1,
-                          transition: 'all 0.15s ease'
+                          opacity: actionLoadingId !== null ? 0.6 : 1
                         }}
-                        onMouseEnter={e => { e.target.style.background = '#15803d'; e.target.style.borderColor = '#15803d'; }}
-                        onMouseLeave={e => { e.target.style.background = '#16a34a'; e.target.style.borderColor = '#16a34a'; }}
                       >
-                        {actionLoadingId === `${n._id}:approve` ? 'Approving...' : 'Approve & Unblock'}
+                        Approve
                       </button>
                     </div>
                   </div>
                 )}
               </div>
+              </SwipableNotifItem>
             );
           })
         )}
+      </div>
+
+      {/* Pop-up Footer: History Link, Clear All (Mark Read), Settings Gear */}
+      <div className="notif-popover-footer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 8px 4px 8px', borderTop: '1px solid var(--color-gray-100)' }}>
+        {/* Left button: Notification History Link */}
+        <button 
+          onClick={() => {
+            setNotificationsOpen(false);
+            if (navigate) navigate('/notifications');
+          }}
+          className="notif-footer-icon-btn"
+          title="Notification History"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '36px',
+            height: '36px',
+            borderRadius: '50%',
+            background: 'var(--color-gray-100)',
+            color: 'var(--color-black)',
+            transition: 'background 0.2s',
+            border: 'none',
+            cursor: 'pointer'
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--color-gray-200)'}
+          onMouseLeave={(e) => e.currentTarget.style.background = 'var(--color-gray-100)'}
+        >
+          <FiCompass size={17} />
+        </button>
+
+        {/* Center button: Clear all (Mark all read) */}
+        {filtered.length > 0 ? (
+          <button 
+            onClick={markAllNotificationsRead}
+            className="notif-popover-clear-all-btn"
+            style={{
+              background: 'var(--color-gray-900)',
+              color: 'var(--color-white)',
+              border: 'none',
+              borderRadius: '24px',
+              padding: '10px 36px',
+              fontWeight: 700,
+              fontSize: '13px',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--accent-color)'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'var(--color-gray-900)'}
+          >
+            Clear all
+          </button>
+        ) : (
+          <span style={{ fontSize: '12.5px', color: 'var(--color-gray-400)', fontWeight: 600 }}>All caught up!</span>
+        )}
+
+        {/* Right button: Settings Gear */}
+        <button 
+          onClick={() => {
+            setNotificationsOpen(false);
+            if (navigate) navigate('/settings');
+          }}
+          className="notif-footer-icon-btn"
+          title="Notification Settings"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '36px',
+            height: '36px',
+            borderRadius: '50%',
+            background: 'var(--color-gray-100)',
+            color: 'var(--color-black)',
+            border: 'none',
+            cursor: 'pointer',
+            transition: 'background 0.2s',
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--color-gray-200)'}
+          onMouseLeave={(e) => e.currentTarget.style.background = 'var(--color-gray-100)'}
+        >
+          <FiSettings size={16} />
+        </button>
       </div>
     </div>
   );

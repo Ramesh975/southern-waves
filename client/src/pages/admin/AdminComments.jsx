@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { commentAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import { FiSearch } from 'react-icons/fi';
@@ -94,7 +95,14 @@ const AdminComments = () => {
                   <span>{new Date(c.createdAt).toLocaleString()}</span>
                 </div>
                 <p style={{ fontSize: 11, color: 'var(--accent-color)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
-                  On: {c.article?.title}
+                  On:{' '}
+                  {c.article?._id ? (
+                    <Link to={`/admin/article/${c.article._id}`} style={{ color: 'var(--accent-color)', textDecoration: 'underline' }}>
+                      {c.article?.title || 'View Post'}
+                    </Link>
+                  ) : (
+                    c.article?.title || 'Unknown Post'
+                  )}
                 </p>
                 <p className="ad-comment-text" style={{ maxWidth: 700 }}>{c.text}</p>
               </div>

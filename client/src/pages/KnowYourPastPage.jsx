@@ -239,21 +239,24 @@ const KnowYourPastPage = () => {
   }
 
   return (
-    <main style={{
-      minHeight: '90vh',
-      padding: '40px 0 120px 0',
-      background: '#fafafa',
-      backgroundImage: 'radial-gradient(#e5e7eb 1.5px, transparent 1.5px)',
-      backgroundSize: '24px 24px',
-      fontFamily: 'var(--font-sans, "Inter", sans-serif)'
-    }}>
+    <main className="kyp-page">
       <style>{`
+        .kyp-page {
+          min-height: 90vh;
+          padding: 40px 0 120px 0;
+          background-color: var(--color-paper);
+          background-image: radial-gradient(var(--color-gray-200) 1.5px, transparent 1.5px);
+          background-size: 24px 24px;
+          font-family: var(--font-sans, "Inter", sans-serif);
+          color: var(--color-black);
+          transition: background-color 0.25s ease;
+        }
         .kyp-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
           margin-bottom: 24px;
-          border-bottom: 1px solid #e5e7eb;
+          border-bottom: 1px solid var(--color-gray-200);
           padding-bottom: 16px;
         }
         .kyp-title {
@@ -262,7 +265,7 @@ const KnowYourPastPage = () => {
           font-weight: 850;
           letter-spacing: -0.5px;
           margin: 0;
-          color: #111827;
+          color: var(--color-black);
         }
         .explore-link {
           color: var(--accent-color, #c8102e);
@@ -304,7 +307,7 @@ const KnowYourPastPage = () => {
           left: 12.5%;
           right: 12.5%;
           height: 2px;
-          background: #e5e7eb;
+          background: var(--color-gray-200);
           z-index: 1;
         }
         .row-cols-4.row-even .vertical-connector-right {
@@ -313,7 +316,7 @@ const KnowYourPastPage = () => {
           bottom: -50px;
           right: 12.5%;
           width: 2px;
-          background: #e5e7eb;
+          background: var(--color-gray-200);
           z-index: 1;
         }
         .row-cols-4.row-odd .vertical-connector-left {
@@ -322,7 +325,7 @@ const KnowYourPastPage = () => {
           bottom: -50px;
           left: 12.5%;
           width: 2px;
-          background: #e5e7eb;
+          background: var(--color-gray-200);
           z-index: 1;
         }
 
@@ -337,7 +340,7 @@ const KnowYourPastPage = () => {
           left: 25%;
           right: 25%;
           height: 2px;
-          background: #e5e7eb;
+          background: var(--color-gray-200);
           z-index: 1;
         }
         .row-cols-2.row-even .vertical-connector-right {
@@ -346,7 +349,7 @@ const KnowYourPastPage = () => {
           bottom: -50px;
           right: 25%;
           width: 2px;
-          background: #e5e7eb;
+          background: var(--color-gray-200);
           z-index: 1;
         }
         .row-cols-2.row-odd .vertical-connector-left {
@@ -355,7 +358,7 @@ const KnowYourPastPage = () => {
           bottom: -50px;
           left: 25%;
           width: 2px;
-          background: #e5e7eb;
+          background: var(--color-gray-200);
           z-index: 1;
         }
 
@@ -372,7 +375,7 @@ const KnowYourPastPage = () => {
           bottom: 0;
           left: 50%;
           width: 2px;
-          background: #e5e7eb;
+          background: var(--color-gray-200);
           z-index: 1;
           transform: translateX(-50%);
         }
@@ -409,20 +412,20 @@ const KnowYourPastPage = () => {
           font-weight: 800;
           color: var(--accent-color, #c8102e);
           margin-bottom: 12px;
-          background: #fff;
+          background: var(--color-white);
           padding: 4px 12px;
-          border: 1px solid #e5e7eb;
+          border: 1px solid var(--color-gray-200);
           border-radius: 30px;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+          box-shadow: var(--shadow-sm);
         }
         
         /* Premium Cards styling (No Black Border) */
         .timeline-card {
-          background: #fff;
-          border: 1px solid #f3f4f6;
+          background: var(--color-white);
+          border: 1px solid var(--color-gray-200);
           border-radius: 16px;
           padding: 0;
-          box-shadow: 0 10px 25px rgba(0, 0, 0, 0.03);
+          box-shadow: var(--shadow-sm);
           transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
           width: 100%;
           max-width: 260px;
@@ -432,6 +435,7 @@ const KnowYourPastPage = () => {
           cursor: pointer;
           text-align: left;
           overflow: hidden;
+          color: var(--color-black);
         }
         .timeline-card:hover {
           transform: translateY(-6px);
@@ -449,7 +453,7 @@ const KnowYourPastPage = () => {
         .timeline-card-title {
           font-size: 14px;
           font-weight: 700;
-          color: #111827;
+          color: var(--color-black);
           margin: 0 0 8px 0;
           line-height: 1.4;
           white-space: normal;
@@ -461,7 +465,7 @@ const KnowYourPastPage = () => {
         }
         .timeline-card-lead {
           font-size: 12px;
-          color: #4b5563;
+          color: var(--color-gray-600);
           line-height: 1.5;
           margin: 0;
           white-space: normal;
@@ -492,10 +496,11 @@ const KnowYourPastPage = () => {
         .empty-state {
           padding: 60px 20px;
           text-align: center;
-          border: 1px dashed #d1d5db;
+          border: 1px dashed var(--color-gray-200);
           border-radius: 16px;
-          background: #fff;
-          box-shadow: 0 8px 20px rgba(0,0,0,0.02);
+          background: var(--color-white);
+          color: var(--color-black);
+          box-shadow: var(--shadow-sm);
           margin: 40px auto;
           max-width: 500px;
         }
@@ -513,7 +518,7 @@ const KnowYourPastPage = () => {
           left: 0;
           right: 0;
           height: 50px;
-          background: linear-gradient(to bottom, transparent, #fff);
+          background: linear-gradient(to bottom, transparent, var(--color-paper));
           pointer-events: none;
         }
         .kyp-preview-expand-btn {
@@ -566,10 +571,11 @@ const KnowYourPastPage = () => {
           bottom: 0;
           width: 360px;
           max-width: 90vw;
-          background: #fff;
-          box-shadow: -10px 0 35px rgba(0, 0, 0, 0.05);
+          background: var(--color-paper);
+          color: var(--color-black);
+          box-shadow: var(--shadow-xl);
           z-index: 10000;
-          border-left: 1px solid #e5e7eb;
+          border-left: 1px solid var(--color-gray-200);
           padding: 24px;
           display: flex;
           flex-direction: column;
@@ -589,7 +595,7 @@ const KnowYourPastPage = () => {
           margin-bottom: -10px;
         }
         .kyp-preview-close {
-          background: #f3f4f6;
+          background: var(--color-gray-100);
           border: none;
           width: 28px;
           height: 28px;
@@ -602,8 +608,8 @@ const KnowYourPastPage = () => {
           transition: background 0.2s;
         }
         .kyp-preview-close:hover {
-          background: #e5e7eb;
-          color: #111827;
+          background: var(--color-gray-200);
+          color: var(--color-black);
         }
         .kyp-preview-media-frame {
           background: #000;
@@ -634,7 +640,7 @@ const KnowYourPastPage = () => {
         .kyp-preview-title {
           font-size: 15px;
           font-weight: 700;
-          color: #111827;
+          color: var(--color-black);
           margin: 0;
           line-height: 1.4;
           word-break: break-word;
@@ -645,13 +651,13 @@ const KnowYourPastPage = () => {
           margin: 0;
         }
         .kyp-preview-share-btn {
-          background: #f9fafb;
-          border: 1px solid #d1d5db;
+          background: var(--color-gray-50);
+          border: 1px solid var(--color-gray-200);
           border-radius: 6px;
           padding: 6px 14px;
           font-size: 12px;
           font-weight: 600;
-          color: #374151;
+          color: var(--color-black);
           display: flex;
           align-items: center;
           gap: 6px;
@@ -660,20 +666,20 @@ const KnowYourPastPage = () => {
           transition: background 0.15s;
         }
         .kyp-preview-share-btn:hover {
-          background: #f3f4f6;
+          background: var(--color-gray-100);
         }
         .kyp-preview-details-section {
           display: flex;
           flex-direction: column;
           gap: 12px;
-          border-top: 1px solid #f3f4f6;
+          border-top: 1px solid var(--color-gray-200);
           padding-top: 16px;
           margin-top: 8px;
         }
         .kyp-preview-details-heading {
           font-size: 12px;
           font-weight: 600;
-          color: #374151;
+          color: var(--color-black);
           margin: 0;
         }
         .kyp-preview-details-grid {
@@ -687,21 +693,21 @@ const KnowYourPastPage = () => {
           color: #6b7280;
         }
         .kyp-preview-details-value {
-          color: #111827;
+          color: var(--color-black);
           word-break: break-word;
         }
         .kyp-preview-properties-btn:hover {
-          background: #f9fafb;
+          background: var(--color-gray-50);
           border-color: #9ca3af;
         }
         .kyp-preview-discussion-btn {
-          border: 1px solid #d1d5db;
-          background: #f9fafb;
+          border: 1px solid var(--color-gray-200);
+          background: var(--color-gray-50);
           padding: 8px 16px;
           border-radius: 6px;
           font-size: 12px;
           font-weight: 600;
-          color: #374151;
+          color: var(--color-black);
           cursor: pointer;
           transition: background 0.15s;
           display: flex;
@@ -709,17 +715,17 @@ const KnowYourPastPage = () => {
           justify-content: center;
         }
         .kyp-preview-discussion-btn:hover {
-          background: #f3f4f6;
+          background: var(--color-gray-100);
           border-color: #9ca3af;
         }
         .kyp-preview-action-share-btn {
-          border: 1px solid #d1d5db;
-          background: #f9fafb;
+          border: 1px solid var(--color-gray-200);
+          background: var(--color-gray-50);
           padding: 8px 16px;
           border-radius: 6px;
           font-size: 12px;
           font-weight: 600;
-          color: #374151;
+          color: var(--color-black);
           cursor: pointer;
           transition: background 0.15s;
           display: flex;
@@ -727,7 +733,7 @@ const KnowYourPastPage = () => {
           justify-content: center;
         }
         .kyp-preview-action-share-btn:hover {
-          background: #f3f4f6;
+          background: var(--color-gray-100);
           border-color: #9ca3af;
         }
 
@@ -748,9 +754,11 @@ const KnowYourPastPage = () => {
           pointer-events: auto !important;
         }
         .kyp-comments-modal {
-          background: #fff;
+          background: var(--color-paper);
+          border: 1px solid var(--color-gray-200);
+          color: var(--color-black);
           border-radius: 12px;
-          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+          box-shadow: var(--shadow-xl);
           width: 100%;
           max-width: 520px;
           height: 600px;
@@ -775,12 +783,13 @@ const KnowYourPastPage = () => {
           justify-content: space-between;
           align-items: center;
           padding: 18px 24px;
-          border-bottom: 1px solid #f3f4f6;
+          border-bottom: 1px solid var(--color-gray-200);
+          background: var(--color-gray-50);
         }
         .kyp-comments-header-title {
           font-size: 15px;
           font-weight: 700;
-          color: #111827;
+          color: var(--color-black);
           margin: 0;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -814,7 +823,8 @@ const KnowYourPastPage = () => {
           flex-shrink: 0;
         }
         .kyp-comment-content-box {
-          background: #f3f4f6;
+          background: var(--color-gray-100);
+          color: var(--color-black);
           padding: 10px 14px;
           border-radius: 12px;
           border-top-left-radius: 2px;
@@ -823,12 +833,12 @@ const KnowYourPastPage = () => {
         .kyp-comment-author-name {
           font-size: 12px;
           font-weight: 700;
-          color: #111827;
+          color: var(--color-black);
           margin-bottom: 2px;
         }
         .kyp-comment-text {
           font-size: 13px;
-          color: #374151;
+          color: var(--color-gray-800);
           line-height: 1.5;
           margin: 0;
           word-break: break-word;
@@ -841,8 +851,8 @@ const KnowYourPastPage = () => {
         }
         .kyp-comments-footer {
           padding: 16px 24px;
-          border-top: 1px solid #f3f4f6;
-          background: #f9fafb;
+          border-top: 1px solid var(--color-gray-200);
+          background: var(--color-gray-50);
         }
         .kyp-comments-input-form {
           display: flex;
@@ -852,19 +862,19 @@ const KnowYourPastPage = () => {
         .kyp-comments-input {
           flex: 1;
           padding: 10px 14px;
-          border: 1px solid #d1d5db;
+          border: 1px solid var(--color-gray-200);
           border-radius: 8px;
           font-size: 13px;
           outline: none;
-          background: #fff;
-          color: #111827;
+          background: var(--color-white);
+          color: var(--color-black);
           transition: border-color 0.15s;
         }
         .kyp-comments-input:focus {
-          border-color: #3b82f6;
+          border-color: var(--accent-color);
         }
         .kyp-comments-send-btn {
-          background: #3b82f6;
+          background: var(--accent-color);
           color: #fff;
           border: none;
           width: 38px;
@@ -878,10 +888,10 @@ const KnowYourPastPage = () => {
           flex-shrink: 0;
         }
         .kyp-comments-send-btn:hover {
-          background: #2563eb;
+          background: var(--accent-color-hover);
         }
         .kyp-comments-send-btn:disabled {
-          background: #d1d5db;
+          background: var(--color-gray-300);
           cursor: not-allowed;
         }
       `}</style>
@@ -902,12 +912,12 @@ const KnowYourPastPage = () => {
         {loading ? (
           <div style={{ textAlign: 'center', padding: '80px 0' }}>
             <div className="nm-spinner-ring" style={{ margin: '0 auto 12px auto' }} />
-            <span style={{ fontWeight: 800, color: '#000' }}>Retrieving archives...</span>
+            <span style={{ fontWeight: 800, color: 'var(--color-black)' }}>Retrieving archives...</span>
           </div>
         ) : events.length === 0 ? (
           <div className="empty-state">
             <h3 style={{ fontWeight: 900, margin: '0 0 6px 0', textTransform: 'uppercase' }}>No Events Found</h3>
-            <p style={{ fontSize: '13px', color: '#555', margin: 0 }}>
+            <p style={{ fontSize: '13px', color: 'var(--color-gray-600)', margin: 0 }}>
               We couldn't find any timeline events matching your search or filters.
             </p>
           </div>
