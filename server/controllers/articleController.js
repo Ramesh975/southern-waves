@@ -2,6 +2,7 @@ const Article = require('../models/Article');
 const Comment = require('../models/Comment');
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
 const { scanText, scanForBlockedTags } = require('../utils/filter');
 
 // @desc    Get all published articles (with filters, pagination)
@@ -14,11 +15,24 @@ exports.getArticles = async (req, res, next) => {
     const conditions = [];
 
     if (author) {
-      conditions.push({ author });
+      if (mongoose.Types.ObjectId.isValid(author)) {
+        conditions.push({ author });
+      } else {
+        const foundUser = await User.findOne({ username: author }).select('_id');
+        if (foundUser) {
+          conditions.push({ author: foundUser._id });
+        } else {
+          conditions.push({ author: new mongoose.Types.ObjectId() });
+        }
+      }
     }
 
     if (likedBy) {
-      conditions.push({ likes: likedBy });
+      if (mongoose.Types.ObjectId.isValid(likedBy)) {
+        conditions.push({ likes: likedBy });
+      } else {
+        conditions.push({ likes: new mongoose.Types.ObjectId() });
+      }
     }
 
     // Public users only see published, except if they query their own posts
@@ -1155,7 +1169,7 @@ exports.getRecommendations = async (req, res, next) => {
     let user = null;
     let likedArticles = [];
 
-    if (userId) {
+    if (userId && mongoose.Types.ObjectId.isValid(userId)) {
       const User = require('../models/User');
       user = await User.findById(userId).populate('savedArticles');
       likedArticles = await Article.find({ likes: userId });
@@ -1404,7 +1418,7 @@ exports.getWebStories = async (req, res, next) => {
     let user = null;
     let likedArticles = [];
 
-    if (userId) {
+    if (userId && mongoose.Types.ObjectId.isValid(userId)) {
       user = await User.findById(userId).populate('savedArticles');
       likedArticles = await Article.find({ likes: userId }).select('category tags');
     }
