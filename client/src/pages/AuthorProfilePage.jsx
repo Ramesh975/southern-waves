@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { authAPI, articleAPI, commentAPI } from '../services/api';
 import toast from 'react-hot-toast';
@@ -8,9 +8,12 @@ import {
   FiMessageSquare, FiBookmark, FiLock, FiUnlock, FiCalendar,
   FiAward, FiBookOpen, FiClock, FiCheckCircle, FiAlertCircle,
   FiUser, FiLayers, FiFilter, FiExternalLink, FiSettings, FiGrid, FiList,
-  FiTrendingUp, FiActivity, FiToggleLeft, FiToggleRight
+  FiTrendingUp, FiActivity, FiToggleLeft, FiToggleRight, FiZap,
+  FiCheckSquare, FiSquare, FiCopy, FiArrowRight, FiMic, FiFeather,
+  FiRadio, FiCamera, FiBarChart2, FiSliders, FiRefreshCw
 } from 'react-icons/fi';
 import QuickPublishModal from '../components/QuickPublishModal';
+import AuthorAnalyticsGraph from '../components/AuthorAnalyticsGraph';
 import { getImageUrl, getCategoryLabel } from '../components/ArticleComponents';
 import './AuthorStudio.css';
 
@@ -26,69 +29,117 @@ const CATEGORIES = [
 ];
 
 const STATUS_FILTERS = [
-  { value: '', label: 'All Statuses' },
-  { value: 'published', label: '🟢 Published' },
-  { value: 'draft', label: '⚪ Draft' },
-  { value: 'pending', label: '🟡 Pending Review' },
-  { value: 'flagged', label: '🔴 Flagged' },
+  { value: '', label: 'All Stories', key: 'all' },
+  { value: 'published', label: 'Published', key: 'published' },
+  { value: 'draft', label: 'Drafts', key: 'draft' },
+  { value: 'pending', label: 'Under Review', key: 'pending' },
+  { value: 'archived', label: 'Archived', key: 'archived' },
+];
+
+const SORT_OPTIONS = [
+  { value: 'newest', label: 'Newest First' },
+  { value: 'oldest', label: 'Oldest First' },
+  { value: 'views', label: 'Most Reads / Views' },
+  { value: 'likes', label: 'Most Hypes & Likes' },
+  { value: 'comments', label: 'Most Discussions' },
 ];
 
 const AuthorProfilePage = () => {
   const { identifier } = useParams();
-  const { user } = useAuth();
+  const location = useLocation();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
   // Author & Profile State
   const [authorData, setAuthorData] = useState(null);
   const [authorStats, setAuthorStats] = useState({
     totalArticles: 0,
+    totalAllArticles: 0,
+    publishedCount: 0,
+    draftCount: 0,
+    pendingCount: 0,
+    archivedCount: 0,
     totalViews: 0,
     totalLikes: 0,
-    totalComments: 0
+    totalComments: 0,
+    totalShares: 0,
+    engagementRate: 0
+  });
+  const [authorAnalytics, setAuthorAnalytics] = useState({
+    timeline: [],
+    categoryDistribution: [],
+    topArticles: []
   });
   const [isOwner, setIsOwner] = useState(false);
   const [profileLoading, setProfileLoading] = useState(true);
   const [showFullBio, setShowFullBio] = useState(false);
 
   // Content & Studio State
-  const [activeTab, setActiveTab] = useState('published'); // 'published', 'management', 'liked', 'comments'
+  // Tabs: 'overview' (Analytics & Visual Graph), 'management' (Post Management), 'liked' (Saved/Liked), 'comments' (My Comments)
+  const [activeTab, setActiveTab] = useState('overview');
   const [articles, setArticles] = useState([]);
   const [likedArticles, setLikedArticles] = useState([]);
   const [myComments, setMyComments] = useState([]);
   const [loadingContent, setLoadingContent] = useState(true);
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'table'
 
-  // Filter States
+  // Filter & Sort States
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
+  const [sortBy, setSortBy] = useState('newest');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  // Advanced QuickPublishModal Editor State for Post Creation / Editing in Author Studio
+  // Batch Selection State
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [batchOperating, setBatchOperating] = useState(false);
+
+  // QuickPublishModal Editor State for Post Creation / Editing in Author Studio
   const [quickPublishOpen, setQuickPublishOpen] = useState(false);
   const [editingArticle, setEditingArticle] = useState(null);
+  const [quickLaunchType, setQuickLaunchType] = useState(null);
+  const [quickLaunchCategory, setQuickLaunchCategory] = useState('news');
 
-  const effectiveIdentifier = identifier || (user ? (user.username || user._id) : null);
+  const effectiveIdentifier = useMemo(() => {
+    if (identifier) return identifier;
+    if (location.pathname === '/author/me' || location.pathname === '/author-studio' || location.pathname === '/my-uploads') {
+      return 'me';
+    }
+    return user ? (user.username || user._id) : null;
+  }, [identifier, location.pathname, user]);
 
   // Fetch Author Profile & Stats
   const loadAuthorProfile = useCallback(async () => {
-    if (!effectiveIdentifier) {
+    if (authLoading) return;
+
+    if (!effectiveIdentifier || (effectiveIdentifier === 'me' && !user)) {
       if (!user) {
-        navigate('/login');
+        navigate('/login?redirect=' + encodeURIComponent(location.pathname));
         return;
       }
     }
+
     setProfileLoading(true);
     try {
-      const targetId = effectiveIdentifier === 'me' ? (user?.username || user?._id) : effectiveIdentifier;
+      const targetId = effectiveIdentifier === 'me' ? 'me' : effectiveIdentifier;
       const res = await authAPI.getAuthorProfile(targetId);
       if (res.data.success) {
         const fetchedAuthor = res.data.data.author;
         setAuthorData(fetchedAuthor);
         setAuthorStats(res.data.data.stats || {});
-        const ownerCheck = !!(user && (user._id === fetchedAuthor._id || user.username === fetchedAuthor.username));
+        setAuthorAnalytics(res.data.data.analytics || {});
+        
+        const ownerCheck = Boolean(
+          res.data.data.isOwner ||
+          (user && (user._id === fetchedAuthor._id || user.username === fetchedAuthor.username))
+        );
         setIsOwner(ownerCheck);
+
+        // If not owner, default to overview or published
+        if (!ownerCheck && (activeTab === 'management' || activeTab === 'liked' || activeTab === 'comments')) {
+          setActiveTab('overview');
+        }
       }
     } catch (err) {
       console.error('Failed to load author profile:', err);
@@ -96,7 +147,7 @@ const AuthorProfilePage = () => {
     } finally {
       setProfileLoading(false);
     }
-  }, [effectiveIdentifier, user, navigate]);
+  }, [effectiveIdentifier, user, authLoading, navigate, location.pathname, activeTab]);
 
   useEffect(() => {
     loadAuthorProfile();
@@ -106,20 +157,36 @@ const AuthorProfilePage = () => {
   const fetchTabContent = useCallback(async () => {
     if (!authorData?._id) return;
     setLoadingContent(true);
+    setSelectedIds(new Set()); // Clear batch selection on reload
     try {
-      if (activeTab === 'published' || activeTab === 'management') {
+      if (activeTab === 'overview' || activeTab === 'management') {
         const params = {
           page,
-          limit: 15,
+          limit: activeTab === 'overview' ? 6 : 20,
           search: search || undefined,
           category: selectedCategory || undefined,
-          status: activeTab === 'management' && isOwner ? (selectedStatus || undefined) : 'published',
+          status: isOwner ? (selectedStatus || undefined) : 'published',
           author: authorData._id,
-          adminView: activeTab === 'management' && isOwner ? 'true' : undefined
+          adminView: isOwner ? 'true' : undefined
         };
         const res = await articleAPI.getAll(params);
         if (res.data.success) {
-          setArticles(res.data.data || []);
+          let list = res.data.data || [];
+          
+          // Client-side sorting for responsive UX
+          if (sortBy === 'newest') {
+            list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+          } else if (sortBy === 'oldest') {
+            list.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+          } else if (sortBy === 'views') {
+            list.sort((a, b) => (b.views || 0) - (a.views || 0));
+          } else if (sortBy === 'likes') {
+            list.sort((a, b) => (b.likes?.length || 0) - (a.likes?.length || 0));
+          } else if (sortBy === 'comments') {
+            list.sort((a, b) => (b.commentCount || 0) - (a.commentCount || 0));
+          }
+
+          setArticles(list);
           setTotalPages(res.data.totalPages || 1);
         }
       } else if (activeTab === 'liked') {
@@ -148,30 +215,53 @@ const AuthorProfilePage = () => {
     } finally {
       setLoadingContent(false);
     }
-  }, [authorData?._id, activeTab, isOwner, page, search, selectedCategory, selectedStatus]);
+  }, [authorData?._id, activeTab, isOwner, page, search, selectedCategory, selectedStatus, sortBy]);
 
   useEffect(() => {
     if (authorData?._id) {
       fetchTabContent();
     }
-  }, [authorData?._id, activeTab, page, search, selectedCategory, selectedStatus, fetchTabContent]);
+  }, [authorData?._id, activeTab, page, search, selectedCategory, selectedStatus, sortBy, fetchTabContent]);
 
-  // Post Creation & Editing Actions in Author Studio using QuickPublishModal
+  const isStudent = user?.role === 'student';
+
+  // Quick Post Launchers
+  const handleOpenCreateWithFormat = (type, category) => {
+    setEditingArticle(null);
+    if (isStudent) {
+      setQuickLaunchType(type || 'mind');
+      setQuickLaunchCategory('tea-shop');
+    } else {
+      setQuickLaunchType(type);
+      setQuickLaunchCategory(category || 'news');
+    }
+    setQuickPublishOpen(true);
+  };
+
   const handleOpenCreate = () => {
     setEditingArticle(null);
+    if (isStudent) {
+      setQuickLaunchType('mind');
+      setQuickLaunchCategory('tea-shop');
+    } else {
+      setQuickLaunchType(null);
+      setQuickLaunchCategory('news');
+    }
     setQuickPublishOpen(true);
   };
 
   const handleOpenEdit = (article) => {
     setEditingArticle(article);
+    setQuickLaunchType(null);
     setQuickPublishOpen(true);
   };
 
+  // Delete Article Action
   const handleDeleteArticle = async (articleId) => {
-    if (!window.confirm('Are you sure you want to delete this story? This action cannot be undone.')) return;
+    if (!window.confirm('Are you sure you want to permanently delete this story? This action cannot be reversed.')) return;
     try {
       await articleAPI.delete(articleId);
-      toast.success('Story deleted');
+      toast.success('Story deleted successfully');
       setArticles((prev) => prev.filter((a) => a._id !== articleId));
       loadAuthorProfile();
     } catch (err) {
@@ -179,6 +269,7 @@ const AuthorProfilePage = () => {
     }
   };
 
+  // Toggle Single Story Status
   const handleToggleStoryStatus = async (article) => {
     const nextStatus = article.status === 'published' ? 'draft' : 'published';
     try {
@@ -186,12 +277,78 @@ const AuthorProfilePage = () => {
       formData.append('status', nextStatus);
       await articleAPI.update(article._id, formData);
       toast.success(`Story status changed to ${nextStatus.toUpperCase()}`);
-      fetchTabContent();
+      
+      // Optimistic update
+      setArticles(prev => prev.map(a => a._id === article._id ? { ...a, status: nextStatus } : a));
+      loadAuthorProfile();
     } catch (err) {
       toast.error('Failed to update story status');
     }
   };
 
+  // Batch Selection Handlers
+  const handleToggleSelectAll = () => {
+    if (selectedIds.size === articles.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(articles.map(a => a._id)));
+    }
+  };
+
+  const handleToggleSelectId = (id) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  // Batch Status Change
+  const handleBatchStatusChange = async (targetStatus) => {
+    if (!selectedIds.size) return;
+    setBatchOperating(true);
+    const toastId = toast.loading(`Updating ${selectedIds.size} stories...`);
+    try {
+      for (const id of selectedIds) {
+        const formData = new FormData();
+        formData.append('status', targetStatus);
+        await articleAPI.update(id, formData);
+      }
+      toast.success(`Updated ${selectedIds.size} stories to ${targetStatus.toUpperCase()}`, { id: toastId });
+      setSelectedIds(new Set());
+      fetchTabContent();
+      loadAuthorProfile();
+    } catch (err) {
+      toast.error('Error during batch update', { id: toastId });
+    } finally {
+      setBatchOperating(false);
+    }
+  };
+
+  // Batch Delete
+  const handleBatchDelete = async () => {
+    if (!selectedIds.size) return;
+    if (!window.confirm(`Are you sure you want to delete ${selectedIds.size} selected stories? This cannot be undone.`)) return;
+    
+    setBatchOperating(true);
+    const toastId = toast.loading(`Deleting ${selectedIds.size} stories...`);
+    try {
+      for (const id of selectedIds) {
+        await articleAPI.delete(id);
+      }
+      toast.success(`Deleted ${selectedIds.size} stories`, { id: toastId });
+      setSelectedIds(new Set());
+      fetchTabContent();
+      loadAuthorProfile();
+    } catch (err) {
+      toast.error('Error during bulk deletion', { id: toastId });
+    } finally {
+      setBatchOperating(false);
+    }
+  };
+
+  // Share Profile
   const handleShareProfile = () => {
     const url = window.location.href;
     if (navigator.share) {
@@ -202,16 +359,24 @@ const AuthorProfilePage = () => {
       });
     } else {
       navigator.clipboard.writeText(url);
-      toast.success('Author profile link copied!');
+      toast.success('Author studio link copied to clipboard!');
     }
+  };
+
+  // Copy Link to Story
+  const handleCopyStoryLink = (slug) => {
+    const url = `${window.location.origin}/article/${slug}`;
+    navigator.clipboard.writeText(url);
+    toast.success('Story link copied to clipboard!');
   };
 
   if (profileLoading) {
     return (
-      <main style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '60px 0' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div className="nm-spinner-ring" style={{ margin: '0 auto 16px' }} />
-          <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 800 }}>Loading Southern Waves Author Studio...</h3>
+      <main className="as-studio-page as-loading-state">
+        <div className="as-spinner-container">
+          <div className="nm-spinner-ring" />
+          <h3 className="as-loading-heading">Loading Southern Waves Author Studio...</h3>
+          <p className="as-loading-sub">Preparing analytics, stories, and editorial controls</p>
         </div>
       </main>
     );
@@ -219,14 +384,23 @@ const AuthorProfilePage = () => {
 
   if (!authorData) {
     return (
-      <main style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '60px 20px' }}>
-        <div style={{ textAlign: 'center', maxWidth: '440px' }}>
-          <FiAlertCircle size={48} color="var(--accent-color, #c8102e)" style={{ marginBottom: '12px' }} />
-          <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 900 }}>Author Not Found</h2>
-          <p style={{ color: 'var(--color-gray-600)', marginBottom: '20px' }}>This author profile does not exist or has been deactivated.</p>
-          <Link to="/" style={{ padding: '10px 20px', background: 'var(--accent-color, #c8102e)', color: '#fff', borderRadius: '8px', fontWeight: 700, textDecoration: 'none' }}>
-            Back to Home
-          </Link>
+      <main className="as-studio-page as-not-found-state">
+        <div className="as-not-found-card">
+          <FiAlertCircle size={52} color="var(--accent-color, #c8102e)" style={{ marginBottom: '16px' }} />
+          <h2 className="as-not-found-title">Author Profile Unavailable</h2>
+          <p className="as-not-found-desc">
+            The requested author profile could not be found or requires authentication.
+          </p>
+          <div className="as-not-found-actions">
+            <Link to="/" className="as-btn-primary">
+              Back to Newsroom
+            </Link>
+            {!user && (
+              <Link to="/login" className="as-btn-secondary">
+                Sign In to Studio
+              </Link>
+            )}
+          </div>
         </div>
       </main>
     );
@@ -234,34 +408,39 @@ const AuthorProfilePage = () => {
 
   return (
     <main className="as-studio-page">
-      {/* ── Top Header Section: Southern Waves Author Studio ── */}
+      {/* ── Ambient Top Creator Banner with Mesh Gradient ── */}
+      <div className="as-creator-banner">
+        <div className="as-banner-glow" />
+        <div className="as-banner-mesh" />
+      </div>
+
+      {/* ── Top Executive Header Section ── */}
       <section className="as-header-section">
-        <div className="container" style={{ maxWidth: '1200px' }}>
+        <div className="container" style={{ maxWidth: '1240px' }}>
           
-          {/* Main Top Studio Grid matching user handwritten diagram */}
           <div className="as-studio-grid">
             
-            {/* ── LEFT COLUMN: Image of Profile + Name (Role) + Info + Bio ── */}
+            {/* ── LEFT COLUMN: Author Identity & Academic Persona ── */}
             <div className="as-profile-card">
-              {/* Profile Image Circle */}
               <div className="as-avatar-wrapper">
                 <img
                   src={authorData.avatar ? getImageUrl(authorData.avatar) : `https://ui-avatars.com/api/?name=${encodeURIComponent(authorData.name)}&background=c8102e&color=fff&size=200`}
                   alt={authorData.name}
                   className="as-avatar-img"
                 />
+                <span className="as-avatar-status-dot" title="Active Author" />
                 {isOwner && (
                   <Link
                     to="/settings"
                     className="as-settings-btn"
-                    title="Edit Profile in Settings"
+                    title="Customize Profile & Settings"
                   >
                     <FiSettings size={15} />
                   </Link>
                 )}
               </div>
 
-              {/* Author Name + (Role) */}
+              {/* Author Name + Role + Badges */}
               <div className="as-author-info-block">
                 <h1 className="as-author-name">
                   {authorData.name}
@@ -275,196 +454,269 @@ const AuthorProfilePage = () => {
                   </span>
                   {isOwner && (
                     <span className="as-you-pill">
-                      YOU
+                      YOU (STUDIO)
                     </span>
                   )}
                 </div>
               </div>
 
-              {/* Other Tags & Academic Info */}
+              {/* Academic & Platform Metadata */}
               <div className="as-academic-meta">
                 {authorData.university && (
                   <div className="as-meta-row">
-                    <span>🏛️</span>
+                    <span className="as-meta-icon">🏛️</span>
                     <strong>{authorData.university}</strong>
                   </div>
                 )}
                 {authorData.academicMajor && (
                   <div className="as-meta-row">
-                    <span>🎓</span>
+                    <span className="as-meta-icon">🎓</span>
                     <span>{authorData.academicMajor} {authorData.yearOfStudy ? `(${authorData.yearOfStudy})` : ''}</span>
                   </div>
                 )}
-                <div className="as-meta-row" style={{ color: 'var(--color-gray-500, #64748b)' }}>
-                  <span>📅</span>
+                <div className="as-meta-row as-meta-muted">
+                  <span className="as-meta-icon">📅</span>
                   <span>Joined {new Date(authorData.createdAt).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}</span>
                 </div>
               </div>
 
-              {/* Bio with <more> / <less> expander */}
+              {/* Bio with Expander */}
               {authorData.bio && (
                 <div className="as-bio-box">
                   <p className={`as-bio-text ${showFullBio ? '' : 'as-bio-clamp'}`}>
                     {authorData.bio}
                   </p>
-                  {authorData.bio.length > 120 && (
+                  {authorData.bio.length > 110 && (
                     <button
                       onClick={() => setShowFullBio((prev) => !prev)}
                       className="as-bio-toggle"
                     >
-                      {showFullBio ? '<less>' : '<more >'}
+                      {showFullBio ? 'Show less' : 'Read more'}
                     </button>
                   )}
                 </div>
               )}
+
+              {/* Profile Action Buttons */}
+              <div className="as-profile-actions-strip">
+                <button
+                  onClick={handleShareProfile}
+                  className="as-btn-share-full"
+                  title="Share Studio Link"
+                >
+                  <FiShare2 size={14} /> Share Studio
+                </button>
+              </div>
             </div>
 
-            {/* ── RIGHT COLUMN: Top Bar (Published count + General Search + Buttons) + Analytics Box ── */}
+            {/* ── RIGHT COLUMN: Studio Control Bar & 5 KPI Metric Cards ── */}
             <div className="as-right-col">
               
-              {/* Studio Header Bar */}
+              {/* Studio Header Action Bar */}
               <div className="as-studio-bar">
-                {/* Published Stat */}
-                <div className="as-published-stat-badge">
-                  <span className="as-published-label">
-                    Published :
-                  </span>
-                  <span className="as-published-count">
-                    {authorStats.totalArticles || 0}
-                  </span>
+                <div className="as-studio-headline">
+                  <h2 className="as-studio-title">
+                    Author Studio & Management
+                  </h2>
+                  <p className="as-studio-caption">
+                    Centralized command center for your stories, analytics, and readership
+                  </p>
                 </div>
 
-                {/* General Search Input */}
-                <div className="as-search-input-wrap">
-                  <FiSearch className="as-search-icon" />
-                  <input
-                    type="text"
-                    placeholder="General search stories..."
-                    value={search}
-                    onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                    className="as-search-input"
-                  />
-                  {search && (
-                    <button
-                      onClick={() => setSearch('')}
-                      className="as-search-clear"
-                    >
-                      ✕
-                    </button>
-                  )}
-                </div>
-
-                {/* Action Buttons: [Add new post] + [Share profile] */}
                 <div className="as-studio-actions">
                   {isOwner && (
                     <button
                       onClick={handleOpenCreate}
-                      className="as-btn-create"
+                      className="as-btn-create-primary"
                     >
                       <FiPlus size={16} /> Add New Post
                     </button>
                   )}
-
-                  <button
-                    onClick={handleShareProfile}
-                    className="as-btn-share"
-                    title="Share Author Profile"
-                  >
-                    <FiShare2 size={14} /> Share Profile
-                  </button>
                 </div>
               </div>
 
-              {/* ── Analytics Box ── */}
-              <div className="as-analytics-card">
-                <div className="as-analytics-head">
-                  <div className="as-analytics-title-box">
-                    <FiActivity size={18} color="#38bdf8" />
-                    <h3 className="as-analytics-title">
-                      Author Analytics
-                    </h3>
-                  </div>
-                  <span className="as-live-badge">
-                    Live Metric Stream
+              {/* Quick Format Creation Launchpad (Only for Owner) */}
+              {isOwner && (
+                <div className="as-format-launchpad">
+                  <span className="as-launchpad-label">
+                    {isStudent ? 'Tea Shop Formats:' : 'Quick Create:'}
                   </span>
+                  <div className="as-launchpad-chips">
+                    {isStudent ? (
+                      /* Students are strictly allowed to create related Tea Shop posts */
+                      <>
+                        <button
+                          onClick={() => handleOpenCreateWithFormat('mind', 'tea-shop')}
+                          className="as-launchpad-chip chip-mind"
+                          title="Quick Reflection or Quote in Tea Shop"
+                        >
+                          <FiFeather size={13} /> Mind
+                        </button>
+                        <button
+                          onClick={() => handleOpenCreateWithFormat('spoken', 'tea-shop')}
+                          className="as-launchpad-chip chip-spoken"
+                          title="Spoken-word Narrative or Audio Monologue in Tea Shop"
+                        >
+                          <FiMic size={13} /> Spoken
+                        </button>
+                        <button
+                          onClick={() => handleOpenCreateWithFormat('ground', 'tea-shop')}
+                          className="as-launchpad-chip chip-ground"
+                          title="Live Ground Report with Photo in Tea Shop"
+                        >
+                          <FiRadio size={13} /> Ground
+                        </button>
+                      </>
+                    ) : (
+                      /* Staff (Editor, Admin, Moderator) Formats */
+                      <>
+                        <button
+                          onClick={() => handleOpenCreateWithFormat('article', 'news')}
+                          className="as-launchpad-chip chip-news"
+                          title="Full Journalism Article"
+                        >
+                          <FiBookOpen size={13} /> News
+                        </button>
+                        <button
+                          onClick={() => handleOpenCreateWithFormat('editorial', 'editorial')}
+                          className="as-launchpad-chip chip-editorial"
+                          title="Staff Editorial Column"
+                        >
+                          <FiEdit2 size={13} /> Editorial
+                        </button>
+                        <button
+                          onClick={() => handleOpenCreateWithFormat('features', 'features')}
+                          className="as-launchpad-chip chip-features"
+                          title="Long-form Feature"
+                        >
+                          <FiLayers size={13} /> Features
+                        </button>
+                        <button
+                          onClick={() => handleOpenCreateWithFormat('picture', 'pictures-speak')}
+                          className="as-launchpad-chip chip-photo"
+                          title="Curated Photo Journal"
+                        >
+                          <FiCamera size={13} /> Photo
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* ── 5 Glassmorphic KPI Cards ── */}
+              <div className="as-kpi-grid">
+                
+                {/* 1. Published Stories */}
+                <div className="as-kpi-card" onClick={() => { setActiveTab('management'); setSelectedStatus('published'); }}>
+                  <div className="as-kpi-top">
+                    <span className="as-kpi-label">Published Stories</span>
+                    <div className="as-kpi-icon-wrap" style={{ background: 'rgba(56, 189, 248, 0.12)', color: '#38bdf8' }}>
+                      <FiBookOpen size={16} />
+                    </div>
+                  </div>
+                  <div className="as-kpi-value-row">
+                    <span className="as-kpi-val">{authorStats.publishedCount ?? authorStats.totalArticles ?? 0}</span>
+                    <span className="as-kpi-tag-live">Active</span>
+                  </div>
                 </div>
 
-                {/* SVG Visual Performance Wave Curve */}
-                <div className="as-svg-wave-container">
-                  <svg viewBox="0 0 500 70" preserveAspectRatio="none" style={{ width: '100%', height: '100%' }}>
-                    <defs>
-                      <linearGradient id="analyticsGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#c8102e" stopOpacity="0.45" />
-                        <stop offset="100%" stopColor="#c8102e" stopOpacity="0.0" />
-                      </linearGradient>
-                    </defs>
-                    <path
-                      d="M 0 55 Q 60 15, 120 40 T 240 20 T 360 45 T 500 10 L 500 70 L 0 70 Z"
-                      fill="url(#analyticsGrad)"
-                    />
-                    <path
-                      d="M 0 55 Q 60 15, 120 40 T 240 20 T 360 45 T 500 10"
-                      fill="none"
-                      stroke="#c8102e"
-                      strokeWidth="3"
-                    />
-                    {/* Data Points */}
-                    <circle cx="120" cy="40" r="4" fill="#fff" stroke="#c8102e" strokeWidth="2" />
-                    <circle cx="240" cy="20" r="4" fill="#fff" stroke="#c8102e" strokeWidth="2" />
-                    <circle cx="360" cy="45" r="4" fill="#fff" stroke="#c8102e" strokeWidth="2" />
-                    <circle cx="500" cy="10" r="4" fill="#fff" stroke="#c8102e" strokeWidth="2" />
-                  </svg>
+                {/* 2. Drafts & In-Progress (Owner) / Total Articles */}
+                <div className="as-kpi-card" onClick={() => { setActiveTab('management'); setSelectedStatus('draft'); }}>
+                  <div className="as-kpi-top">
+                    <span className="as-kpi-label">{isOwner ? 'Drafts & Working' : 'Total Output'}</span>
+                    <div className="as-kpi-icon-wrap" style={{ background: 'rgba(167, 139, 250, 0.12)', color: '#a78bfa' }}>
+                      <FiEdit2 size={16} />
+                    </div>
+                  </div>
+                  <div className="as-kpi-value-row">
+                    <span className="as-kpi-val">{isOwner ? (authorStats.draftCount || 0) : (authorStats.totalArticles || 0)}</span>
+                    {isOwner && authorStats.pendingCount > 0 && (
+                      <span className="as-kpi-tag-pending" title="Stories under review">
+                        +{authorStats.pendingCount} Review
+                      </span>
+                    )}
+                  </div>
                 </div>
 
-                {/* 4 Metric Pill Cards */}
-                <div className="as-metrics-grid">
-                  <div className="as-metric-pill">
-                    <span className="as-metric-title">Stories Published</span>
-                    <span className="as-metric-val" style={{ color: '#ffffff' }}>{authorStats.totalArticles || 0}</span>
+                {/* 3. Total Story Reads */}
+                <div className="as-kpi-card" onClick={() => setActiveTab('overview')}>
+                  <div className="as-kpi-top">
+                    <span className="as-kpi-label">Story Impressions</span>
+                    <div className="as-kpi-icon-wrap" style={{ background: 'rgba(34, 197, 94, 0.12)', color: '#22c55e' }}>
+                      <FiEye size={16} />
+                    </div>
                   </div>
-                  <div className="as-metric-pill">
-                    <span className="as-metric-title">Total Story Reads</span>
-                    <span className="as-metric-val" style={{ color: '#38bdf8' }}>{authorStats.totalViews || 0}</span>
-                  </div>
-                  <div className="as-metric-pill">
-                    <span className="as-metric-title">Total Hypes / Likes</span>
-                    <span className="as-metric-val" style={{ color: '#f87171' }}>{authorStats.totalLikes || 0}</span>
-                  </div>
-                  <div className="as-metric-pill">
-                    <span className="as-metric-title">Responses</span>
-                    <span className="as-metric-val" style={{ color: '#34d399' }}>{authorStats.totalComments || 0}</span>
+                  <div className="as-kpi-value-row">
+                    <span className="as-kpi-val">{(authorStats.totalViews || 0).toLocaleString()}</span>
+                    <span className="as-kpi-spark">Reads</span>
                   </div>
                 </div>
+
+                {/* 4. Total Hypes & Likes */}
+                <div className="as-kpi-card" onClick={() => setActiveTab('overview')}>
+                  <div className="as-kpi-top">
+                    <span className="as-kpi-label">Reader Hypes</span>
+                    <div className="as-kpi-icon-wrap" style={{ background: 'rgba(244, 63, 94, 0.12)', color: '#f43f5e' }}>
+                      <FiHeart size={16} />
+                    </div>
+                  </div>
+                  <div className="as-kpi-value-row">
+                    <span className="as-kpi-val">{(authorStats.totalLikes || 0).toLocaleString()}</span>
+                    <span className="as-kpi-spark">Reactions</span>
+                  </div>
+                </div>
+
+                {/* 5. Audience Engagement Rate */}
+                <div className="as-kpi-card as-kpi-card-highlight" onClick={() => setActiveTab('overview')}>
+                  <div className="as-kpi-top">
+                    <span className="as-kpi-label">Audience Ratio</span>
+                    <div className="as-kpi-icon-wrap" style={{ background: 'rgba(234, 179, 8, 0.15)', color: '#eab308' }}>
+                      <FiZap size={16} />
+                    </div>
+                  </div>
+                  <div className="as-kpi-value-row">
+                    <span className="as-kpi-val">{authorStats.engagementRate || 0}%</span>
+                    <span className="as-kpi-tag-eng">Impact</span>
+                  </div>
+                </div>
+
               </div>
+
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── Main Tabbed Content Area (Published Stories / Management / Saved & Liked / My Comments) ── */}
-      <section className="container" style={{ maxWidth: '1200px', marginTop: '28px' }}>
+      {/* ── Main Tabbed Content Navigation & Control Bar ── */}
+      <section className="container" style={{ maxWidth: '1240px', marginTop: '28px' }}>
         
         {/* Navigation Tabs Header */}
         <div className="as-tabs-header">
           <div className="as-tabs-list">
             
-            {/* Tab 1: Published Stories */}
+            {/* Tab 1: Studio Overview & Visual Analytics Graph */}
             <button
-              onClick={() => { setActiveTab('published'); setPage(1); }}
-              className={`as-tab-btn ${activeTab === 'published' ? 'active' : ''}`}
+              onClick={() => { setActiveTab('overview'); setPage(1); }}
+              className={`as-tab-btn ${activeTab === 'overview' ? 'active' : ''}`}
             >
-              📰 Published Stories ({authorStats.totalArticles || 0})
+              <FiBarChart2 size={16} />
+              <span>Studio & Analytics</span>
             </button>
 
-            {/* Tab 2: Management (Edit, Delete, Stories Enable/Disable) */}
-            {isOwner && (
-              <button
-                onClick={() => { setActiveTab('management'); setPage(1); }}
-                className={`as-tab-btn ${activeTab === 'management' ? 'active' : ''}`}
-              >
-                🛠️ Management Studio
-              </button>
-            )}
+            {/* Tab 2: Post Management Studio */}
+            <button
+              onClick={() => { setActiveTab('management'); setPage(1); }}
+              className={`as-tab-btn ${activeTab === 'management' ? 'active' : ''}`}
+            >
+              <FiSliders size={16} />
+              <span>
+                {isOwner ? 'Post Management Suite' : 'Published Stories'}
+              </span>
+              <span className="as-tab-count-badge">
+                {isOwner ? (authorStats.totalAllArticles || authorStats.totalArticles || 0) : (authorStats.totalArticles || 0)}
+              </span>
+            </button>
 
             {/* Tab 3: Saved & Liked */}
             {isOwner && (
@@ -472,7 +724,8 @@ const AuthorProfilePage = () => {
                 onClick={() => { setActiveTab('liked'); setPage(1); }}
                 className={`as-tab-btn ${activeTab === 'liked' ? 'active' : ''}`}
               >
-                💖 Saved & Liked
+                <FiHeart size={16} />
+                <span>Saved & Liked</span>
               </button>
             )}
 
@@ -482,368 +735,622 @@ const AuthorProfilePage = () => {
                 onClick={() => { setActiveTab('comments'); setPage(1); }}
                 className={`as-tab-btn ${activeTab === 'comments' ? 'active' : ''}`}
               >
-                💬 My Comments
+                <FiMessageSquare size={16} />
+                <span>My Discussions</span>
               </button>
             )}
           </div>
 
-          {/* Right side: View Mode Toggle (Grid / List Icons) */}
-          <div className="as-view-switcher">
-            <button
-              onClick={() => setViewMode('grid')}
-              className={`as-view-btn ${viewMode === 'grid' ? 'active' : ''}`}
-              title="Grid View"
-            >
-              <FiGrid size={16} />
-            </button>
-            <button
-              onClick={() => setViewMode('table')}
-              className={`as-view-btn ${viewMode === 'table' ? 'active' : ''}`}
-              title="List / Table View"
-            >
-              <FiList size={16} />
-            </button>
-          </div>
+          {/* Right Controls: View Switcher (Grid / Table) */}
+          {(activeTab === 'management' || activeTab === 'overview') && (
+            <div className="as-view-switcher">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`as-view-btn ${viewMode === 'grid' ? 'active' : ''}`}
+                title="Grid Cards View"
+              >
+                <FiGrid size={15} />
+              </button>
+              <button
+                onClick={() => setViewMode('table')}
+                className={`as-view-btn ${viewMode === 'table' ? 'active' : ''}`}
+                title="Data Table Management View"
+              >
+                <FiList size={15} />
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* Secondary Category & Status Filter Bar */}
-        {(activeTab === 'published' || activeTab === 'management') && (
-          <div className="as-filter-bar">
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-              <select
-                value={selectedCategory}
-                onChange={(e) => { setSelectedCategory(e.target.value); setPage(1); }}
-                className="as-filter-select"
-              >
-                {CATEGORIES.map((cat) => (
-                  <option key={cat.value} value={cat.value}>{cat.label}</option>
-                ))}
-              </select>
+        {/* ── TAB 1: STUDIO OVERVIEW & VISUAL ANALYTICS GRAPH ── */}
+        {activeTab === 'overview' && (
+          <div className="as-overview-tab-pane">
+            <AuthorAnalyticsGraph
+              analytics={authorAnalytics}
+              stats={authorStats}
+              authorName={authorData.name}
+              onSelectCategory={(cat) => {
+                setSelectedCategory(cat);
+                setActiveTab('management');
+              }}
+              onOpenCreate={handleOpenCreate}
+            />
 
-              {activeTab === 'management' && isOwner && (
-                <select
-                  value={selectedStatus}
-                  onChange={(e) => { setSelectedStatus(e.target.value); setPage(1); }}
-                  className="as-filter-select"
+            {/* Recent Stories Strip Preview */}
+            <div className="as-overview-recent-strip">
+              <div className="as-strip-header">
+                <div className="as-strip-title-box">
+                  <FiBookOpen size={18} color="var(--accent-color, #c8102e)" />
+                  <h3>Recent Stories in Studio</h3>
+                </div>
+                <button
+                  onClick={() => setActiveTab('management')}
+                  className="as-strip-link-btn"
                 >
-                  {STATUS_FILTERS.map((st) => (
-                    <option key={st.value} value={st.value}>{st.label}</option>
+                  Manage All Stories ({authorStats.totalArticles || 0}) <FiArrowRight size={14} />
+                </button>
+              </div>
+
+              {loadingContent ? (
+                <div className="as-pane-loading">
+                  <div className="nm-spinner-ring" />
+                  <p>Loading recent stories...</p>
+                </div>
+              ) : articles.length === 0 ? (
+                <div className="as-empty-state-card">
+                  <FiBookOpen size={40} color="#94a3b8" />
+                  <h4>No Stories Published Yet</h4>
+                  <p>Start your author journey by publishing your first story.</p>
+                  {isOwner && (
+                    <button onClick={handleOpenCreate} className="as-btn-create-primary" style={{ marginTop: '12px' }}>
+                      + Add New Post
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="as-story-grid">
+                  {articles.slice(0, 3).map((art) => (
+                    <div key={art._id} className="as-story-card">
+                      {art.coverImage ? (
+                        <div className="as-story-thumb">
+                          <img
+                            src={getImageUrl(art.coverImage)}
+                            alt={art.title}
+                            className="as-story-img"
+                          />
+                          <span className="as-story-cat-chip">
+                            {getCategoryLabel(art.category)}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="as-story-thumb as-story-thumb-placeholder">
+                          <span className="as-story-cat-chip">
+                            {getCategoryLabel(art.category)}
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="as-story-body">
+                        <div className="as-story-meta-top">
+                          <span>{new Date(art.publishedAt || art.createdAt).toLocaleDateString()}</span>
+                          {isOwner && (
+                            <span className={`as-status-badge status-${art.status || 'draft'}`}>
+                              {art.status?.toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+
+                        <h3 className="as-story-title">
+                          <Link to={`/article/${art.slug}`}>
+                            {art.title}
+                          </Link>
+                        </h3>
+
+                        <p className="as-story-lead">
+                          {art.lead}
+                        </p>
+
+                        <div className="as-story-footer">
+                          <div className="as-story-stats">
+                            <span title="Views">👁️ {art.views || 0}</span>
+                            <span title="Likes">❤️ {art.likes ? art.likes.length : 0}</span>
+                            <span title="Comments">💬 {art.commentCount || 0}</span>
+                          </div>
+
+                          <div className="as-story-actions-group">
+                            <Link to={`/article/${art.slug}`} className="as-action-link-btn" title="View Story">
+                              <FiEye size={13} /> View
+                            </Link>
+                            {isOwner && (
+                              <button onClick={() => handleOpenEdit(art)} className="as-action-link-btn" title="Edit Story">
+                                <FiEdit2 size={13} /> Edit
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   ))}
-                </select>
+                </div>
               )}
             </div>
-
-            {search && (
-              <span style={{ fontSize: '12px', color: 'var(--color-gray-500, #64748b)', fontWeight: 600 }}>
-                Filtering by: &quot;<strong>{search}</strong>&quot; ({articles.length} found)
-              </span>
-            )}
           </div>
         )}
 
-        {/* ── Content Render ── */}
-        {loadingContent ? (
-          <div style={{ textAlign: 'center', padding: '60px 0' }}>
-            <div className="nm-spinner-ring" style={{ margin: '0 auto 12px' }} />
-            <p style={{ fontWeight: 700, color: 'var(--color-gray-500, #64748b)' }}>Loading stories...</p>
-          </div>
-        ) : (activeTab === 'published' || activeTab === 'management') ? (
-          articles.length === 0 ? (
-            <div style={{
-              textAlign: 'center',
-              padding: '60px 20px',
-              background: 'var(--color-paper, #ffffff)',
-              borderRadius: '16px',
-              border: '1.5px dashed var(--color-gray-300, #cbd5e1)'
-            }}>
-              <FiBookOpen size={40} color="#94a3b8" style={{ marginBottom: '12px' }} />
-              <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, margin: '0 0 6px' }}>No Stories Found</h3>
-              <p style={{ color: 'var(--color-gray-500, #64748b)', fontSize: '13px', margin: '0 0 16px' }}>
-                {isOwner ? 'You have not created stories matching this filter.' : 'This author has not published stories in this section yet.'}
-              </p>
-              {isOwner && (
-                <button
-                  onClick={handleOpenCreate}
-                  className="as-btn-create"
-                  style={{ margin: '0 auto' }}
-                >
-                  + Add New Story
-                </button>
-              )}
-            </div>
-          ) : viewMode === 'grid' ? (
-            /* ── Card Grid View (with View, Edit, Delete buttons) ── */
-            <div className="as-story-grid">
-              {articles.map((art) => (
-                <div key={art._id} className="as-story-card">
-                  {art.coverImage ? (
-                    <div className="as-story-thumb">
-                      <img
-                        src={getImageUrl(art.coverImage)}
-                        alt={art.title}
-                        className="as-story-img"
-                      />
-                      <span className="as-story-cat-chip">
-                        {getCategoryLabel(art.category)}
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="as-story-thumb as-story-thumb-placeholder">
-                      <span className="as-story-cat-chip">
-                        {getCategoryLabel(art.category)}
-                      </span>
-                    </div>
+        {/* ── TAB 2: POST MANAGEMENT SUITE ── */}
+        {activeTab === 'management' && (
+          <div className="as-management-suite">
+            
+            {/* Filter Deck: Search, Status Tabs, Category, Sort */}
+            <div className="as-management-control-deck">
+              
+              {/* Row 1: Status Filter Tabs with Counts */}
+              <div className="as-status-filter-pills">
+                {STATUS_FILTERS.map((st) => {
+                  const isActive = selectedStatus === st.value;
+                  let count = 0;
+                  if (st.value === '') count = authorStats.totalAllArticles || authorStats.totalArticles || 0;
+                  else if (st.value === 'published') count = authorStats.publishedCount ?? authorStats.totalArticles ?? 0;
+                  else if (st.value === 'draft') count = authorStats.draftCount || 0;
+                  else if (st.value === 'pending') count = authorStats.pendingCount || 0;
+                  else if (st.value === 'archived') count = authorStats.archivedCount || 0;
+
+                  return (
+                    <button
+                      key={st.key}
+                      onClick={() => { setSelectedStatus(st.value); setPage(1); }}
+                      className={`as-status-pill-btn ${isActive ? 'active' : ''} ${st.key}`}
+                    >
+                      <span className="as-status-pill-dot" />
+                      <span>{st.label}</span>
+                      <span className="as-status-pill-count">({count})</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Row 2: Search Input + Category Filter + Sort Dropdown */}
+              <div className="as-mgmt-tools-row">
+                
+                {/* Search Bar */}
+                <div className="as-mgmt-search-wrap">
+                  <FiSearch className="as-mgmt-search-icon" />
+                  <input
+                    type="text"
+                    placeholder="Search stories by title, keywords..."
+                    value={search}
+                    onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                    className="as-mgmt-search-input"
+                  />
+                  {search && (
+                    <button onClick={() => setSearch('')} className="as-search-clear">
+                      ✕
+                    </button>
                   )}
+                </div>
 
-                  <div className="as-story-body">
-                    <div className="as-story-meta-top">
-                      <span>
-                        {new Date(art.publishedAt || art.createdAt).toLocaleDateString()}
-                      </span>
-                      {isOwner && (
-                        <span className={`as-status-badge status-${art.status || 'draft'}`}>
-                          {art.status?.toUpperCase()}
-                        </span>
-                      )}
-                    </div>
+                {/* Category Dropdown */}
+                <div className="as-mgmt-select-wrap">
+                  <select
+                    value={selectedCategory}
+                    onChange={(e) => { setSelectedCategory(e.target.value); setPage(1); }}
+                    className="as-mgmt-select"
+                  >
+                    {CATEGORIES.map((cat) => (
+                      <option key={cat.value} value={cat.value}>{cat.label}</option>
+                    ))}
+                  </select>
+                </div>
 
-                    <h3 className="as-story-title">
-                      <Link to={`/article/${art.slug}`} style={{ color: 'inherit', textDecoration: 'none' }}>
-                        {art.title}
-                      </Link>
-                    </h3>
+                {/* Sort Dropdown */}
+                <div className="as-mgmt-select-wrap">
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                    className="as-mgmt-select"
+                  >
+                    {SORT_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </div>
 
-                    <p className="as-story-lead">
-                      {art.lead}
-                    </p>
+                {/* Refresh Content Button */}
+                <button
+                  onClick={fetchTabContent}
+                  className="as-mgmt-refresh-btn"
+                  title="Refresh Posts"
+                >
+                  <FiRefreshCw size={14} className={loadingContent ? 'as-spin' : ''} />
+                </button>
+              </div>
 
-                    {/* Footer Action Bar with View, Edit, Delete Buttons */}
-                    <div className="as-story-footer">
-                      <div className="as-story-stats">
-                        <span title="Views">👁️ {art.views || 0}</span>
-                        <span title="Likes">❤️ {art.likes ? art.likes.length : 0}</span>
-                        <span title="Responses">💬 {art.commentCount || 0}</span>
-                      </div>
-
-                      <div className="as-story-actions-group">
-                        {/* View Button */}
-                        <Link
-                          to={`/article/${art.slug}`}
-                          className="as-action-link-btn"
-                          title="View Story"
-                        >
-                          <FiEye size={13} /> View
-                        </Link>
-
-                        {/* Owner Edit & Delete Buttons */}
-                        {isOwner && (
-                          <>
-                            <button
-                              onClick={() => handleOpenEdit(art)}
-                              className="as-action-link-btn"
-                              title="Edit Story"
-                            >
-                              <FiEdit2 size={13} /> Edit
-                            </button>
-                            <button
-                              onClick={() => handleDeleteArticle(art._id)}
-                              className="as-action-delete-btn"
-                              title="Delete Story"
-                            >
-                              <FiTrash2 size={13} />
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </div>
+              {/* Batch Action Bar (Visible when items selected) */}
+              {isOwner && selectedIds.size > 0 && (
+                <div className="as-batch-action-bar">
+                  <div className="as-batch-info">
+                    <FiCheckSquare size={16} color="var(--accent-color, #c8102e)" />
+                    <span><strong>{selectedIds.size}</strong> stories selected</span>
+                  </div>
+                  <div className="as-batch-btns">
+                    <button
+                      onClick={() => handleBatchStatusChange('published')}
+                      disabled={batchOperating}
+                      className="as-batch-btn publish"
+                    >
+                      Publish Selected
+                    </button>
+                    <button
+                      onClick={() => handleBatchStatusChange('draft')}
+                      disabled={batchOperating}
+                      className="as-batch-btn draft"
+                    >
+                      Switch to Draft
+                    </button>
+                    <button
+                      onClick={handleBatchDelete}
+                      disabled={batchOperating}
+                      className="as-batch-btn delete"
+                    >
+                      Delete Selected
+                    </button>
+                    <button
+                      onClick={() => setSelectedIds(new Set())}
+                      className="as-batch-btn cancel"
+                    >
+                      Deselect
+                    </button>
                   </div>
                 </div>
-              ))}
+              )}
             </div>
-          ) : (
-            /* ── Table / Management View (Desktop Table + Mobile Cards) ── */
-            <>
-              {/* Desktop Table */}
-              <div className="as-table-container">
-                <table className="as-manage-table">
-                  <thead>
-                    <tr>
-                      <th>Story Title</th>
-                      <th>Category</th>
-                      <th>Status</th>
-                      {isOwner && <th>Story Active/Draft</th>}
-                      <th>Performance</th>
-                      <th style={{ textAlign: 'right' }}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {articles.map((art) => (
-                      <tr key={art._id}>
-                        <td style={{ fontWeight: 700, maxWidth: '280px' }}>
-                          <Link to={`/article/${art.slug}`} style={{ color: 'inherit', textDecoration: 'none' }}>
+
+            {/* ── Content Render ── */}
+            {loadingContent ? (
+              <div className="as-pane-loading">
+                <div className="nm-spinner-ring" />
+                <p>Loading post management records...</p>
+              </div>
+            ) : articles.length === 0 ? (
+              <div className="as-empty-state-card">
+                <FiBookOpen size={48} color="#94a3b8" />
+                <h3>No Matching Stories Found</h3>
+                <p>
+                  {search || selectedCategory || selectedStatus
+                    ? 'No stories match your current filters. Try resetting the search or category filter.'
+                    : 'You have not authored stories in this view yet.'}
+                </p>
+                {isOwner && (
+                  <button onClick={handleOpenCreate} className="as-btn-create-primary" style={{ marginTop: '16px' }}>
+                    + Create New Story
+                  </button>
+                )}
+              </div>
+            ) : viewMode === 'grid' ? (
+              /* ── High-Fidelity Card Grid View ── */
+              <div className="as-story-grid">
+                {articles.map((art) => {
+                  const isSelected = selectedIds.has(art._id);
+                  return (
+                    <div
+                      key={art._id}
+                      className={`as-story-card ${isSelected ? 'as-card-selected' : ''}`}
+                    >
+                      {/* Selection Checkbox on Card */}
+                      {isOwner && (
+                        <button
+                          onClick={() => handleToggleSelectId(art._id)}
+                          className="as-card-checkbox"
+                          title={isSelected ? 'Deselect story' : 'Select story'}
+                        >
+                          {isSelected ? <FiCheckSquare size={17} color="var(--accent-color, #c8102e)" /> : <FiSquare size={17} />}
+                        </button>
+                      )}
+
+                      {art.coverImage ? (
+                        <div className="as-story-thumb">
+                          <img
+                            src={getImageUrl(art.coverImage)}
+                            alt={art.title}
+                            className="as-story-img"
+                          />
+                          <span className="as-story-cat-chip">
+                            {getCategoryLabel(art.category)}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="as-story-thumb as-story-thumb-placeholder">
+                          <span className="as-story-cat-chip">
+                            {getCategoryLabel(art.category)}
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="as-story-body">
+                        <div className="as-story-meta-top">
+                          <span>{new Date(art.publishedAt || art.createdAt).toLocaleDateString()}</span>
+                          {isOwner && (
+                            <span className={`as-status-badge status-${art.status || 'draft'}`}>
+                              {art.status?.toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+
+                        <h3 className="as-story-title">
+                          <Link to={`/article/${art.slug}`}>
                             {art.title}
                           </Link>
-                        </td>
-                        <td>{getCategoryLabel(art.category)}</td>
-                        <td>
-                          <span className={`as-status-badge status-${art.status || 'draft'}`}>
-                            {art.status?.toUpperCase()}
-                          </span>
-                        </td>
+                        </h3>
 
-                        {/* Story Enable / Disable toggle button */}
-                        {isOwner && (
-                          <td>
-                            <button
-                              onClick={() => handleToggleStoryStatus(art)}
-                              className={`as-status-toggle-btn ${art.status === 'published' ? 'active' : 'draft'}`}
-                              title="Toggle Story Publish / Draft"
-                            >
-                              {art.status === 'published' ? <FiToggleRight size={16} color="var(--color-success, #16a34a)" /> : <FiToggleLeft size={16} />}
-                              <span>{art.status === 'published' ? 'Active' : 'Draft'}</span>
-                            </button>
-                          </td>
-                        )}
+                        <p className="as-story-lead">
+                          {art.lead}
+                        </p>
 
-                        <td style={{ color: 'var(--color-gray-500, #64748b)', whiteSpace: 'nowrap' }}>
-                          👁️ {art.views || 0} • ❤️ {art.likes ? art.likes.length : 0} • 💬 {art.commentCount || 0}
-                        </td>
-                        <td style={{ textAlign: 'right' }}>
-                          <div style={{ display: 'inline-flex', gap: '6px' }}>
+                        <div className="as-story-footer">
+                          <div className="as-story-stats">
+                            <span title="Views">👁️ {art.views || 0}</span>
+                            <span title="Likes">❤️ {art.likes ? art.likes.length : 0}</span>
+                            <span title="Comments">💬 {art.commentCount || 0}</span>
+                          </div>
+
+                          <div className="as-story-actions-group">
                             <Link to={`/article/${art.slug}`} className="as-action-link-btn" title="View Story">
-                              <FiEye size={14} />
+                              <FiEye size={13} />
                             </Link>
+
+                            <button
+                              onClick={() => handleCopyStoryLink(art.slug)}
+                              className="as-action-link-btn"
+                              title="Copy Story Link"
+                            >
+                              <FiCopy size={13} />
+                            </button>
+
                             {isOwner && (
                               <>
-                                <button onClick={() => handleOpenEdit(art)} className="as-action-link-btn" title="Edit Story">
-                                  <FiEdit2 size={14} />
+                                <button
+                                  onClick={() => handleToggleStoryStatus(art)}
+                                  className={`as-status-toggle-btn ${art.status === 'published' ? 'active' : 'draft'}`}
+                                  title="Toggle Active / Draft"
+                                >
+                                  {art.status === 'published' ? <FiToggleRight size={16} color="var(--color-success, #16a34a)" /> : <FiToggleLeft size={16} />}
                                 </button>
-                                <button onClick={() => handleDeleteArticle(art._id)} className="as-action-delete-btn" title="Delete Story">
-                                  <FiTrash2 size={14} />
+
+                                <button
+                                  onClick={() => handleOpenEdit(art)}
+                                  className="as-action-link-btn"
+                                  title="Edit with QuickPublishModal"
+                                >
+                                  <FiEdit2 size={13} />
+                                </button>
+
+                                <button
+                                  onClick={() => handleDeleteArticle(art._id)}
+                                  className="as-action-delete-btn"
+                                  title="Delete Story"
+                                >
+                                  <FiTrash2 size={13} />
                                 </button>
                               </>
                             )}
                           </div>
-                        </td>
-                      </tr>
-                    ))}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              /* ── High-Density Data Table View ── */
+              <div className="as-table-container">
+                <table className="as-manage-table">
+                  <thead>
+                    <tr>
+                      {isOwner && (
+                        <th style={{ width: '40px', textAlign: 'center' }}>
+                          <button
+                            onClick={handleToggleSelectAll}
+                            className="as-table-select-all"
+                            title="Select / Deselect All"
+                          >
+                            {selectedIds.size === articles.length ? <FiCheckSquare size={16} /> : <FiSquare size={16} />}
+                          </button>
+                        </th>
+                      )}
+                      <th>Story Title</th>
+                      <th>Category</th>
+                      <th>Status</th>
+                      {isOwner && <th>Live Toggle</th>}
+                      <th>Performance</th>
+                      <th>Published</th>
+                      <th style={{ textAlign: 'right' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {articles.map((art) => {
+                      const isSelected = selectedIds.has(art._id);
+                      return (
+                        <tr key={art._id} className={isSelected ? 'as-row-selected' : ''}>
+                          {isOwner && (
+                            <td style={{ textAlign: 'center' }}>
+                              <button
+                                onClick={() => handleToggleSelectId(art._id)}
+                                className="as-table-select-row"
+                              >
+                                {isSelected ? <FiCheckSquare size={16} color="var(--accent-color, #c8102e)" /> : <FiSquare size={16} />}
+                              </button>
+                            </td>
+                          )}
+                          <td style={{ maxWidth: '320px' }}>
+                            <div className="as-table-title-cell">
+                              <Link to={`/article/${art.slug}`} className="as-table-title-link">
+                                {art.title}
+                              </Link>
+                              {art.lead && <p className="as-table-lead-preview">{art.lead}</p>}
+                            </div>
+                          </td>
+                          <td>
+                            <span className="as-table-cat-badge">
+                              {getCategoryLabel(art.category)}
+                            </span>
+                          </td>
+                          <td>
+                            <span className={`as-status-badge status-${art.status || 'draft'}`}>
+                              {art.status?.toUpperCase()}
+                            </span>
+                          </td>
+                          {isOwner && (
+                            <td>
+                              <button
+                                onClick={() => handleToggleStoryStatus(art)}
+                                className={`as-status-toggle-btn ${art.status === 'published' ? 'active' : 'draft'}`}
+                                title="Toggle Story Live / Draft"
+                              >
+                                {art.status === 'published' ? (
+                                  <>
+                                    <FiToggleRight size={17} color="var(--color-success, #16a34a)" />
+                                    <span>Active</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <FiToggleLeft size={17} />
+                                    <span>Draft</span>
+                                  </>
+                                )}
+                              </button>
+                            </td>
+                          )}
+                          <td>
+                            <div className="as-table-perf-cell">
+                              <span>👁️ {art.views || 0}</span>
+                              <span>❤️ {art.likes ? art.likes.length : 0}</span>
+                              <span>💬 {art.commentCount || 0}</span>
+                            </div>
+                          </td>
+                          <td style={{ fontSize: '12px', color: 'var(--color-gray-500)', whiteSpace: 'nowrap' }}>
+                            {new Date(art.publishedAt || art.createdAt).toLocaleDateString()}
+                          </td>
+                          <td style={{ textAlign: 'right' }}>
+                            <div className="as-table-action-btns">
+                              <Link to={`/article/${art.slug}`} className="as-action-link-btn" title="View Story">
+                                <FiEye size={13} />
+                              </Link>
+                              <button
+                                onClick={() => handleCopyStoryLink(art.slug)}
+                                className="as-action-link-btn"
+                                title="Copy Link"
+                              >
+                                <FiCopy size={13} />
+                              </button>
+                              {isOwner && (
+                                <>
+                                  <button
+                                    onClick={() => handleOpenEdit(art)}
+                                    className="as-action-link-btn"
+                                    title="Edit Story"
+                                  >
+                                    <FiEdit2 size={13} />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteArticle(art._id)}
+                                    className="as-action-delete-btn"
+                                    title="Delete Story"
+                                  >
+                                    <FiTrash2 size={13} />
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
+            )}
+          </div>
+        )}
 
-              {/* Mobile Cards for screens <= 768px */}
-              <div className="as-mobile-mgmt-list">
-                {articles.map((art) => (
-                  <div key={art._id} className="as-mobile-mgmt-card">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--accent-color, #c8102e)' }}>
-                        {getCategoryLabel(art.category)}
-                      </span>
-                      <span className={`as-status-badge status-${art.status || 'draft'}`}>
-                        {art.status?.toUpperCase()}
-                      </span>
-                    </div>
-
-                    <h4 className="as-story-title" style={{ margin: 0, fontSize: '15px' }}>
-                      <Link to={`/article/${art.slug}`} style={{ color: 'inherit', textDecoration: 'none' }}>
+        {/* ── TAB 3: SAVED & LIKED STORIES ── */}
+        {activeTab === 'liked' && (
+          <div className="as-liked-pane">
+            {likedArticles.length === 0 ? (
+              <div className="as-empty-state-card">
+                <FiHeart size={44} color="#f87171" style={{ marginBottom: '12px' }} />
+                <h3>No Saved or Liked Stories</h3>
+                <p>Stories you bookmark or react to will appear in this collection.</p>
+              </div>
+            ) : (
+              <div className="as-story-grid">
+                {likedArticles.map((art) => (
+                  <div key={art._id} className="as-story-card" style={{ padding: '18px' }}>
+                    <span className="as-story-cat-chip" style={{ position: 'static', display: 'inline-block', marginBottom: '8px' }}>
+                      {getCategoryLabel(art.category)}
+                    </span>
+                    <h4 className="as-story-title" style={{ margin: '6px 0', fontSize: '16px' }}>
+                      <Link to={`/article/${art.slug}`}>
                         {art.title}
                       </Link>
                     </h4>
-
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11.5px', color: 'var(--color-gray-500)' }}>
-                      <span>👁️ {art.views || 0} • ❤️ {art.likes ? art.likes.length : 0} • 💬 {art.commentCount || 0}</span>
-                      {isOwner && (
-                        <button
-                          onClick={() => handleToggleStoryStatus(art)}
-                          className={`as-status-toggle-btn ${art.status === 'published' ? 'active' : 'draft'}`}
-                        >
-                          {art.status === 'published' ? <FiToggleRight size={15} color="var(--color-success, #16a34a)" /> : <FiToggleLeft size={15} />}
-                          <span>{art.status === 'published' ? 'Active' : 'Draft'}</span>
-                        </button>
-                      )}
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '8px', paddingTop: '8px', borderTop: '1px solid var(--color-gray-200)' }}>
-                      <Link to={`/article/${art.slug}`} className="as-action-link-btn" style={{ flex: 1, justifyContent: 'center' }}>
-                        <FiEye size={13} /> View
-                      </Link>
-                      {isOwner && (
-                        <>
-                          <button onClick={() => handleOpenEdit(art)} className="as-action-link-btn" style={{ flex: 1, justifyContent: 'center' }}>
-                            <FiEdit2 size={13} /> Edit
-                          </button>
-                          <button onClick={() => handleDeleteArticle(art._id)} className="as-action-delete-btn" style={{ padding: '6px 12px' }}>
-                            <FiTrash2 size={13} />
-                          </button>
-                        </>
-                      )}
+                    <p className="as-story-lead">{art.lead}</p>
+                    <div style={{ fontSize: '12px', color: 'var(--color-gray-500)', marginTop: '8px' }}>
+                      By {art.author?.name || 'Author'} • 👁️ {art.views || 0} reads
                     </div>
                   </div>
                 ))}
               </div>
-            </>
-          )
-        ) : activeTab === 'liked' ? (
-          likedArticles.length === 0 ? (
-            <div className="as-empty-state-card">
-              <FiHeart size={40} color="var(--color-gray-400)" style={{ marginBottom: '12px' }} />
-              <h3 style={{ fontWeight: 800, color: 'var(--color-black)' }}>No Saved / Liked Stories</h3>
-              <p style={{ color: 'var(--color-gray-500)', fontSize: '13px' }}>Stories you hype or bookmark will appear here.</p>
-            </div>
-          ) : (
-            <div className="as-story-grid">
-              {likedArticles.map((art) => (
-                <div key={art._id} className="as-story-card" style={{ padding: '16px' }}>
-                  <span className="as-story-cat-chip" style={{ position: 'static', display: 'inline-block', marginBottom: '8px' }}>
-                    {getCategoryLabel(art.category)}
-                  </span>
-                  <h4 className="as-story-title" style={{ margin: '6px 0', fontSize: '15px' }}>
-                    <Link to={`/article/${art.slug}`} style={{ color: 'inherit', textDecoration: 'none' }}>
-                      {art.title}
-                    </Link>
-                  </h4>
-                  <p className="as-story-lead">{art.lead}</p>
-                  <div style={{ fontSize: '11.5px', color: 'var(--color-gray-500)' }}>By {art.author?.name || 'Author'}</div>
-                </div>
-              ))}
-            </div>
-          )
-        ) : (
-          /* Tab 4: My Comments */
-          myComments.length === 0 ? (
-            <div className="as-empty-state-card">
-              <FiMessageSquare size={40} color="var(--color-gray-400)" style={{ marginBottom: '12px' }} />
-              <h3 style={{ fontWeight: 800, color: 'var(--color-black)' }}>No Comments Yet</h3>
-              <p style={{ color: 'var(--color-gray-500)', fontSize: '13px' }}>Responses and discussions you participate in will show up here.</p>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {myComments.map((c) => (
-                <div key={c._id} className="as-comment-card">
-                  <div className="as-comment-meta">
-                    <span>On Story: <strong>{c.article?.title || 'Article'}</strong></span>
-                    <span>{new Date(c.createdAt).toLocaleDateString()}</span>
-                  </div>
-                  <p className="as-comment-text">{c.text}</p>
-                </div>
-              ))}
-            </div>
-          )
+            )}
+          </div>
         )}
+
+        {/* ── TAB 4: MY COMMENTS & DISCUSSIONS ── */}
+        {activeTab === 'comments' && (
+          <div className="as-comments-pane">
+            {myComments.length === 0 ? (
+              <div className="as-empty-state-card">
+                <FiMessageSquare size={44} color="#38bdf8" style={{ marginBottom: '12px' }} />
+                <h3>No Community Responses Yet</h3>
+                <p>Discussions and feedback you contribute will be recorded here.</p>
+              </div>
+            ) : (
+              <div className="as-comments-stream">
+                {myComments.map((c) => (
+                  <div key={c._id} className="as-comment-card">
+                    <div className="as-comment-meta">
+                      <span>On Story: <strong>{c.article?.title || 'Story'}</strong></span>
+                      <span>{new Date(c.createdAt).toLocaleDateString()}</span>
+                    </div>
+                    <p className="as-comment-text">{c.text}</p>
+                    {c.article?.slug && (
+                      <Link to={`/article/${c.article.slug}`} className="as-comment-story-link">
+                        Jump to Discussion <FiArrowRight size={13} />
+                      </Link>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
       </section>
 
-      {/* ── Advanced QuickPublishModal Editor (Add New Post / Edit) ── */}
+      {/* ── Integrated QuickPublishModal Editor for Author Studio ── */}
       {quickPublishOpen && (
         <QuickPublishModal
           editingArticle={editingArticle}
-          defaultCategory="news"
+          defaultType={quickLaunchType}
+          defaultCategory={quickLaunchCategory}
           onClose={() => {
             setQuickPublishOpen(false);
             setEditingArticle(null);
+            setQuickLaunchType(null);
           }}
           onPublishSuccess={() => {
             fetchTabContent();
             loadAuthorProfile();
+            toast.success(editingArticle ? 'Story updated!' : 'Story published successfully!');
           }}
         />
       )}

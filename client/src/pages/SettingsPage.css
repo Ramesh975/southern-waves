@@ -184,7 +184,7 @@
 
 /* --- Settings Details Panel --- */
 .settings-panel {
- background: var(--accent-color);
+  background: var(--color-paper);
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 20px;
   padding: 40px;
@@ -378,7 +378,7 @@
 
 .avatar-upload-btn:hover {
   background: var(--color-black);
-  color: var(--color-white);
+  color: var(--color-paper);
   border-color: var(--color-black);
 }
 
@@ -389,8 +389,8 @@
 
 [data-theme="dark"] .avatar-upload-btn:hover,
 [data-theme="black"] .avatar-upload-btn:hover {
-  background: var(--white);
-  color: var(--color-black);
+  background: #ffffff;
+  color: #000000;
 }
 
 /* --- Theme Cards & Accent row --- */
@@ -607,7 +607,7 @@
 
 .settings-tag-pill {
   background: var(--color-black);
-  color: var(--color-white);
+  color: #ffffff;
   padding: 6px 14px;
   border-radius: 20px;
   font-size: 12px;

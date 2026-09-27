@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { protect, checkBlocked } = require('../middleware/auth');
+const { protect, checkBlocked, optionalAuth } = require('../middleware/auth');
 const { scanText, scanForBlockedTags } = require('../utils/filter');
 const ChatMessage = require('../models/ChatMessage');
 const ChatReadStatus = require('../models/ChatReadStatus');
@@ -9,21 +9,33 @@ const User = require('../models/User');
 
 // @desc    Get chat messages for a room (cursor-based pagination, newest 50 by default)
 // @route   GET /api/chat?category=news&before=<messageId>
-// @access  Public
-router.get('/', async (req, res, next) => {
+// @access  Public (Optional Auth for read status tracking)
+router.get('/', optionalAuth, async (req, res, next) => {
   try {
     const { category, tag, before } = req.query;
     const PAGE_SIZE = 50;
 
     let query = {};
+    let roomKey = '';
 
     // If tag is provided, search by tag. Otherwise, use category or default to 'tea-shop'
     if (tag) {
       query.tags = { $in: [tag.toLowerCase()] };
+      roomKey = `tag:${tag.toLowerCase()}`;
     } else {
       query.category = category || 'tea-shop';
       // For general category chat, exclude messages with tags to keep rooms isolated
       query.tags = { $size: 0 };
+      roomKey = `category:${category || 'tea-shop'}`;
+    }
+
+    // Determine user's last read timestamp for this room before updating read status
+    let lastReadAt = null;
+    if (req.user) {
+      const readStatus = await ChatReadStatus.findOne({ user: req.user._id, room: roomKey }).lean();
+      if (readStatus) {
+        lastReadAt = readStatus.lastReadAt;
+      }
     }
 
     // Cursor: if `before` is provided, only fetch messages older than that ID
@@ -43,13 +55,14 @@ router.get('/', async (req, res, next) => {
       })
       .populate('parentArticle', 'title slug category coverImage lead dek author')
       .sort({ createdAt: -1 })
-      .limit(PAGE_SIZE);
+      .limit(PAGE_SIZE)
+      .lean();
 
     // Check if there are even older messages beyond this page
     const hasMore = messages.length === PAGE_SIZE;
 
     // Send back in chronological order (oldest first)
-    res.json({ success: true, data: messages.reverse(), hasMore });
+    res.json({ success: true, data: messages.reverse(), hasMore, lastReadAt });
   } catch (err) {
     next(err);
   }
@@ -64,36 +77,42 @@ router.get('/unread', protect, async (req, res, next) => {
     const userId = req.user.id;
     const categories = ['news', 'editorial', 'features', 'know-your-past', 'tea-shop', 'pictures-speak'];
     
-    // Fetch all distinct tags in the system to dynamically populate tag rooms
-    const tags = await ChatMessage.distinct('tags');
-
     // Get user's read timestamps
-    const readStatuses = await ChatReadStatus.find({ user: userId });
+    const readStatuses = await ChatReadStatus.find({ user: userId }).lean();
     const readStatusMap = {};
     readStatuses.forEach(status => {
       readStatusMap[status.room] = status.lastReadAt;
     });
 
-    const roomsInfo = [];
+    // Fetch top 20 most recently active tags via aggregation (indexed)
+    const recentTagAgg = await ChatMessage.aggregate([
+      { $match: { 'tags.0': { $exists: true } } },
+      { $unwind: '$tags' },
+      { $group: { _id: '$tags', lastMessageAt: { $max: '$createdAt' } } },
+      { $sort: { lastMessageAt: -1 } },
+      { $limit: 20 }
+    ]);
+    const topTags = recentTagAgg.map(t => t._id).filter(Boolean);
 
-    // 1. Process category rooms (groups)
-    for (const cat of categories) {
+    // Process category rooms in parallel
+    const categoryPromises = categories.map(async (cat) => {
       const roomKey = `category:${cat}`;
       const lastReadAt = readStatusMap[roomKey] || new Date(0);
 
-      // Find the latest message in this category room
-      const lastMsg = await ChatMessage.findOne({ category: cat, tags: { $size: 0 } })
-        .populate('user', 'name')
-        .sort({ createdAt: -1 });
+      const [lastMsg, unreadCount] = await Promise.all([
+        ChatMessage.findOne({ category: cat, tags: { $size: 0 } })
+          .populate('user', 'name')
+          .sort({ createdAt: -1 })
+          .lean(),
+        ChatMessage.countDocuments({
+          category: cat,
+          tags: { $size: 0 },
+          user: { $ne: userId },
+          createdAt: { $gt: lastReadAt }
+        })
+      ]);
 
-      // Count unread messages
-      const unreadCount = await ChatMessage.countDocuments({
-        category: cat,
-        tags: { $size: 0 },
-        createdAt: { $gt: lastReadAt }
-      });
-
-      roomsInfo.push({
+      return {
         type: 'group',
         name: cat,
         roomKey,
@@ -103,26 +122,28 @@ router.get('/unread', protect, async (req, res, next) => {
           createdAt: lastMsg.createdAt
         } : null,
         unreadCount
-      });
-    }
+      };
+    });
 
-    // 2. Process tag rooms
-    for (const tag of tags) {
-      if (!tag) continue;
+    // Process tag rooms in parallel
+    const tagPromises = topTags.map(async (tag) => {
       const roomKey = `tag:${tag}`;
       const lastReadAt = readStatusMap[roomKey] || new Date(0);
 
-      const lastMsg = await ChatMessage.findOne({ tags: tag })
-        .populate('user', 'name')
-        .sort({ createdAt: -1 });
-
-      const unreadCount = await ChatMessage.countDocuments({
-        tags: tag,
-        createdAt: { $gt: lastReadAt }
-      });
+      const [lastMsg, unreadCount] = await Promise.all([
+        ChatMessage.findOne({ tags: tag })
+          .populate('user', 'name')
+          .sort({ createdAt: -1 })
+          .lean(),
+        ChatMessage.countDocuments({
+          tags: tag,
+          user: { $ne: userId },
+          createdAt: { $gt: lastReadAt }
+        })
+      ]);
 
       if (lastMsg) {
-        roomsInfo.push({
+        return {
           type: 'tag',
           name: tag,
           roomKey,
@@ -132,10 +153,22 @@ router.get('/unread', protect, async (req, res, next) => {
             createdAt: lastMsg.createdAt
           },
           unreadCount
-        });
+        };
       }
-    }
+      return null;
+    });
 
+    const [categoryRooms, tagRooms] = await Promise.all([
+      Promise.all(categoryPromises),
+      Promise.all(tagPromises)
+    ]);
+
+    const roomsInfo = [...categoryRooms, ...tagRooms.filter(Boolean)];
+    roomsInfo.sort((a, b) => {
+      const aTime = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : 0;
+      const bTime = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : 0;
+      return bTime - aTime;
+    });
     res.json({ success: true, data: roomsInfo });
   } catch (err) {
     next(err);
@@ -353,6 +386,22 @@ router.post('/', protect, checkBlocked, async (req, res, next) => {
         createdAt: message.createdAt,
         replyToUser: message.replyToUser
       });
+    }
+
+    // Auto-update sender's read status for this room so it won't show as unread for them
+    try {
+      const senderRoomKeys = parsedTags.length > 0 ? parsedTags.map(t => `tag:${t}`) : [`category:${category}`];
+      await Promise.all(
+        senderRoomKeys.map(rKey =>
+          ChatReadStatus.findOneAndUpdate(
+            { user: req.user.id, room: rKey },
+            { lastReadAt: new Date() },
+            { upsert: true, new: true }
+          )
+        )
+      );
+    } catch (readErr) {
+      console.error('Failed to auto-update sender read status:', readErr);
     }
 
     res.status(201).json({ success: true, data: messageData });
@@ -578,7 +627,7 @@ router.delete('/:id', protect, async (req, res, next) => {
 // @access  Public
 router.get('/search', async (req, res, next) => {
   try {
-    const { q = '', type = 'all' } = req.query;
+    const { q = '', type = 'all', room, category, tag } = req.query;
     const query = q.trim();
     if (!query) {
       return res.json({
@@ -630,11 +679,31 @@ router.get('/search', async (req, res, next) => {
 
     // 3. Conversation Messages
     if (type === 'all' || type === 'messages') {
-      matchedMessages = await ChatMessage.find({ text: regex })
+      const messageFilter = { text: regex };
+
+      // Optional room filtering (e.g. searching inside a specific tag or category room)
+      let targetTag = tag;
+      let targetCategory = category;
+      if (room) {
+        if (room.startsWith('tag:')) {
+          targetTag = room.slice(4);
+        } else if (room.startsWith('category:')) {
+          targetCategory = room.slice(9);
+        }
+      }
+
+      if (targetTag) {
+        messageFilter.tags = { $in: [targetTag.toLowerCase()] };
+      } else if (targetCategory) {
+        messageFilter.category = targetCategory;
+        messageFilter.tags = { $size: 0 };
+      }
+
+      matchedMessages = await ChatMessage.find(messageFilter)
         .populate('user', 'name avatar role')
         .populate('parentArticle', 'title slug category coverImage lead dek')
         .sort({ createdAt: -1 })
-        .limit(30);
+        .limit(50);
     }
 
     res.json({

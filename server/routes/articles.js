@@ -4,6 +4,7 @@ const upload = require('../middleware/upload');
 const { protect, authorize, verifiedOnly, checkBlocked } = require('../middleware/auth');
 const {
   getArticles,
+  getHomeFeed,
   getArticleBySlug,
   createArticle,
   updateArticle,
@@ -15,8 +16,10 @@ const {
   likeArticle,
   dislikeArticle,
   getRecommendations,
+  getWebStories,
   getMostLiked,
   getMyUploadsStats,
+  getSearchSuggestions,
 } = require('../controllers/articleController');
 const { addComment, getComments } = require('../controllers/commentController');
 
@@ -45,11 +48,14 @@ const optionalAuth = async (req, res, next) => {
   }
 };
 
+router.get('/home-feed', getHomeFeed);
 router.get('/recommendations', optionalAuth, getRecommendations);
+router.get('/web-stories', optionalAuth, getWebStories);
 router.get('/most-read', getMostRead);
 router.get('/most-liked', getMostLiked);
 router.get('/trending', getTrending);
 router.get('/tags/trending', getTrendingTags);
+router.get('/search-suggestions', optionalAuth, getSearchSuggestions);
 router.get('/', optionalAuth, getArticles);
 
 // Stats for uploads - registered before parameterized :slug route

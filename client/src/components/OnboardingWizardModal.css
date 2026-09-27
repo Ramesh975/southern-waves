@@ -191,8 +191,8 @@
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  background: var(--color-black);
-  color: var(--color-white);
+  background: var(--accent-color);
+  color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -203,7 +203,8 @@
 
 .onboarding-avatar-upload-btn:hover {
   transform: scale(1.1);
-  background: var(--accent-color);
+  background: var(--accent-color-hover);
+  color: #ffffff;
 }
 
 .onboarding-avatar-meta {

@@ -1,15 +1,26 @@
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const ProtectedRoute = ({ allowedRoles }) => {
   const { user, loading, isAdmin, isEditor, isStudent, isModerator } = useAuth();
+  const location = useLocation();
 
   if (loading) {
-    return <div className="loading-spinner"><div className="spinner" /></div>;
+    return (
+      <div className="loading-spinner" style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '60vh',
+        width: '100%'
+      }}>
+        <div className="spinner" />
+      </div>
+    );
   }
 
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   let hasAccess = false;

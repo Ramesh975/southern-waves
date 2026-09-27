@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { articleAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { getImageUrl } from '../../components/ArticleComponents';
+import { PaginationControls } from '../../components/PaginationControls';
 import toast from 'react-hot-toast';
 import {
   FiSearch, FiGrid, FiList, FiColumns, FiPlusCircle,
@@ -221,6 +222,8 @@ const ArticleCompactRow = ({ a, isAdmin, onDelete, onTogglePush, animDelay = 0 }
   );
 };
 
+const ALL_CATEGORIES = ['news', 'editorial', 'features', 'kyp', 'tea-shop', 'pictures-speak', 'university-row'];
+
 /* ── Main Component ── */
 const AdminArticles = () => {
   const { isAdmin } = useAuth();
@@ -228,22 +231,48 @@ const AdminArticles = () => {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  // Default to GRID layout as requested
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [viewMode, setViewMode] = useState('grid');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [sortBy, setSortBy] = useState('newest');
   const [showFilters, setShowFilters] = useState(false);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalArticles, setTotalArticles] = useState(0);
   const searchRef = useRef(null);
+
+  // Debounce search query (300ms)
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
 
   const fetchArticles = () => {
     setLoading(true);
-    articleAPI.getAll({ limit: 100, status: filter || undefined })
-      .then((res) => setArticles(res.data?.data || []))
+    articleAPI.getAll({
+      page,
+      limit: 24,
+      status: filter || undefined,
+      category: categoryFilter || undefined,
+      search: debouncedSearch || undefined,
+      sort: sortBy || undefined,
+      adminView: 'true',
+    })
+      .then((res) => {
+        setArticles(res.data?.data || []);
+        setTotalPages(res.data?.totalPages || 1);
+        setTotalArticles(res.data?.total || 0);
+      })
       .catch(() => toast.error('Failed to load articles'))
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { fetchArticles(); }, [filter]);
+  useEffect(() => {
+    fetchArticles();
+  }, [page, filter, categoryFilter, debouncedSearch, sortBy]);
 
   const handleDelete = async (id, title) => {
     if (!window.confirm(`Delete "${title}"? This cannot be undone.`)) return;
@@ -266,27 +295,7 @@ const AdminArticles = () => {
     }
   };
 
-  // Filter & Sort
-  const filteredArticles = articles
-    .filter(a => {
-      if (categoryFilter && a.category !== categoryFilter) return false;
-      if (!searchQuery) return true;
-      const q = searchQuery.toLowerCase();
-      return (
-        a.title?.toLowerCase().includes(q) ||
-        a.author?.name?.toLowerCase().includes(q) ||
-        a.category?.toLowerCase().includes(q)
-      );
-    })
-    .sort((a, b) => {
-      if (sortBy === 'newest') return new Date(b.createdAt) - new Date(a.createdAt);
-      if (sortBy === 'oldest') return new Date(a.createdAt) - new Date(b.createdAt);
-      if (sortBy === 'views') return (b.views || 0) - (a.views || 0);
-      if (sortBy === 'title') return a.title.localeCompare(b.title);
-      return 0;
-    });
-
-  const categories = [...new Set(articles.map(a => a.category))].filter(Boolean);
+  const categories = ALL_CATEGORIES;
 
   return (
     <>
@@ -940,13 +949,13 @@ const AdminArticles = () => {
         {/* ── Results Bar ── */}
         <div className="aa-results-bar">
           <span className="aa-results-count">
-            Showing <strong>{filteredArticles.length}</strong> of {articles.length} articles
-            {searchQuery && <> · Query: "<em>{searchQuery}</em>"</>}
+            Showing <strong>{articles.length}</strong> of {totalArticles} articles
+            {debouncedSearch && <> · Query: "<em>{debouncedSearch}</em>"</>}
           </span>
           {(searchQuery || categoryFilter || filter) && (
             <button
               style={{ background: 'none', border: 'none', color: 'var(--accent-color)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
-              onClick={() => { setSearchQuery(''); setCategoryFilter(''); setFilter(''); }}
+              onClick={() => { setSearchQuery(''); setCategoryFilter(''); setFilter(''); setPage(1); }}
             >
               Clear all filters
             </button>
@@ -967,11 +976,11 @@ const AdminArticles = () => {
               />
             ))}
           </div>
-        ) : filteredArticles.length === 0 ? (
+        ) : articles.length === 0 ? (
           <div className="aa-empty">
             <div className="aa-empty-icon">📭</div>
             <h3>No articles found</h3>
-            <p>{searchQuery ? `No results for "${searchQuery}"` : 'No articles match the current filters.'}</p>
+            <p>{debouncedSearch ? `No results for "${debouncedSearch}"` : 'No articles match the current filters.'}</p>
             <Link to="/admin/new-article" className="btn-admin-primary">
               <FiPlusCircle size={14} /> Create New Article
             </Link>
@@ -981,7 +990,7 @@ const AdminArticles = () => {
             {/* Grid View (Default) */}
             {viewMode === 'grid' && (
               <div className="aa-grid">
-                {filteredArticles.map((a, i) => (
+                {articles.map((a, i) => (
                   <ArticleCard
                     key={a._id}
                     a={a}
@@ -997,7 +1006,7 @@ const AdminArticles = () => {
             {/* List View */}
             {viewMode === 'list' && (
               <div className="aa-list">
-                {filteredArticles.map((a, i) => (
+                {articles.map((a, i) => (
                   <ArticleListRow
                     key={a._id}
                     a={a}
@@ -1021,7 +1030,7 @@ const AdminArticles = () => {
                   <span>Views</span>
                   <span style={{ textAlign: 'right' }}>Actions</span>
                 </div>
-                {filteredArticles.map((a, i) => (
+                {articles.map((a, i) => (
                   <ArticleCompactRow
                     key={a._id}
                     a={a}
@@ -1033,6 +1042,15 @@ const AdminArticles = () => {
                 ))}
               </div>
             )}
+
+            <PaginationControls
+              currentPage={page}
+              totalPages={totalPages}
+              totalItems={totalArticles}
+              pageSize={24}
+              onPageChange={setPage}
+              isLoading={loading}
+            />
           </>
         )}
       </div>

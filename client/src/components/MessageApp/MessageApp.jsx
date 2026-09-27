@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef, useLayoutEffect, useCallback } from
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useChat } from '../../context/ChatContext';
+import { useTheme } from '../../context/ThemeContext';
 import { chatAPI, filterAPI, articleAPI } from '../../services/api';
-import { FiX, FiSend, FiSearch, FiPlus, FiSmile, FiEdit2, FiCornerUpLeft, FiArrowLeft, FiTag, FiHash, FiVolume2, FiAlertCircle, FiLock, FiTrash2, FiChevronDown, FiFileText, FiMessageSquare } from 'react-icons/fi';
+import { FiX, FiSend, FiSearch, FiPlus, FiSmile, FiEdit2, FiCornerUpLeft, FiArrowLeft, FiTag, FiHash, FiVolume2, FiAlertCircle, FiLock, FiTrash2, FiChevronDown, FiChevronUp, FiList, FiFileText, FiMessageSquare } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import './MessageApp.css';
 
@@ -53,6 +54,7 @@ const MessageApp = ({ isFullPage = false }) => {
     leaveRoom,
     markRoomAsRead,
     openRoom,
+    updateRoomLastMessage,
     activeTab,
     setActiveTab,
     replyToArticle,
@@ -63,6 +65,7 @@ const MessageApp = ({ isFullPage = false }) => {
     markNotificationRead,
     markAllNotificationsRead,
   } = useChat();
+  const { theme } = useTheme();
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -91,6 +94,20 @@ const MessageApp = ({ isFullPage = false }) => {
   const [isBroadcast, setIsBroadcast] = useState(false);
   const [replyToMessage, setReplyToMessage] = useState(null); // Message object being replied to
   const [loadingMessages, setLoadingMessages] = useState(false);
+
+  // In-Chat Search State (Search inside active conversation)
+  const [showInChatSearch, setShowInChatSearch] = useState(false);
+  const [inChatSearchQuery, setInChatSearchQuery] = useState('');
+  const [inChatMatchIndex, setInChatMatchIndex] = useState(0);
+  const [inChatSearchResults, setInChatSearchResults] = useState([]);
+  const [inChatSearchLoading, setInChatSearchLoading] = useState(false);
+  const [showInChatResultsList, setShowInChatResultsList] = useState(false);
+  const inChatSearchInputRef = useRef(null);
+
+  // Unread Messages Positioning State
+  const [firstUnreadMessageId, setFirstUnreadMessageId] = useState(null);
+  const [unreadCountInRoom, setUnreadCountInRoom] = useState(0);
+  const firstUnreadIdRef = useRef(null);
 
   // Suggestions state
   const [showTagSuggestions, setShowTagSuggestions] = useState(false);
@@ -190,7 +207,7 @@ const MessageApp = ({ isFullPage = false }) => {
         avatar: user.avatar,
         role: user.role
       },
-      category: activeRoom.type === 'group' ? activeRoom.name : 'tea-shop',
+      category: activeRoom.type === 'tag' ? 'tea-shop' : activeRoom.name,
       tags: activeRoom.type === 'tag' ? [activeRoom.name] : [],
       isBroadcast: isBroadcast,
       parentArticle: {
@@ -212,10 +229,18 @@ const MessageApp = ({ isFullPage = false }) => {
     setNewsSearchQuery('');
     scrollToBottom();
 
+    if (updateRoomLastMessage) {
+      updateRoomLastMessage(activeRoom.roomKey, {
+        text: `Shared story: "${article.title}"`,
+        user: user.name,
+        createdAt: optimisticMsg.createdAt
+      });
+    }
+
     try {
       const payload = {
         text: `Shared story: "${article.title}"`,
-        category: activeRoom.type === 'group' ? activeRoom.name : 'tea-shop',
+        category: activeRoom.type === 'tag' ? 'tea-shop' : activeRoom.name,
         tags: activeRoom.type === 'tag' ? [activeRoom.name] : [],
         isBroadcast: isBroadcast,
         parentArticleId: article._id,
@@ -232,8 +257,32 @@ const MessageApp = ({ isFullPage = false }) => {
     }
   };
 
-  // Formatter for clickable hashtags and user mentions in messages
-  const renderFormattedMessage = (text) => {
+  // Helper to highlight matched words when searching inside chat
+  const highlightSearchText = (plainText, query, isCurrentMatch) => {
+    if (!query || !query.trim() || !plainText) return plainText;
+    const trimmedQ = query.trim();
+    const escaped = trimmedQ.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+    const regex = new RegExp(`(${escaped})`, 'gi');
+    const parts = plainText.split(regex);
+    if (parts.length <= 1) return plainText;
+
+    return parts.map((chunk, cIdx) => {
+      if (chunk.toLowerCase() === trimmedQ.toLowerCase()) {
+        return (
+          <mark 
+            key={cIdx} 
+            className={`msg-inchat-highlight-mark ${isCurrentMatch ? 'current-active' : ''}`}
+          >
+            {chunk}
+          </mark>
+        );
+      }
+      return chunk;
+    });
+  };
+
+  // Formatter for clickable hashtags and user mentions in messages (with search highlighting)
+  const renderFormattedMessage = (text, isCurrentMatch = false) => {
     if (!text) return null;
     const trimmed = text.trim();
 
@@ -251,7 +300,7 @@ const MessageApp = ({ isFullPage = false }) => {
           title={`Jump to #${tagName} chat channel`}
         >
           <FiHash size={13} className="msg-tag-hash-icon" />
-          <span>{tagName}</span>
+          <span>{highlightSearchText(tagName, inChatSearchQuery, isCurrentMatch)}</span>
         </button>
       );
     }
@@ -274,7 +323,7 @@ const MessageApp = ({ isFullPage = false }) => {
             }}
             title={`Open #${rawTag} chat`}
           >
-            #{rawTag}
+            #{highlightSearchText(rawTag, inChatSearchQuery, isCurrentMatch)}
           </button>
         );
       }
@@ -282,11 +331,11 @@ const MessageApp = ({ isFullPage = false }) => {
         const mention = part.slice(1);
         return (
           <span key={idx} className="msg-inline-mention" title={`Mentioning @${mention}`}>
-            @{mention}
+            @{highlightSearchText(mention, inChatSearchQuery, isCurrentMatch)}
           </span>
         );
       }
-      return part;
+      return highlightSearchText(part, inChatSearchQuery, isCurrentMatch);
     });
   };
 
@@ -333,6 +382,127 @@ const MessageApp = ({ isFullPage = false }) => {
       clearTimeout(clearTimer);
     };
   }, [highlightMessageId, messages]);
+
+  // Reset In-Chat Search when activeRoom changes
+  useEffect(() => {
+    setShowInChatSearch(false);
+    setInChatSearchQuery('');
+    setInChatSearchResults([]);
+    setInChatMatchIndex(0);
+    setShowInChatResultsList(false);
+  }, [activeRoom?.roomKey]);
+
+  // Keyboard shortcut Ctrl+F / Cmd+F to open In-Chat Search, Esc to close
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f' && activeRoom && (isOpen || isFullPage)) {
+        e.preventDefault();
+        setShowInChatSearch(true);
+        setTimeout(() => inChatSearchInputRef.current?.focus(), 80);
+      } else if (e.key === 'Escape' && showInChatSearch) {
+        setShowInChatSearch(false);
+        setShowInChatResultsList(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeRoom, isOpen, isFullPage, showInChatSearch]);
+
+  // In-Chat Search calculation: Instant local search + Debounced room-scoped server search
+  useEffect(() => {
+    if (!showInChatSearch || !inChatSearchQuery.trim() || !activeRoom) {
+      setInChatSearchResults([]);
+      setInChatMatchIndex(0);
+      setInChatSearchLoading(false);
+      return;
+    }
+
+    const queryLower = inChatSearchQuery.trim().toLowerCase();
+    // 1. Instant local matches in currently loaded messages (newest first for navigation)
+    const localMatches = messages
+      .filter((m) => m.text && m.text.toLowerCase().includes(queryLower))
+      .slice()
+      .reverse();
+
+    setInChatSearchResults(localMatches);
+    setInChatMatchIndex(0);
+
+    // 2. Debounced query to server to find any older messages in this room
+    setInChatSearchLoading(true);
+    const debounceTimer = setTimeout(async () => {
+      try {
+        const params = {
+          q: inChatSearchQuery.trim(),
+          type: 'messages',
+          ...(activeRoom.type === 'tag' ? { tag: activeRoom.name } : { category: activeRoom.name }),
+        };
+        const res = await chatAPI.search(params);
+        if (res.data?.success && Array.isArray(res.data.data?.messages)) {
+          const serverMsgs = res.data.data.messages;
+          const seenIds = new Set();
+          const merged = [];
+
+          localMatches.forEach((m) => {
+            if (!seenIds.has(m._id)) {
+              seenIds.add(m._id);
+              merged.push(m);
+            }
+          });
+
+          serverMsgs.forEach((m) => {
+            if (!seenIds.has(m._id)) {
+              seenIds.add(m._id);
+              merged.push(m);
+            }
+          });
+
+          merged.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+          setInChatSearchResults(merged);
+        }
+      } catch (err) {
+        console.error('Failed to search in-chat messages on server:', err);
+      } finally {
+        setInChatSearchLoading(false);
+      }
+    }, 280);
+
+    return () => clearTimeout(debounceTimer);
+  }, [inChatSearchQuery, showInChatSearch, activeRoom?.roomKey, messages]);
+
+  const jumpToInChatMatch = (targetMsg) => {
+    if (!targetMsg) return;
+
+    if (!messages.some((m) => m._id === targetMsg._id)) {
+      setMessages((prev) => {
+        const next = [...prev, targetMsg];
+        next.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+        return next;
+      });
+    }
+
+    setHighlightMessageId(targetMsg._id);
+
+    setTimeout(() => {
+      const el = document.getElementById(`msg-${targetMsg._id}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 60);
+  };
+
+  const handleNextInChatMatch = () => {
+    if (inChatSearchResults.length === 0) return;
+    const nextIdx = (inChatMatchIndex + 1) % inChatSearchResults.length;
+    setInChatMatchIndex(nextIdx);
+    jumpToInChatMatch(inChatSearchResults[nextIdx]);
+  };
+
+  const handlePrevInChatMatch = () => {
+    if (inChatSearchResults.length === 0) return;
+    const prevIdx = (inChatMatchIndex - 1 + inChatSearchResults.length) % inChatSearchResults.length;
+    setInChatMatchIndex(prevIdx);
+    jumpToInChatMatch(inChatSearchResults[prevIdx]);
+  };
 
   // Handle URL Query Parameters for full page mode
   useEffect(() => {
@@ -386,9 +556,15 @@ const MessageApp = ({ isFullPage = false }) => {
     if (activeIsTag && isTagMsg && msg.tags.includes(activeRoom.name)) {
       setMessages((prev) => [...prev.filter((m) => m._id !== msg.tempId && m._id !== msg._id), incomingWithAnim]);
       scrollToBottom();
+      if (msg.user?._id !== user?._id) {
+        markRoomAsRead(activeRoom.roomKey);
+      }
     } else if (!activeIsTag && !isTagMsg && msg.category === activeRoom?.name) {
       setMessages((prev) => [...prev.filter((m) => m._id !== msg.tempId && m._id !== msg._id), incomingWithAnim]);
       scrollToBottom();
+      if (msg.user?._id !== user?._id) {
+        markRoomAsRead(activeRoom.roomKey);
+      }
     }
   };
 
@@ -434,6 +610,9 @@ const MessageApp = ({ isFullPage = false }) => {
   const fetchRoomMessages = async () => {
     setLoadingMessages(true);
     setHasMore(false);
+    setFirstUnreadMessageId(null);
+    setUnreadCountInRoom(0);
+    firstUnreadIdRef.current = null;
     oldestIdRef.current = null;
     try {
       const params = {};
@@ -444,13 +623,66 @@ const MessageApp = ({ isFullPage = false }) => {
       }
       const res = await chatAPI.getMessages(params);
       const fetched = res.data.data || [];
+      const lastReadAt = res.data.lastReadAt;
+
+      if (fetched.length > 0) oldestIdRef.current = fetched[0]._id;
+
+      // Check room unread count from initial room state or current context room
+      const currentRoomInContext = rooms.find((r) => r.roomKey === activeRoom.roomKey);
+      const contextUnreadCount = activeRoom.initialUnreadCount ?? currentRoomInContext?.unreadCount ?? 0;
+
+      let firstUnreadId = null;
+      let unreadCount = 0;
+
+      if (user && fetched.length > 0) {
+        if (lastReadAt) {
+          const lastReadTime = new Date(lastReadAt).getTime();
+          const unreadMsgs = fetched.filter((m) => {
+            const senderId = m.user?._id || m.user?.id || (typeof m.user === 'object' ? m.user._id : m.user);
+            const isMe = String(senderId) === String(user._id || user.id);
+            return !isMe && new Date(m.createdAt).getTime() > lastReadTime;
+          });
+
+          if (unreadMsgs.length > 0) {
+            firstUnreadId = unreadMsgs[0]._id;
+            unreadCount = unreadMsgs.length;
+          }
+        }
+
+        // Fallback: if lastReadAt produced 0 unread msgs but contextUnreadCount > 0
+        if (!firstUnreadId && contextUnreadCount > 0 && fetched.length >= contextUnreadCount) {
+          const unreadSlice = fetched.slice(-contextUnreadCount);
+          const firstOtherUnread = unreadSlice.find((m) => {
+            const senderId = m.user?._id || m.user?.id || (typeof m.user === 'object' ? m.user._id : m.user);
+            const isMe = String(senderId) === String(user._id || user.id);
+            return !isMe;
+          });
+          if (firstOtherUnread) {
+            firstUnreadId = firstOtherUnread._id;
+            unreadCount = contextUnreadCount;
+          }
+        }
+      }
+
+      firstUnreadIdRef.current = firstUnreadId;
+      setFirstUnreadMessageId(firstUnreadId);
+      setUnreadCountInRoom(unreadCount);
       setMessages(fetched);
       setHasMore(res.data.hasMore || false);
-      if (fetched.length > 0) oldestIdRef.current = fetched[0]._id;
-      // Snap to bottom immediately after first paint (unless jumping to a specific highlighted message)
+
+      // Positioning scroll:
       requestAnimationFrame(() => {
-        if (messagesListRef.current && !highlightMessageId) {
-          messagesListRef.current.scrollTop = messagesListRef.current.scrollHeight;
+        if (!highlightMessageId) {
+          if (firstUnreadId) {
+            const el = document.getElementById(`msg-${firstUnreadId}`) || document.getElementById('unread-divider-bar');
+            if (el && messagesListRef.current) {
+              const container = messagesListRef.current;
+              const elTop = el.offsetTop - container.offsetTop;
+              container.scrollTop = Math.max(0, elTop - 12);
+            }
+          } else {
+            scrollToBottom();
+          }
         }
       });
     } catch (err) {
@@ -506,27 +738,51 @@ const MessageApp = ({ isFullPage = false }) => {
     return () => observer.disconnect();
   }, [loadOlderMessages]);
 
-  // Ensure chat list is scrolled to the very bottom when loading finishes or messages update
+  // Ensure chat list is scrolled to first unread message or bottom when loading finishes or messages update
   useLayoutEffect(() => {
     if (!loadingMessages && messages.length > 0 && !highlightMessageId) {
-      scrollToBottom();
-      const timer = setTimeout(() => {
-        scrollToBottom();
-      }, 50);
-      return () => clearTimeout(timer);
-    }
-  }, [loadingMessages, messages.length, activeRoom, highlightMessageId]);
+      const targetUnreadId = firstUnreadIdRef.current || firstUnreadMessageId;
+      if (targetUnreadId) {
+        const scrollToUnread = () => {
+          const el = document.getElementById(`msg-${targetUnreadId}`) || document.getElementById('unread-divider-bar');
+          if (el && messagesListRef.current) {
+            const container = messagesListRef.current;
+            const elTop = el.offsetTop - container.offsetTop;
+            container.scrollTop = Math.max(0, elTop - 12);
+          }
+        };
 
-  // Scroll to bottom when the chat drawer/window is opened
-  useEffect(() => {
-    if (isOpen) {
-      scrollToBottom();
-      const timer = setTimeout(() => {
+        scrollToUnread();
+        const timer1 = setTimeout(scrollToUnread, 60);
+        const timer2 = setTimeout(scrollToUnread, 180);
+        return () => {
+          clearTimeout(timer1);
+          clearTimeout(timer2);
+        };
+      } else {
         scrollToBottom();
-      }, 100);
-      return () => clearTimeout(timer);
+        const timer = setTimeout(() => {
+          scrollToBottom();
+        }, 50);
+        return () => clearTimeout(timer);
+      }
     }
-  }, [isOpen]);
+  }, [loadingMessages, messages.length, activeRoom?.roomKey, highlightMessageId, firstUnreadMessageId]);
+
+  // Scroll to first unread message or bottom when the chat drawer/window is opened
+  useEffect(() => {
+    if (isOpen && !loadingMessages && messages.length > 0) {
+      const targetUnreadId = firstUnreadIdRef.current || firstUnreadMessageId;
+      if (targetUnreadId) {
+        const el = document.getElementById(`msg-${targetUnreadId}`) || document.getElementById('unread-divider-bar');
+        if (el && messagesListRef.current) {
+          const container = messagesListRef.current;
+          const elTop = el.offsetTop - container.offsetTop;
+          container.scrollTop = Math.max(0, elTop - 12);
+        }
+      }
+    }
+  }, [isOpen, loadingMessages, firstUnreadMessageId, messages.length]);
 
   const handleMessagesScroll = () => {
     const list = messagesListRef.current;
@@ -575,7 +831,7 @@ const MessageApp = ({ isFullPage = false }) => {
         avatar: user.avatar,
         role: user.role
       },
-      category: activeRoom.type === 'group' ? activeRoom.name : 'tea-shop',
+      category: activeRoom.type === 'tag' ? 'tea-shop' : activeRoom.name,
       tags: activeRoom.type === 'tag' ? [activeRoom.name] : [],
       isBroadcast: isBroadcast,
       parentMessage: replyToMessage ? {
@@ -595,11 +851,19 @@ const MessageApp = ({ isFullPage = false }) => {
     setReplyToMessage(null);
     scrollToBottom();
 
+    if (updateRoomLastMessage) {
+      updateRoomLastMessage(activeRoom.roomKey, {
+        text: messageText,
+        user: user.name,
+        createdAt: optimisticMsg.createdAt
+      });
+    }
+
     try {
       // API call to persist message
       const payload = {
         text: messageText,
-        category: activeRoom.type === 'group' ? activeRoom.name : 'tea-shop',
+        category: activeRoom.type === 'tag' ? 'tea-shop' : activeRoom.name,
         tags: activeRoom.type === 'tag' ? [activeRoom.name] : [],
         isBroadcast: optimisticMsg.isBroadcast,
         parentMessageId: replyToMessage?._id || null,
@@ -753,13 +1017,7 @@ const MessageApp = ({ isFullPage = false }) => {
     }
 
     return [...filtered].sort((a, b) => {
-      // 1. Sort by unreadCount > 0 first
-      const aHasUnread = (a.unreadCount || 0) > 0;
-      const bHasUnread = (b.unreadCount || 0) > 0;
-      if (aHasUnread && !bHasUnread) return -1;
-      if (!aHasUnread && bHasUnread) return 1;
-
-      // 2. Sort by last message time descending
+      // Sort by last message time descending (most recent conversation at top)
       const aTime = a.lastMessage ? new Date(a.lastMessage.createdAt).getTime() : 0;
       const bTime = b.lastMessage ? new Date(b.lastMessage.createdAt).getTime() : 0;
       return bTime - aTime;
@@ -769,19 +1027,20 @@ const MessageApp = ({ isFullPage = false }) => {
   // Searching categories & tags for floating + button
   const getSearchResults = () => {
     const categories = [
-      { type: 'group', name: 'news', display: '📰 News' },
-      { type: 'group', name: 'editorial', display: '✍️ Editorial' },
-      { type: 'group', name: 'features', display: '🎬 Features' },
-      { type: 'group', name: 'know-your-past', display: '📖 Know Your Past' },
-      { type: 'group', name: 'tea-shop', display: '☕ Tea Shop' },
-      { type: 'group', name: 'pictures-speak', display: '📷 Pictures Speak' }
+      { type: 'group', name: 'news', label: 'News', icon: '📰', display: '📰 News' },
+      { type: 'group', name: 'editorial', label: 'Editorial', icon: '✍️', display: '✍️ Editorial' },
+      { type: 'group', name: 'features', label: 'Features', icon: '🎬', display: '🎬 Features' },
+      { type: 'group', name: 'know-your-past', label: 'Know Your Past', icon: '📖', display: '📖 Know Your Past' },
+      { type: 'group', name: 'tea-shop', label: 'Tea Shop', icon: '☕', display: '☕ Tea Shop' },
+      { type: 'group', name: 'pictures-speak', label: 'Pictures Speak', icon: '📷', display: '📷 Pictures Speak' }
     ];
 
     // Get active tags from currently loaded rooms plus trending tags
     const tagRooms = rooms.filter((r) => r.type === 'tag').map((r) => ({
       type: 'tag',
       name: r.name,
-      display: `# ${r.name}`
+      label: `#${r.name}`,
+      display: `#${r.name}`
     }));
 
     // Merge categories and tags
@@ -829,7 +1088,7 @@ const MessageApp = ({ isFullPage = false }) => {
           <div className={`msg-sidebar-col ${(!activeRoom || isFullPage) ? 'show' : 'hide'}`}>
             <header className="msg-drawer-header">
               {isFullPage ? (
-                <div className="msg-sidebar-branding">
+                <div className="">
                   <Link to="/" className="msg-logo-link">
                     <span className="msg-logo-text">Southern Waves</span>
                   </Link>
@@ -1191,7 +1450,14 @@ const MessageApp = ({ isFullPage = false }) => {
                 rooms.filter(r => r.type === 'group').length === 0 ? (
                   <div className="msg-empty">No announcements yet.</div>
                 ) : (
-                  rooms.filter(r => r.type === 'group').map((room) => (
+                  rooms
+                    .filter(r => r.type === 'group')
+                    .sort((a, b) => {
+                      const aTime = a.lastMessage ? new Date(a.lastMessage.createdAt).getTime() : 0;
+                      const bTime = b.lastMessage ? new Date(b.lastMessage.createdAt).getTime() : 0;
+                      return bTime - aTime;
+                    })
+                    .map((room) => (
                     <div 
                       key={room.roomKey} 
                       className="msg-room-item"
@@ -1285,6 +1551,36 @@ const MessageApp = ({ isFullPage = false }) => {
                     </span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {/* IN-CHAT SEARCH TOGGLE BUTTON */}
+                    <button
+                      type="button"
+                      className={`msg-close-btn msg-search-toggle-btn ${showInChatSearch ? 'active' : ''}`}
+                      onClick={() => {
+                        setShowInChatSearch((prev) => {
+                          const nextVal = !prev;
+                          if (nextVal) {
+                            setTimeout(() => inChatSearchInputRef.current?.focus(), 80);
+                          } else {
+                            setShowInChatResultsList(false);
+                          }
+                          return nextVal;
+                        });
+                      }}
+                      title="Search inside this chat (Ctrl+F)"
+                      aria-label="Search inside chat"
+                    >
+                      <FiSearch size={18} />
+                    </button>
+                    {user && (
+                      <button 
+                        type="button"
+                        className="msg-close-btn" 
+                        onClick={() => setShowSearch(true)}
+                        title="Find or create chat tag"
+                      >
+                        <FiPlus size={20} />
+                      </button>
+                    )}
                     {!isFullPage ? (
                       <>
                         <button 
@@ -1318,6 +1614,186 @@ const MessageApp = ({ isFullPage = false }) => {
                   </div>
                 </header>
 
+                {/* IN-CHAT SEARCH BAR (UPGRADED UI) */}
+                {showInChatSearch && (
+                  <div className="msg-inchat-search-bar">
+                    <div className="msg-inchat-search-input-wrap">
+                      <FiSearch size={15} className="msg-inchat-search-icon" />
+                      <input
+                        ref={inChatSearchInputRef}
+                        type="text"
+                        placeholder={`Search messages in ${activeRoom.type === 'tag' ? '#' : ''}${activeRoom.name}...`}
+                        value={inChatSearchQuery}
+                        onChange={(e) => setInChatSearchQuery(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (e.shiftKey) {
+                              handlePrevInChatMatch();
+                            } else {
+                              handleNextInChatMatch();
+                            }
+                          } else if (e.key === 'Escape') {
+                            setShowInChatSearch(false);
+                            setShowInChatResultsList(false);
+                          }
+                        }}
+                        className="msg-inchat-search-input"
+                      />
+                      {inChatSearchLoading && (
+                        <div className="msg-inchat-mini-spinner" title="Searching messages..." />
+                      )}
+                      {inChatSearchQuery && !inChatSearchLoading && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setInChatSearchQuery('');
+                            setInChatSearchResults([]);
+                            inChatSearchInputRef.current?.focus();
+                          }}
+                          className="msg-inchat-search-clear"
+                          title="Clear search text"
+                        >
+                          <FiX size={14} />
+                        </button>
+                      )}
+                      <span className="msg-inchat-kbd-hint">ESC</span>
+                    </div>
+
+                    {/* Count & Nav Controls */}
+                    <div className="msg-inchat-search-controls">
+                      {inChatSearchQuery.trim() ? (
+                        <span className={`msg-inchat-search-count ${inChatSearchResults.length === 0 ? 'empty' : ''}`}>
+                          {inChatSearchResults.length > 0 ? (
+                            <>
+                              <span className="msg-inchat-count-desktop">
+                                <strong>{inChatMatchIndex + 1}</strong> of <strong>{inChatSearchResults.length}</strong>
+                              </span>
+                              <span className="msg-inchat-count-mobile">
+                                <strong>{inChatMatchIndex + 1}</strong>/{inChatSearchResults.length}
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="msg-inchat-count-desktop">0 matches</span>
+                              <span className="msg-inchat-count-mobile">0</span>
+                            </>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="msg-inchat-search-hint">
+                          Press <kbd>Enter</kbd> to jump
+                        </span>
+                      )}
+
+                      <div className="msg-inchat-nav-group">
+                        <button
+                          type="button"
+                          disabled={inChatSearchResults.length === 0}
+                          onClick={handlePrevInChatMatch}
+                          className="msg-inchat-nav-btn"
+                          title="Previous match (Shift+Enter)"
+                        >
+                          <FiChevronUp size={16} />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={inChatSearchResults.length === 0}
+                          onClick={handleNextInChatMatch}
+                          className="msg-inchat-nav-btn"
+                          title="Next match (Enter)"
+                        >
+                          <FiChevronDown size={16} />
+                        </button>
+                      </div>
+
+                      {inChatSearchResults.length > 0 && (
+                        <button
+                          type="button"
+                          className={`msg-inchat-list-toggle-btn ${showInChatResultsList ? 'active' : ''}`}
+                          onClick={() => setShowInChatResultsList(!showInChatResultsList)}
+                          title={showInChatResultsList ? 'Hide results list' : 'View all matching messages'}
+                        >
+                          <FiList size={15} />
+                          <span className="msg-inchat-list-badge">{inChatSearchResults.length}</span>
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        className="msg-inchat-close-btn"
+                        onClick={() => {
+                          setShowInChatSearch(false);
+                          setInChatSearchQuery('');
+                          setInChatSearchResults([]);
+                          setShowInChatResultsList(false);
+                        }}
+                        title="Close in-chat search (Esc)"
+                      >
+                        <FiX size={16} />
+                      </button>
+                    </div>
+
+                    {/* Results Dropdown Popover */}
+                    {showInChatResultsList && inChatSearchResults.length > 0 && (
+                      <div className="msg-inchat-results-dropdown">
+                        <div className="msg-inchat-results-dropdown-header">
+                          <div className="msg-inchat-dropdown-title-wrap">
+                            <FiSearch size={13} />
+                            <span className="msg-inchat-dropdown-title">
+                              {inChatSearchResults.length} match{inChatSearchResults.length > 1 ? 'es' : ''} in #{activeRoom.name}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setShowInChatResultsList(false)}
+                            className="msg-inchat-dropdown-close"
+                            title="Close list"
+                          >
+                            <FiX size={14} />
+                          </button>
+                        </div>
+                        <div className="msg-inchat-results-dropdown-list">
+                          {inChatSearchResults.map((m, idx) => (
+                            <div
+                              key={m._id}
+                              className={`msg-inchat-dropdown-item ${inChatMatchIndex === idx ? 'active' : ''}`}
+                              onClick={() => {
+                                setInChatMatchIndex(idx);
+                                jumpToInChatMatch(m);
+                              }}
+                            >
+                              <img
+                                src={m.user?.avatar ? `${SOCKET_URL}${m.user.avatar}` : `https://ui-avatars.com/api/?name=${encodeURIComponent(m.user?.name || 'User')}&background=random&color=fff`}
+                                alt={m.user?.name}
+                                className="msg-inchat-dropdown-avatar"
+                              />
+                              <div className="msg-inchat-dropdown-info">
+                                <div className="msg-inchat-dropdown-top">
+                                  <span className="msg-inchat-dropdown-user">
+                                    {m.user?.name || 'User'} {m.user?.role ? `(${m.user.role})` : ''}
+                                  </span>
+                                  <span className="msg-inchat-dropdown-time">
+                                    {new Date(m.createdAt).toLocaleDateString([], {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                    })}
+                                  </span>
+                                </div>
+                                <div className="msg-inchat-dropdown-text">
+                                  {highlightSearchText(m.text, inChatSearchQuery, inChatMatchIndex === idx)}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Message Stream */}
                 <div className="msg-messages-list-wrapper">
                   <div className="msg-messages-list" ref={messagesListRef} onScroll={handleMessagesScroll}>
@@ -1347,14 +1823,25 @@ const MessageApp = ({ isFullPage = false }) => {
                         const isMe = user && msg.user?._id === user._id;
                         const isBeingEdited = editingId === msg._id;
                         const isHighlighted = highlightMessageId === msg._id;
+                        const isFirstUnread = firstUnreadMessageId === msg._id;
 
                         return (
-                          <div 
-                            id={`msg-${msg._id}`}
-                            key={msg._id} 
-                            style={{ display: 'flex', flexDirection: 'column' }} 
-                            className={`${isHighlighted ? 'msg-highlight-pulse' : ''} ${msg.isNew ? 'msg-new-entry' : ''}`}
-                          >
+                          <React.Fragment key={msg._id}>
+                            {isFirstUnread && (
+                              <div id="unread-divider-bar" className="msg-unread-divider">
+                                <div className="msg-unread-divider-line" />
+                                <div className="msg-unread-divider-badge">
+                                  <FiChevronDown size={12} />
+                                  <span>{unreadCountInRoom} Unread Message{unreadCountInRoom > 1 ? 's' : ''} Below</span>
+                                </div>
+                                <div className="msg-unread-divider-line" />
+                              </div>
+                            )}
+                            <div 
+                              id={`msg-${msg._id}`}
+                              style={{ display: 'flex', flexDirection: 'column' }} 
+                              className={`${isHighlighted ? 'msg-highlight-pulse' : ''} ${msg.isNew ? 'msg-new-entry' : ''}`}
+                            >
                             {msg.isBroadcast && (
                               <span className="msg-broadcast-badge">Broadcast Announcement</span>
                             )}
@@ -1489,7 +1976,7 @@ const MessageApp = ({ isFullPage = false }) => {
                                       {/* Message text with clickable tags (#) and mentions (@) */}
                                       {msg.text && (
                                         <div className="msg-bubble-text-wrap">
-                                          {renderFormattedMessage(msg.text)}
+                                          {renderFormattedMessage(msg.text, inChatSearchResults[inChatMatchIndex]?._id === msg._id)}
                                         </div>
                                       )}
                                       
@@ -1558,7 +2045,8 @@ const MessageApp = ({ isFullPage = false }) => {
                               </div>
                             </div>
                           </div>
-                        );
+                        </React.Fragment>
+                      );
                       })
                     )}
                     <div ref={messagesEndRef} />
@@ -1929,57 +2417,116 @@ const MessageApp = ({ isFullPage = false }) => {
 
         </div>
 
-        {/* VIEW 2: SEARCH TAG OVERLAY */}
+        {/* VIEW 2: SEARCH & CREATE TAG OVERLAY */}
         {showSearch && (
           <div className="msg-search-overlay">
             <header className="msg-search-header">
-              <button className="msg-detail-back" onClick={() => setShowSearch(false)}>
+              <button type="button" className="msg-close-btn" onClick={() => setShowSearch(false)} title="Close search">
                 <FiArrowLeft size={22} />
               </button>
-              <form onSubmit={handleCreateCustomTagChat} className="msg-search-input-wrapper">
-                <FiSearch size={16} />
+              <div className="msg-chat-search-wrap" style={{ flex: 1, margin: 0 }}>
+                <FiSearch size={14} className="msg-chat-search-icon" />
                 <input 
                   type="text" 
-                  placeholder="Search tag or category..." 
-                  className="msg-search-input"
+                  placeholder="Search topic or create tag (e.g. #exam)..." 
+                  className="msg-chat-search-input"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleCreateCustomTagChat(e);
+                    }
+                  }}
                 />
                 {searchQuery && (
-                  <button type="button" onClick={() => setSearchQuery('')}>
-                    <FiX size={16} />
+                  <button type="button" onClick={() => setSearchQuery('')} className="msg-chat-search-clear" title="Clear">
+                    <FiX size={14} />
                   </button>
                 )}
-              </form>
+              </div>
             </header>
 
-            <div className="msg-search-results">
-              {searchQuery && !getSearchResults().some(opt => opt.name === searchQuery.toLowerCase()) && (
-                <div style={{ marginBottom: 20 }}>
-                  <span className="msg-search-section-title">Create New Tag Room</span>
-                  <div className="msg-tag-chip" onClick={handleCreateCustomTagChat}>
-                    <span className="msg-tag-chip-name">Create #{searchQuery.toLowerCase()}</span>
-                    <FiPlus />
+            <div className="msg-rooms-list" style={{ padding: '8px 0' }}>
+              {/* Dedicated Create Tag Item Card */}
+              <div className="msg-search-group-block" style={{ paddingBottom: '12px', borderBottom: '1px solid var(--color-gray-200)' }}>
+                <span className="msg-search-group-heading">Create Tag Channel</span>
+                <div 
+                  className="msg-room-item"
+                  onClick={handleCreateCustomTagChat}
+                  style={{ background: 'rgba(255, 255, 255, 0.03)', margin: '4px 12px', borderRadius: '12px', border: '1.5px solid var(--accent-color)' }}
+                >
+                  <div className="msg-room-avatar tag-avatar">
+                    <FiPlus size={20} />
                   </div>
+                  <div className="msg-room-details">
+                    <div className="msg-room-top">
+                      <span className="msg-room-name" style={{ color: 'var(--accent-color)' }}>
+                        {searchQuery.trim() ? `Create #${searchQuery.trim().toLowerCase().replace(/^#/, '')}` : 'Create New Tag Room'}
+                      </span>
+                    </div>
+                    <div className="msg-room-bottom">
+                      <span className="msg-room-lasttext">
+                        {searchQuery.trim() ? 'Click or press Enter to launch channel' : 'Type hashtag in search box above (e.g. #sports)'}
+                      </span>
+                    </div>
+                  </div>
+                  {searchQuery.trim() && (
+                    <button 
+                      type="button" 
+                      style={{
+                        background: 'var(--accent-color)',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '16px',
+                        padding: '6px 14px',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      Create →
+                    </button>
+                  )}
                 </div>
-              )}
+              </div>
 
-              <span className="msg-search-section-title">Categories & Active Tags</span>
-              {getSearchResults().length === 0 ? (
-                <div className="msg-empty">No results match "{searchQuery}"</div>
-              ) : (
-                getSearchResults().map((opt) => (
-                  <div 
-                    key={opt.name} 
-                    className="msg-tag-chip"
-                    onClick={() => handleStartSearchChat(opt)}
-                  >
-                    <span className="msg-tag-chip-name">{opt.display}</span>
-                    <FiArrowLeft style={{ transform: 'rotate(180deg)' }} />
-                  </div>
-                ))
-              )}
+              {/* Categories & Active Tags List */}
+              <div className="msg-search-group-block" style={{ paddingTop: '8px' }}>
+                <span className="msg-search-group-heading">Categories & Active Tags</span>
+                {getSearchResults().length === 0 ? (
+                  <div className="msg-empty">No existing channels match "{searchQuery}"</div>
+                ) : (
+                  getSearchResults().map((opt) => {
+                    const isTag = opt.type === 'tag';
+                    const cleanName = opt.name ? opt.name.replace(/^#/, '') : '';
+                    return (
+                      <div 
+                        key={opt.name} 
+                        className="msg-room-item"
+                        onClick={() => handleStartSearchChat(opt)}
+                      >
+                        <div className={`msg-room-avatar ${isTag ? 'tag-avatar' : ''}`}>
+                          {isTag ? <FiHash size={16} /> : (opt.icon || opt.name.charAt(0).toUpperCase())}
+                        </div>
+                        <div className="msg-room-details">
+                          <div className="msg-room-top">
+                            <span className="msg-room-name">
+                              {isTag ? `#${cleanName}` : (opt.label || opt.name)}
+                            </span>
+                          </div>
+                          <div className="msg-room-bottom">
+                            <span className="msg-room-lasttext">
+                              {isTag ? 'Hashtag discussion channel' : 'Category discussion group'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             </div>
           </div>
         )}

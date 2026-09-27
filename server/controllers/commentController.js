@@ -95,13 +95,27 @@ exports.addComment = async (req, res, next) => {
 // @access  Public - all comments are auto-approved, no filtering needed
 exports.getComments = async (req, res, next) => {
   try {
-    const comments = await Comment.find({
-      article: req.params.articleId,
-    })
-      .populate('author', 'name username showRealNamePublicly avatar role')
-      .sort({ createdAt: 1 });
+    const { page = 1, limit = 50 } = req.query;
+    const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 100);
+    const skip = (Number(page) - 1) * safeLimit;
 
-    res.status(200).json({ success: true, count: comments.length, data: comments });
+    const query = { article: req.params.articleId };
+    const total = await Comment.countDocuments(query);
+    const comments = await Comment.find(query)
+      .populate('author', 'name username showRealNamePublicly avatar role')
+      .sort({ createdAt: 1 })
+      .skip(skip)
+      .limit(safeLimit)
+      .lean();
+
+    res.status(200).json({
+      success: true,
+      count: comments.length,
+      total,
+      totalPages: Math.ceil(total / safeLimit),
+      currentPage: Number(page),
+      data: comments,
+    });
   } catch (err) {
     next(err);
   }
@@ -195,11 +209,28 @@ exports.deleteComment = async (req, res, next) => {
 // @access  Private/Admin/Editor
 exports.getPendingComments = async (req, res, next) => {
   try {
-    const comments = await Comment.find({ isApproved: false })
+    const { page = 1, limit = 25 } = req.query;
+    const safeLimit = Math.min(Math.max(Number(limit) || 25, 1), 100);
+    const skip = (Number(page) - 1) * safeLimit;
+
+    const query = { isApproved: false };
+    const total = await Comment.countDocuments(query);
+    const comments = await Comment.find(query)
       .populate('author', 'name email')
       .populate('article', 'title slug')
-      .sort({ createdAt: -1 });
-    res.status(200).json({ success: true, count: comments.length, data: comments });
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(safeLimit)
+      .lean();
+
+    res.status(200).json({
+      success: true,
+      count: comments.length,
+      total,
+      totalPages: Math.ceil(total / safeLimit),
+      currentPage: Number(page),
+      data: comments,
+    });
   } catch (err) {
     next(err);
   }
@@ -210,12 +241,55 @@ exports.getPendingComments = async (req, res, next) => {
 // @access  Private
 exports.getMyComments = async (req, res, next) => {
   try {
-    const comments = await Comment.find({ author: req.user.id })
-      .populate('article', 'title slug category coverImage')
-      .sort({ createdAt: -1 });
+    const { page = 1, limit = 25 } = req.query;
+    const safeLimit = Math.min(Math.max(Number(limit) || 25, 1), 100);
+    const skip = (Number(page) - 1) * safeLimit;
 
-    res.status(200).json({ success: true, count: comments.length, data: comments });
+    const query = { author: req.user.id };
+    const total = await Comment.countDocuments(query);
+    const comments = await Comment.find(query)
+      .populate('article', 'title slug category coverImage')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(safeLimit)
+      .lean();
+
+    res.status(200).json({
+      success: true,
+      count: comments.length,
+      total,
+      totalPages: Math.ceil(total / safeLimit),
+      currentPage: Number(page),
+      data: comments,
+    });
   } catch (err) {
     next(err);
   }
 };
+
+// @desc    Toggle like on comment
+// @route   POST /api/comments/:id/like
+// @access  Private
+exports.likeComment = async (req, res, next) => {
+  try {
+    const comment = await Comment.findById(req.params.id);
+    if (!comment) return res.status(404).json({ success: false, message: 'Comment not found' });
+
+    if (!Array.isArray(comment.likes)) {
+      comment.likes = [];
+    }
+
+    const userIndex = comment.likes.findIndex(uid => uid.toString() === req.user.id.toString());
+    if (userIndex > -1) {
+      comment.likes.splice(userIndex, 1);
+    } else {
+      comment.likes.push(req.user.id);
+    }
+    await comment.save();
+
+    res.status(200).json({ success: true, likes: comment.likes });
+  } catch (err) {
+    next(err);
+  }
+};
+

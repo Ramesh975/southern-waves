@@ -83,7 +83,7 @@
 }
 
 [data-theme="dark"] .picspeak-home-title {
-  color: var(--color-white);
+  color: #f1f5f9;
 }
 
 .picspeak-home-subtitle {
@@ -142,7 +142,7 @@
 }
 
 [data-theme="dark"] .picspeak-section-title {
-  color: var(--color-white);
+  color: #f1f5f9;
 }
 
 .picspeak-section-count {
@@ -386,7 +386,7 @@
 }
 
 [data-theme="dark"] .picspeak-trend-title {
-  color: var(--color-white);
+  color: #f1f5f9;
 }
 
 .picspeak-trend-meta {
@@ -459,7 +459,7 @@
 }
 
 [data-theme="dark"] .ps-explore-main-title {
-  color: var(--color-white);
+  color: #f1f5f9;
 }
 
 .ps-explore-subtitle {
@@ -530,7 +530,7 @@
 }
 
 [data-theme="dark"] .ps-explore-search-input {
-  color: var(--color-white);
+  color: #f1f5f9;
 }
 
 .ps-explore-search-clear {
@@ -2127,7 +2127,7 @@
 }
 
 [data-theme="dark"] .ps-studio-title {
-  color: var(--color-white);
+  color: #f1f5f9;
 }
 
 .ps-studio-subtitle {
@@ -2183,7 +2183,7 @@
 [data-theme="dark"] .ps-form-input,
 [data-theme="dark"] .ps-form-textarea {
   border-color: var(--color-gray-800);
-  color: var(--color-white);
+  color: #f1f5f9;
 }
 
 .ps-form-input:focus,
@@ -2236,7 +2236,7 @@
 }
 
 [data-theme="dark"] .ps-dropzone-text {
-  color: var(--color-white);
+  color: #f1f5f9;
 }
 
 .ps-dropzone-hint {
@@ -2317,7 +2317,7 @@
 
 [data-theme="dark"] .ps-slide-caption-input {
   border-color: var(--color-gray-800);
-  color: var(--color-white);
+  color: #f1f5f9;
 }
 
 .ps-slide-caption-input:focus {
@@ -2385,7 +2385,7 @@
 }
 
 [data-theme="dark"] .ps-queue-title {
-  color: var(--color-white);
+  color: #f1f5f9;
 }
 
 .ps-queue-subtitle {
@@ -2463,7 +2463,7 @@
 }
 
 [data-theme="dark"] .ps-pending-card-title {
-  color: var(--color-white);
+  color: #f1f5f9;
 }
 
 .ps-pending-card-date {
@@ -2700,7 +2700,7 @@
 }
 
 [data-theme="dark"] .ps-pending-card-author-name {
-  color: var(--color-white);
+  color: #f1f5f9;
 }
 
 .ps-pending-card-author-role {
@@ -2876,7 +2876,7 @@
 }
 
 [data-theme="dark"] .ps-auth-required-title {
-  color: var(--color-white);
+  color: #f1f5f9;
 }
 
 .ps-auth-required-desc {

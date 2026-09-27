@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   FiX, FiVolume2, FiVolumeX, FiPlay, FiPause, 
@@ -30,6 +30,21 @@ const PictureSpeakModal = ({ articleId, onClose, articlesList = [] }) => {
   const slideshowTimerRef = useRef(null);
   const isMountedRef = useRef(true);
 
+  // Swipe state
+  const touchStartRef = useRef({ x: 0, y: 0 });
+
+  // 0. Body lock & bottom nav pill removal
+  useEffect(() => {
+    document.body.classList.add('ps-modal-open');
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.classList.remove('ps-modal-open');
+      document.body.style.overflow = originalOverflow;
+    };
+  }, []);
+
   // 1. Fetch Selected Article Details
   useEffect(() => {
     isMountedRef.current = true;
@@ -44,7 +59,7 @@ const PictureSpeakModal = ({ articleId, onClose, articlesList = [] }) => {
   const fetchArticleDetails = async (id) => {
     setLoading(true);
     try {
-      const res = await articleAPI.getBySlug(id); // Slug or ID, backend works with both
+      const res = await articleAPI.getBySlug(id);
       if (res.data?.data) {
         setSelectedArticle(res.data.data);
         setLikes(res.data.data.likes || []);
@@ -52,7 +67,6 @@ const PictureSpeakModal = ({ articleId, onClose, articlesList = [] }) => {
         setIsExpanded(false);
       }
     } catch (err) {
-      // If slug lookup fails, try direct ID lookup
       try {
         const allRes = await articleAPI.getAll({ category: 'pictures-speak', limit: 100 });
         const matched = allRes.data?.data?.find(a => a._id === id || a.slug === id);
@@ -80,7 +94,6 @@ const PictureSpeakModal = ({ articleId, onClose, articlesList = [] }) => {
     if (selectedArticle.images && selectedArticle.images.length > 0) {
       return selectedArticle.images;
     }
-    // Fallback to coverImage if no slides uploaded
     return [{
       url: selectedArticle.coverImage,
       caption: selectedArticle.lead || 'Photo story detail'
@@ -90,14 +103,14 @@ const PictureSpeakModal = ({ articleId, onClose, articlesList = [] }) => {
   const slides = getSlides();
 
   // 2. Speech Engine (TTS)
-  const speakText = (text) => {
+  const speakText = useCallback((text) => {
     if (!('speechSynthesis' in window)) return;
     window.speechSynthesis.cancel();
     setIsSpeaking(false);
 
     if (!isPlayingSpeech || !text) return;
 
-    const cleanText = text.replace(/<[^>]*>/g, ''); // strip HTML tags
+    const cleanText = text.replace(/<[^>]*>/g, '');
     const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.rate = speechRate;
 
@@ -113,14 +126,13 @@ const PictureSpeakModal = ({ articleId, onClose, articlesList = [] }) => {
       if (isMountedRef.current) setIsSpeaking(false);
     };
 
-    // Find custom voices
     const voices = window.speechSynthesis.getVoices();
     const premiumVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Google') || v.name.includes('Natural')));
     const fallbackVoice = voices.find(v => v.lang.startsWith('en'));
     utterance.voice = premiumVoice || fallbackVoice || null;
 
     window.speechSynthesis.speak(utterance);
-  };
+  }, [isPlayingSpeech, speechRate]);
 
   const stopSpeech = () => {
     if ('speechSynthesis' in window) {
@@ -133,7 +145,6 @@ const PictureSpeakModal = ({ articleId, onClose, articlesList = [] }) => {
   useEffect(() => {
     if (loading || !selectedArticle || slides.length === 0) return;
     
-    // First slide speaks Title & Summary + active caption. Others speak caption.
     let textToSpeak = '';
     if (activeSlide === 0) {
       textToSpeak = `${selectedArticle.title}. ${selectedArticle.lead}. ${slides[0]?.caption || ''}`;
@@ -141,13 +152,12 @@ const PictureSpeakModal = ({ articleId, onClose, articlesList = [] }) => {
       textToSpeak = slides[activeSlide]?.caption || '';
     }
 
-    // Delay speech slightly to allow smooth transitions
     const t = setTimeout(() => {
       speakText(textToSpeak);
     }, 400);
 
     return () => clearTimeout(t);
-  }, [activeSlide, selectedArticle, isPlayingSpeech, speechRate, loading]);
+  }, [activeSlide, selectedArticle, isPlayingSpeech, speechRate, loading, speakText]);
 
   // 3. Auto Slideshow Scroll Interval
   useEffect(() => {
@@ -156,8 +166,8 @@ const PictureSpeakModal = ({ articleId, onClose, articlesList = [] }) => {
     if (isAutoScrolling && slides.length > 1) {
       slideshowTimerRef.current = setInterval(() => {
         setActiveSlide(prev => (prev + 1) % slides.length);
-        setIsExpanded(false); // Close expanded text on slide switch
-      }, 9000); // 9 seconds slow scroll speed
+        setIsExpanded(false);
+      }, 9000);
     }
 
     return () => {
@@ -176,6 +186,41 @@ const PictureSpeakModal = ({ articleId, onClose, articlesList = [] }) => {
     if (slides.length <= 1) return;
     setActiveSlide(prev => (prev + 1) % slides.length);
     setIsExpanded(false);
+  };
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'ArrowLeft') {
+        handlePrevSlide();
+      } else if (e.key === 'ArrowRight') {
+        handleNextSlide();
+      } else if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [slides.length, onClose]);
+
+  // Touch Swipe Handlers for mobile viewer
+  const handleTouchStart = (e) => {
+    const t = e.targetTouches[0];
+    touchStartRef.current = { x: t.clientX, y: t.clientY };
+  };
+
+  const handleTouchEnd = (e) => {
+    if (!e.changedTouches || !e.changedTouches[0]) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - touchStartRef.current.x;
+    const dy = t.clientY - touchStartRef.current.y;
+    if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) {
+      if (dx < 0) {
+        handleNextSlide();
+      } else {
+        handlePrevSlide();
+      }
+    }
   };
 
   // Hype (Like) handler
@@ -200,45 +245,48 @@ const PictureSpeakModal = ({ articleId, onClose, articlesList = [] }) => {
       await articleAPI.share(selectedArticle._id);
       const url = `${window.location.origin}/article/${selectedArticle.slug}`;
       await navigator.clipboard.writeText(url);
-      toast.success('Copy link to clipboard!');
+      toast.success('Link copied to clipboard! 🔗');
     } catch (err) {
       console.error('Share failed:', err);
     }
   };
 
-  // Other Picture Speak articles for Right List (include selected one to highlight it in the list)
   const rightSidebarArticles = articlesList || [];
 
   return (
     <div className="ps-modal-backdrop" onClick={(e) => e.target === e.currentTarget && onClose()}>
       
-      {/* Premium Luxury Modal */}
+      {/* Premium Luxury Modal Box */}
       <div className="ps-modal-box">
         
         {/* Modal Header */}
         <div className="ps-modal-header">
           <div className="ps-modal-header-left">
-            <span className="ps-category-badge">CAMERA SPEAKS</span>
+            <span className="ps-category-badge">📷 CAMERA SPEAKS</span>
             <h2 className="ps-modal-header-title">{selectedArticle?.title || 'Loading Photo Story...'}</h2>
           </div>
           <button className="ps-modal-close-btn" onClick={onClose} aria-label="Close modal">
-            <FiX size={24} />
+            <FiX size={20} />
           </button>
         </div>
 
         {loading ? (
-          <div className="ps-modal-loader">
-            <div className="ps-spinner" />
-            <p>Gathering pictures and stories...</p>
+          <div className="ps-modal-loader" style={{ padding: '60px 20px', textAlign: 'center' }}>
+            <div className="ps-spinner" style={{ margin: '0 auto 16px' }} />
+            <p style={{ color: 'var(--color-gray-500)', fontSize: 14 }}>Gathering pictures and stories...</p>
           </div>
         ) : (
           <div className="ps-modal-layout">
             
-            {/* LEFT COLUMN: Slideshow, Speech controls & Expanded Details */}
+            {/* LEFT COLUMN: Slideshow, Controls & Narrative */}
             <div className="ps-modal-main">
               
               {/* Interactive Image Frame */}
-              <div className="ps-viewer-frame">
+              <div 
+                className="ps-viewer-frame"
+                onTouchStart={handleTouchStart}
+                onTouchEnd={handleTouchEnd}
+              >
                 {slides.length > 0 && (
                   <img 
                     src={getImageUrl(slides[activeSlide]?.url)} 
@@ -250,11 +298,11 @@ const PictureSpeakModal = ({ articleId, onClose, articlesList = [] }) => {
                 {/* Left/Right Overlays */}
                 {slides.length > 1 && (
                   <>
-                    <button className="ps-nav-arrow left" onClick={handlePrevSlide}>
-                      <FiChevronLeft size={24} />
+                    <button className="ps-nav-arrow left" onClick={handlePrevSlide} aria-label="Previous slide">
+                      <FiChevronLeft size={22} />
                     </button>
-                    <button className="ps-nav-arrow right" onClick={handleNextSlide}>
-                      <FiChevronRight size={24} />
+                    <button className="ps-nav-arrow right" onClick={handleNextSlide} aria-label="Next slide">
+                      <FiChevronRight size={22} />
                     </button>
                   </>
                 )}
@@ -266,6 +314,7 @@ const PictureSpeakModal = ({ articleId, onClose, articlesList = [] }) => {
                       key={idx} 
                       className={`ps-slide-dot ${idx === activeSlide ? 'active' : ''}`}
                       onClick={() => { setActiveSlide(idx); setIsExpanded(false); }}
+                      title={`Slide ${idx + 1}`}
                     />
                   ))}
                 </div>
@@ -289,7 +338,7 @@ const PictureSpeakModal = ({ articleId, onClose, articlesList = [] }) => {
                     onClick={() => setIsAutoScrolling(!isAutoScrolling)}
                     title={isAutoScrolling ? "Pause Auto-Slide" : "Play Auto-Slide"}
                   >
-                    {isAutoScrolling ? <FiPause size={16} /> : <FiPlay size={16} />}
+                    {isAutoScrolling ? <FiPause size={14} /> : <FiPlay size={14} />}
                     <span>Auto-Slide</span>
                   </button>
                   
@@ -305,13 +354,13 @@ const PictureSpeakModal = ({ articleId, onClose, articlesList = [] }) => {
                     }}
                     title={isPlayingSpeech ? "Mute Voice" : "Unmute Voice"}
                   >
-                    {isPlayingSpeech ? <FiVolume2 size={16} /> : <FiVolumeX size={16} />}
+                    {isPlayingSpeech ? <FiVolume2 size={14} /> : <FiVolumeX size={14} />}
                     <span>Voice Narrator</span>
                   </button>
                 </div>
 
                 <div className="ps-console-right">
-                  <label htmlFor="speech-rate-slider">Speed:</label>
+                  <label htmlFor="speech-rate-slider" style={{ fontSize: 11, fontWeight: 600 }}>Speed:</label>
                   <input 
                     id="speech-rate-slider"
                     type="range" 
@@ -322,66 +371,119 @@ const PictureSpeakModal = ({ articleId, onClose, articlesList = [] }) => {
                     onChange={(e) => setSpeechRate(parseFloat(e.target.value))}
                     className="ps-rate-slider"
                   />
-                  <span className="ps-rate-indicator">{speechRate.toFixed(1)}x</span>
+                  <span className="ps-rate-indicator" style={{ fontSize: 11, fontWeight: 700 }}>{speechRate.toFixed(1)}x</span>
                 </div>
               </div>
 
               {/* Elevated Content Card with Fog Effect */}
-              <div className={`ps-narrative-card ${isExpanded ? 'elevated' : ''}`}>
-                <div className="ps-card-header">
-                  <span className="ps-card-slide-num">Slide {activeSlide + 1} of {slides.length}</span>
-                  {selectedArticle.author && (
-                    <span className="ps-card-author">Photo Journal by {selectedArticle.author.name}</span>
+              <div className={`ps-narrative-card ${isExpanded ? 'elevated' : ''}`} style={{ marginTop: 14 }}>
+                <div className="ps-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <span className="ps-card-slide-num" style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-color)' }}>
+                    📸 Photo {activeSlide + 1} of {slides.length} {activeSlide === 0 ? '• Lead Cover' : ''}
+                  </span>
+                  {selectedArticle?.author && (
+                    <span className="ps-card-author" style={{ fontSize: 12, color: 'var(--color-gray-500)' }}>
+                      Photo Story by <strong style={{ color: 'var(--color-black)' }}>{selectedArticle.author.name}</strong>
+                    </span>
                   )}
                 </div>
 
                 <div className={`ps-card-text-container ${isExpanded ? 'expanded' : ''}`}>
-                  <p className="ps-slide-caption-text">
-                    {slides[activeSlide]?.caption || "No narration text recorded for this slide."}
+                  <p className="ps-slide-caption-text" style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--color-black)', margin: '0 0 10px 0' }}>
+                    {slides[activeSlide]?.caption || selectedArticle?.lead || "No caption text recorded for this photo."}
                   </p>
                   
-                  {activeSlide === 0 && selectedArticle.body && (
+                  {activeSlide === 0 && selectedArticle?.lead && slides[0]?.caption !== selectedArticle.lead && (
+                    <p style={{ fontSize: 13, color: 'var(--color-gray-500)', lineHeight: 1.5, margin: '0 0 10px 0', fontStyle: 'italic' }}>
+                      {selectedArticle.lead}
+                    </p>
+                  )}
+
+                  {activeSlide === 0 && selectedArticle?.body && (
                     <div 
                       className="ps-article-full-body"
+                      style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--color-black)' }}
                       dangerouslySetInnerHTML={{ __html: selectedArticle.body }}
                     />
                   )}
 
-                  {/* Fog gradient mask */}
                   {!isExpanded && (
                     <div className="ps-text-fog-overlay" />
                   )}
                 </div>
 
                 {/* Read More Trigger */}
-                <div className="ps-read-more-row">
+                <div className="ps-read-more-row" style={{ marginTop: 6, marginBottom: 12 }}>
                   <button 
                     className="ps-read-more-btn"
                     onClick={() => setIsExpanded(!isExpanded)}
+                    style={{ background: 'none', border: 'none', color: 'var(--accent-color)', fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: 0 }}
                   >
                     {isExpanded ? 'Show Less ↑' : 'Read Full Narrative ↓'}
                   </button>
                 </div>
 
-                {/* Left side actions bar */}
-                <div className="ps-actions-bar">
+                {/* Actions Bar */}
+                <div className="ps-actions-bar" style={{ display: 'flex', gap: 10, borderTop: '1px solid var(--color-gray-200)', paddingTop: 12 }}>
                   <button 
                     className={`ps-action-btn heart ${user && likes.includes(user._id) ? 'active' : ''}`}
                     onClick={handleHype}
+                    style={{
+                      padding: '7px 14px',
+                      borderRadius: 20,
+                      border: '1px solid var(--color-gray-200)',
+                      background: user && likes.includes(user._id) ? 'rgba(239, 68, 68, 0.12)' : 'var(--color-white)',
+                      color: user && likes.includes(user._id) ? '#ef4444' : 'var(--color-black)',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6
+                    }}
                   >
-                    <FiHeart size={18} />
+                    <FiHeart size={15} />
                     <span>Hype ({likes.length})</span>
                   </button>
                   <button 
                     className="ps-action-btn comments"
                     onClick={() => setShowComments(true)}
+                    style={{
+                      padding: '7px 14px',
+                      borderRadius: 20,
+                      border: '1px solid var(--color-gray-200)',
+                      background: 'var(--color-white)',
+                      color: 'var(--color-black)',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6
+                    }}
                   >
-                    <FiMessageSquare size={18} />
-                    <span>Discuss ({selectedArticle.commentsCount || 0})</span>
+                    <FiMessageSquare size={15} />
+                    <span>Discuss ({selectedArticle?.commentsCount || 0})</span>
                   </button>
-                  <button className="ps-action-btn share" onClick={handleShare}>
-                    <FiShare2 size={18} />
-                    <span>Copy Link</span>
+                  <button 
+                    className="ps-action-btn share" 
+                    onClick={handleShare}
+                    style={{
+                      padding: '7px 14px',
+                      borderRadius: 20,
+                      border: '1px solid var(--color-gray-200)',
+                      background: 'var(--color-white)',
+                      color: 'var(--color-black)',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6
+                    }}
+                  >
+                    <FiShare2 size={15} />
+                    <span>Share</span>
                   </button>
                 </div>
               </div>
@@ -390,16 +492,20 @@ const PictureSpeakModal = ({ articleId, onClose, articlesList = [] }) => {
 
             {/* RIGHT COLUMN: Sidebar List of other Camera Speaks */}
             <div className="ps-modal-sidebar">
-              <h3 className="ps-sidebar-title">Other Stories</h3>
+              <h3 className="ps-sidebar-title" style={{ fontSize: 14, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 10px 0', color: 'var(--color-black)' }}>
+                More Visual Stories
+              </h3>
               <div className="ps-sidebar-list">
                 {rightSidebarArticles.length === 0 ? (
-                  <p className="ps-sidebar-empty">No other photo stories found.</p>
+                  <p className="ps-sidebar-empty" style={{ fontSize: 12, color: 'var(--color-gray-400)', fontStyle: 'italic' }}>
+                    No other photo stories found.
+                  </p>
                 ) : (
                   rightSidebarArticles.map((art) => (
                     <div 
                       key={art._id} 
                       className={`ps-sidebar-item-card ${selectedArticle && (selectedArticle._id === art._id || selectedArticle.slug === art.slug) ? 'active' : ''}`}
-                      onClick={() => fetchArticleDetails(art.slug)}
+                      onClick={() => fetchArticleDetails(art.slug || art._id)}
                     >
                       <div className="ps-sidebar-card-thumb">
                         <img src={getImageUrl(art.coverImage)} alt={art.title} />
@@ -407,7 +513,7 @@ const PictureSpeakModal = ({ articleId, onClose, articlesList = [] }) => {
                       <div className="ps-sidebar-card-info">
                         <h4 className="ps-sidebar-card-title">{art.title}</h4>
                         <span className="ps-sidebar-card-meta">
-                          By {art.author?.name || 'Student'} • {art.images?.length || 1} slides
+                          By {art.author?.name || 'Student'} • {art.images?.length || 1} {art.images?.length === 1 ? 'photo' : 'photos'}
                         </span>
                       </div>
                     </div>
@@ -427,7 +533,6 @@ const PictureSpeakModal = ({ articleId, onClose, articlesList = [] }) => {
           article={selectedArticle} 
           onClose={() => {
             setShowComments(false);
-            // Refresh comments count
             fetchArticleDetails(selectedArticle._id);
           }}
         />
@@ -438,3 +543,4 @@ const PictureSpeakModal = ({ articleId, onClose, articlesList = [] }) => {
 };
 
 export default PictureSpeakModal;
+

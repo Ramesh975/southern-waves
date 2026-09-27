@@ -3,8 +3,9 @@ import { Link } from 'react-router-dom';
 import { FiClock, FiZap, FiEye } from 'react-icons/fi';
 import { isWithinInterval, subHours } from 'date-fns';
 import NewsArticleCard, { getImgSrc, timeAgo } from './NewsArticleCard';
+import InfiniteScrollFooter from './InfiniteScrollFooter';
 
-const RecentTab = ({ articles, highlightId, onReply, onComment }) => {
+const RecentTab = ({ articles, highlightId, onReply, onComment, sentinelRef, loadingMore, hasMore, onLoadMore }) => {
   const hotFewHours = articles.filter(a => {
     try {
       return isWithinInterval(new Date(a.publishedAt), {
@@ -41,6 +42,13 @@ const RecentTab = ({ articles, highlightId, onReply, onComment }) => {
           <NewsArticleCard key={art._id} article={art} onReply={onReply} onComment={onComment} highlight={highlightId === art._id} />
         ))}
         {recentAll.length === 0 && <div className="nm-empty">No recent articles.</div>}
+        <InfiniteScrollFooter
+          sentinelRef={sentinelRef}
+          isLoading={loadingMore}
+          hasMore={hasMore}
+          count={articles.length}
+          onLoadMore={onLoadMore}
+        />
       </div>
 
       {/* Right: Hot Few Hours + Hot Minute */}

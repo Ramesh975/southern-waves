@@ -48,7 +48,7 @@
   align-items: center;
   gap: 8px;
   background: var(--color-black);
-  color: var(--color-white);
+  color: #ffffff;
   padding: 12px 24px;
   border-radius: var(--radius-md);
   font-family: var(--font-display);
@@ -64,7 +64,7 @@
 .btn-upload-trigger:hover {
   background: var(--accent-color);
   border-color: var(--accent-color);
-  color: #fff;
+  color: #ffffff;
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
 }
@@ -305,7 +305,7 @@
 .category-pill.active {
   background: var(--color-black);
   border-color: var(--color-black);
-  color: var(--color-white);
+  color: #ffffff;
 }
 
 /* Tabs for View Switching */
@@ -809,7 +809,7 @@
 .btn-save {
   padding: 12px 24px;
   background: var(--color-black);
-  color: var(--color-white);
+  color: #ffffff;
   border-radius: var(--radius-md);
   font-weight: 700;
   cursor: pointer;

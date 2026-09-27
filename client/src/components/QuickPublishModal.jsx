@@ -6,24 +6,139 @@ import {
   FiFileText, FiCamera, FiBook, FiSearch, FiBookOpen,
   FiChevronDown, FiChevronUp, FiEye, FiSave, FiZap,
   FiClock, FiAlertCircle, FiCheckCircle, FiImage, FiTag,
-  FiTrash2, FiBarChart2, FiLayout, FiHash
+  FiTrash2, FiBarChart2, FiLayout, FiHash,
+  FiArrowUp, FiArrowDown, FiStar, FiMapPin
 } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import WordEditor from './WordEditor';
 
 import { getImageUrl } from './ArticleComponents';
 
-/* ─── Post-type Definitions ─── */
+/* ─── Post-type Definitions with Role Permissions & Rich Metadata ─── */
 const POST_TYPES = [
-  { id:'article',   label:'Article',        icon:FiFileText,  color:'#0055a4', desc:'Full news article with body',        category:'news',           fields:['title','lead','body','category','image','tags'] },
-  { id:'university',label:'University Row', icon:FiBookOpen,  color:'#10b981', desc:'Campus affairs & university news',   category:'university-row', fields:['title','lead','body','category','image','tags'] },
-  { id:'editorial', label:'Editorial',      icon:FiBook,      color:'#f59e0b', desc:'Opinion & editorial piece',          category:'editorial',      fields:['title','lead','body','category','image','tags'] },
-  { id:'features',  label:'Features',       icon:FiLayout,    color:'#8b5cf6', desc:'Culture, film & lifestyle features',  category:'features',       fields:['title','lead','body','category','image','tags'] },
-  { id:'picture',   label:'Picture',        icon:FiCamera,    color:'#ec4899', desc:"Picture speaks photo journal",       category:'pictures-speak', fields:['title','lead','image','tags'] },
-  { id:'event',     label:'Timeline Event', icon:FiBookOpen,  color:'#3b82f6', desc:'Know Your Past timeline event',     category:'kyp',            fields:['title','lead','body','category','image','tags'] },
-  { id:'mind',      label:'Mind',           icon:FiFeather,   color:'#8b5cf6', desc:'A quick thought or opinion',         category:'tea-shop',       fields:['title','lead','tags'],                           tag:'mind' },
-  { id:'spoken',    label:'Spoken',         icon:FiMic,       color:'#06b6d4', desc:'Voice your perspective',             category:'tea-shop',       fields:['title','lead','tags'],                           tag:'spoken' },
-  { id:'ground',    label:'Ground',         icon:FiRadio,     color:'#10b981', desc:'Share on the ground feed',           category:'tea-shop',       fields:['title','lead','body','image','tags'],            tag:'ground' },
+  // ── Student & Tea Shop Formats ──
+  {
+    id: 'mind',
+    label: 'Mind',
+    sectionBadge: 'Tea Shop',
+    placeLabel: '☕ Tea Shop · Student Voice',
+    formatTag: '💬 Quick Thought',
+    icon: FiFeather,
+    color: '#8b5cf6',
+    desc: 'Share short reflections, quick thoughts, quotes, campus observations, and bite-sized student opinions in Tea Shop.',
+    category: 'tea-shop',
+    fields: ['title', 'lead', 'tags'],
+    tag: 'mind',
+    allowedRoles: ['student'],
+  },
+  {
+    id: 'spoken',
+    label: 'Spoken',
+    sectionBadge: 'Tea Shop',
+    placeLabel: '🎙️ Tea Shop · Voice & Monologue',
+    formatTag: '🗣️ Spoken Perspective',
+    icon: FiMic,
+    color: '#06b6d4',
+    desc: 'Express your voice, spoken-word narratives, audio-style opinions, and personal student perspectives in Tea Shop.',
+    category: 'tea-shop',
+    fields: ['title', 'lead', 'tags'],
+    tag: 'spoken',
+    allowedRoles: ['student'],
+  },
+  {
+    id: 'ground',
+    label: 'Ground',
+    sectionBadge: 'Tea Shop',
+    placeLabel: '📡 Tea Shop · Live Campus Pulse',
+    formatTag: '📸 Report + Photo',
+    icon: FiRadio,
+    color: '#10b981',
+    desc: 'Real-time student ground reporting, live campus updates, event happenings, club buzz, and photo stories in Tea Shop.',
+    category: 'tea-shop',
+    fields: ['title', 'lead', 'body', 'image', 'tags'],
+    tag: 'ground',
+    allowedRoles: ['student'],
+  },
+  {
+    id: 'picture',
+    label: "Picture's Speak",
+    sectionBadge: "Picture's Speak",
+    placeLabel: "📷 Visual Photo Journal",
+    formatTag: "🖼️ Photo Essay (Admin Review)",
+    icon: FiCamera,
+    color: '#ec4899',
+    desc: 'Curated photo essays, campus visual storytelling, and photo series (Student uploads are submitted for Admin verification before publishing).',
+    category: 'pictures-speak',
+    fields: ['title', 'lead', 'image', 'tags'],
+    allowedRoles: ['editor', 'admin', 'moderator'],
+  },
+
+  // ── Official Editorial & Journalism Formats (Staff Only) ──
+  {
+    id: 'article',
+    label: 'News Article',
+    sectionBadge: 'News',
+    placeLabel: '📰 Official News Section',
+    formatTag: '📝 Structured Journalism',
+    icon: FiFileText,
+    color: '#0055a4',
+    desc: 'Comprehensive reporting, breaking news, official announcements, campus headlines, and full-length journalistic articles.',
+    category: 'news',
+    fields: ['title', 'lead', 'body', 'category', 'image', 'tags'],
+    allowedRoles: ['editor', 'admin', 'moderator'],
+  },
+  {
+    id: 'university',
+    label: 'University Row',
+    sectionBadge: 'University Row',
+    placeLabel: '🏛️ Campus Affairs & Governance',
+    formatTag: '📋 Policy & Institutional',
+    icon: FiBookOpen,
+    color: '#10b981',
+    desc: 'Official institutional updates, administrative affairs, syndicate decisions, governance news, and academic policies.',
+    category: 'university-row',
+    fields: ['title', 'lead', 'body', 'category', 'image', 'tags'],
+    allowedRoles: ['editor', 'admin', 'moderator'],
+  },
+  {
+    id: 'editorial',
+    label: 'Editorial',
+    sectionBadge: 'Editorial',
+    placeLabel: '✍️ Staff Commentary & Column',
+    formatTag: '✒️ Op-Ed & Analysis',
+    icon: FiBook,
+    color: '#f59e0b',
+    desc: 'Authoritative analysis, staff commentary, critical viewpoints, in-depth perspectives, and official editorial op-eds.',
+    category: 'editorial',
+    fields: ['title', 'lead', 'body', 'category', 'image', 'tags'],
+    allowedRoles: ['editor', 'admin', 'moderator'],
+  },
+  {
+    id: 'features',
+    label: 'Features',
+    sectionBadge: 'Features',
+    placeLabel: '🎬 Culture & Deep Dive',
+    formatTag: '🌟 Long-form Magazine',
+    icon: FiLayout,
+    color: '#8b5cf6',
+    desc: 'Long-form narrative journalism covering arts, film, culture, campus lifestyle, spotlight interviews, and special series.',
+    category: 'features',
+    fields: ['title', 'lead', 'body', 'category', 'image', 'tags'],
+    allowedRoles: ['editor', 'admin', 'moderator'],
+  },
+  {
+    id: 'event',
+    label: 'Timeline Event',
+    sectionBadge: 'Know Your Past',
+    placeLabel: '📖 KYP Heritage Timeline',
+    formatTag: '⏳ Historical Record',
+    icon: FiClock,
+    color: '#3b82f6',
+    desc: 'Historical milestone entries, heritage records, archival events, and chronological documentation for Know Your Past.',
+    category: 'kyp',
+    fields: ['title', 'lead', 'body', 'category', 'image', 'tags'],
+    allowedRoles: ['editor', 'admin', 'moderator'],
+  },
 ];
 
 const CATEGORIES = [
@@ -70,10 +185,26 @@ const QuickPublishModal = ({
   onPublishSuccess
 }) => {
   const { user } = useAuth();
-  const isAdminOrEditor = user && (user.role === 'admin' || user.role === 'editor');
+  const userRole = user?.role || 'student';
+  const isStudent = userRole === 'student';
+  const isAdminOrEditor = ['admin', 'editor', 'moderator'].includes(userRole);
 
-  // Allow all authors to create across any format
-  const visiblePostTypes = POST_TYPES;
+  // Filter visible types strictly by user role
+  const visiblePostTypes = POST_TYPES.filter(pt => {
+    if (pt.allowedRoles) {
+      return pt.allowedRoles.includes(userRole);
+    }
+    return true;
+  });
+
+  // Filter available categories for sidebar
+  const availableCategories = CATEGORIES.filter(cat => {
+    if (isStudent) {
+      return cat.value === 'tea-shop';
+    }
+    // Staff cannot publish to student-only Tea Shop
+    return cat.value !== 'tea-shop';
+  });
 
   const [selectedType, setSelectedType] = useState(() => {
     if (editingArticle) {
@@ -87,15 +218,24 @@ const QuickPublishModal = ({
         if (editingArticle.tags?.includes('spoken')) return POST_TYPES.find(p => p.id === 'spoken');
         if (editingArticle.tags?.includes('ground')) return POST_TYPES.find(p => p.id === 'ground');
         if (editingArticle.tags?.includes('mind')) return POST_TYPES.find(p => p.id === 'mind');
-        return POST_TYPES.find(p => p.category === 'tea-shop');
+        return POST_TYPES.find(p => p.id === 'mind') || POST_TYPES.find(p => p.category === 'tea-shop');
       }
-      return POST_TYPES.find(p => p.id === 'article') || POST_TYPES[0];
+      return POST_TYPES.find(p => p.id === 'article') || visiblePostTypes[0];
     }
     if (defaultType) {
-      const found = POST_TYPES.find(pt => pt.id === defaultType);
+      const found = visiblePostTypes.find(pt => pt.id === defaultType);
       if (found) return found;
     }
-    return null;
+    if (defaultCategory === 'tea-shop') {
+      return visiblePostTypes.find(p => p.id === 'mind') || visiblePostTypes.find(p => p.category === 'tea-shop') || visiblePostTypes[0];
+    }
+    if (defaultCategory === 'pictures-speak') {
+      return visiblePostTypes.find(p => p.id === 'picture') || visiblePostTypes[0];
+    }
+    if (isStudent) {
+      return visiblePostTypes.find(p => p.id === 'mind') || visiblePostTypes[0] || null;
+    }
+    return visiblePostTypes[0] || null;
   });
 
   const getInitialStatus = () => {
@@ -113,7 +253,8 @@ const QuickPublishModal = ({
     if (editingArticle?.category) {
       return [editingArticle.category];
     }
-    return [defaultCategory || 'news'];
+    const initialCat = isStudent ? (selectedType?.category || 'tea-shop') : (defaultCategory || 'news');
+    return [initialCat];
   });
 
   /* ─── Core form state ─── */
@@ -158,18 +299,36 @@ const QuickPublishModal = ({
   const formId = 'qpm-article-form';
 
   /* ─── Computed ─── */
-  const bodyText    = stripHtml(form.body);
-  const wordCount   = bodyText ? bodyText.split(/\s+/).filter(Boolean).length : 0;
+  const activeFields = selectedType?.fields || ['title','lead','body','category','image','tags'];
+  const isPictureType = selectedType?.id === 'picture' || form.category === 'pictures-speak';
+
+  const bodyText    = stripHtml(form.body || '');
+  const leadText    = form.lead ? form.lead.trim() : '';
+  const captionsText = multipleImages.map(img => img.caption ? img.caption.trim() : '').filter(Boolean).join(' ');
+
+  // Accurately calculate words & characters across all content fields (body, lead/narrative, captions)
+  const allContentText = isPictureType
+    ? [leadText, captionsText].filter(Boolean).join(' ')
+    : (activeFields.includes('body') ? [bodyText, leadText, captionsText].filter(Boolean).join(' ') : leadText);
+
+  const wordCount   = allContentText ? allContentText.split(/\s+/).filter(Boolean).length : 0;
   const readingTime = Math.max(1, Math.ceil(wordCount / 200));
-  const charCount   = bodyText.length;
+  const charCount   = allContentText.length;
 
   const checkItems = [
-    { id:'title', label:'Title added (5+ chars)',    done: form.title.trim().length >= 5 },
-    { id:'lead',  label:'Summary written (20+ chars)',done: form.lead.trim().length >= 20 },
-    { id:'body',  label:'Body content (50+ words)',  done: wordCount >= 50 },
-    { id:'image', label:'Cover image uploaded',      done: !!(coverImage || previewUrl) },
-    { id:'tags',  label:'Tags added',                done: form.tags.trim().length > 0 },
-    { id:'cat',   label:'Section selected',          done: selectedCategories.length > 0 },
+    { id:'title', label:'Title added (5+ chars)', done: form.title.trim().length >= 5 },
+    { id:'lead',  label: isPictureType ? 'Story narrative (20+ chars)' : 'Summary written (20+ chars)', done: form.lead.trim().length >= 20 },
+    ...(activeFields.includes('body') && !isPictureType ? [
+      { id:'body',  label:'Body content (50+ words)', done: (bodyText ? bodyText.split(/\s+/).filter(Boolean).length : 0) >= 50 }
+    ] : []),
+    ...(isPictureType ? [
+      { id:'photos', label:'Story photos uploaded (1+)', done: multipleImages.length >= 1 },
+      { id:'captions', label:'Photo captions described', done: multipleImages.some(img => (img.caption || '').trim().length >= 5) }
+    ] : [
+      { id:'image', label:'Cover image uploaded', done: !!(coverImage || previewUrl) }
+    ]),
+    { id:'tags',  label:'Tags added', done: form.tags.trim().length > 0 },
+    { id:'cat',   label:'Section selected', done: selectedCategories.length > 0 },
   ];
   const readiness = Math.round(checkItems.filter(c => c.done).length / checkItems.length * 100);
 
@@ -270,12 +429,52 @@ const QuickPublishModal = ({
     setMultipleImages(prev => prev.map((img, i) => i === idx ? { ...img, caption:val } : img));
   };
 
+  const handleMoveImage = (fromIdx, toIdx) => {
+    if (toIdx < 0 || toIdx >= multipleImages.length) return;
+    setMultipleImages(prev => {
+      const list = [...prev];
+      const [movedItem] = list.splice(fromIdx, 1);
+      list.splice(toIdx, 0, movedItem);
+      return list;
+    });
+  };
+
+  const handleSetCoverPhoto = (idx) => {
+    if (idx === 0) return;
+    handleMoveImage(idx, 0);
+    toast.success('Set as primary cover slide! 📸');
+  };
+
+  const handleInsertCaptionPrefix = (idx, prefix) => {
+    setMultipleImages(prev => prev.map((img, i) => {
+      if (i !== idx) return img;
+      const currentCaption = img.caption || '';
+      const space = currentCaption && !currentCaption.endsWith(' ') ? ' ' : '';
+      return { ...img, caption: currentCaption ? `${currentCaption}${space}${prefix}` : prefix };
+    }));
+  };
+
   const insertTagAtCaret = (tag) => {
     window.dispatchEvent(new CustomEvent('wordeditor-insert', { detail:{ tag } }));
     toast.success(`${tag} inserted into editor`, { duration:1500, icon:'✏️' });
   };
 
   const handleToggleCategory = (catVal) => {
+    if (isStudent) {
+      if (['mind', 'spoken', 'ground'].includes(selectedType?.id)) {
+        toast('Tea Shop posts are published directly to the Tea Shop section.', { icon: '☕' });
+        setSelectedCategories(['tea-shop']);
+        setForm(prev => ({ ...prev, category: 'tea-shop' }));
+        return;
+      }
+      if (selectedType?.id === 'picture') {
+        toast("Picture's Speak photo stories are published exclusively to Picture's Speak.", { icon: '📷' });
+        setSelectedCategories(['pictures-speak']);
+        setForm(prev => ({ ...prev, category: 'pictures-speak' }));
+        return;
+      }
+    }
+
     const isStandalone = ['tea-shop', 'pictures-speak'].includes(catVal);
 
     if (selectedCategories.includes(catVal)) {
@@ -377,8 +576,6 @@ const QuickPublishModal = ({
     }
   };
 
-  const activeFields = selectedType?.fields || ['title','lead','body','category','image','tags'];
-
   return (
     <>
       {/* ── Inline CSS ── */}
@@ -427,45 +624,116 @@ const QuickPublishModal = ({
         }
         .qpm-type-screen-header {
           display: flex; align-items: flex-start; justify-content: space-between;
-          padding: 28px 32px 20px;
+          padding: 24px 32px 18px;
           border-bottom: 1px solid var(--color-gray-100, #f1f1f1);
+          gap: 16px;
         }
         [data-theme="dark"] .qpm-type-screen-header, [data-theme="black"] .qpm-type-screen-header { border-color: var(--color-gray-200); }
+        .qpm-type-role-badge {
+        background:none !important;
+           border: none !important;
+        margin-bottom: 8px; }
+        .qpm-role-pill {
+          display: inline-flex; align-items: center; gap: 6px;
+          padding: 4px 12px; border-radius: 100px;
+          font-size: 11.5px; font-weight: 700; letter-spacing: 0.3px;
+        }
+        .qpm-role-pill.student {
+          background: rgba(139, 92, 246, 0.12); color: #8b5cf6;
+          border: 1px solid rgba(139, 92, 246, 0.3);
+        }
+        .qpm-role-pill.staff {
+          background: rgba(0, 85, 164, 0.12); color: #0284c7;
+          border: 1px solid rgba(0, 85, 164, 0.3);
+        }
         .qpm-type-screen-header h2 {
           font-family: var(--font-display, 'Outfit', sans-serif);
           font-size: 22px; font-weight: 800; letter-spacing:-0.02em;
           color: var(--color-black, #0d0d0d); margin:0 0 4px;
         }
         [data-theme="dark"] .qpm-type-screen-header h2, [data-theme="black"] .qpm-type-screen-header h2 { color:var(--color-black); }
-        .qpm-type-screen-header p { font-size:13px; color:var(--color-gray-500,#6b7280); margin:0; }
+        .qpm-type-screen-header p { font-size:13px; color:var(--color-gray-500,#6b7280); margin:0; line-height: 1.45; max-width: 800px; }
+        .qpm-student-notice-bar {
+          display: flex; align-items: center; gap: 10px;
+          background: rgba(245, 158, 11, 0.09);
+          border: 1px solid rgba(245, 158, 11, 0.28);
+          color: var(--color-gray-700, #374151);
+          padding: 10px 24px; font-size: 12.5px;
+          margin: 16px 32px 4px; border-radius: 10px;
+        }
+        [data-theme="dark"] .qpm-student-notice-bar, [data-theme="black"] .qpm-student-notice-bar {
+          background: rgba(245, 158, 11, 0.14); color: #fef08a;
+          border-color: rgba(245, 158, 11, 0.35);
+        }
         .qpm-type-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-          gap: 12px; padding: 24px 32px; overflow-y: auto; flex:1;
+          grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+          gap: 16px; padding: 20px 32px 32px; overflow-y: auto; flex:1;
         }
         .qpm-type-card {
-          display: flex; flex-direction: column; align-items: center;
-          gap: 10px; padding: 22px 12px;
+          display: flex; flex-direction: column; align-items: flex-start;
+          text-align: left; gap: 12px; padding: 20px;
           border: 1.5px solid var(--color-gray-200,#e5e7eb);
-          border-radius: 14px; background: none; cursor: pointer;
-          transition: all 0.18s ease; text-align: center;
+          border-radius: 16px; background: var(--color-paper, #ffffff); cursor: pointer;
+          transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1); position: relative;
         }
-        [data-theme="dark"] .qpm-type-card, [data-theme="black"] .qpm-type-card { border-color: var(--color-gray-200); background: var(--color-white); }
+        [data-theme="dark"] .qpm-type-card, [data-theme="black"] .qpm-type-card {
+          border-color: var(--color-gray-200); background: rgba(255, 255, 255, 0.02);
+        }
         .qpm-type-card:hover {
           border-color: var(--pt-color);
-          background: color-mix(in srgb, var(--pt-color) 6%, transparent);
-          transform: translateY(-2px);
-          box-shadow: 0 8px 24px color-mix(in srgb, var(--pt-color) 20%, transparent);
+          background: color-mix(in srgb, var(--pt-color) 7%, transparent);
+          transform: translateY(-3px);
+          box-shadow: 0 12px 30px color-mix(in srgb, var(--pt-color) 18%, transparent);
+        }
+        .qpm-type-card-top {
+          display: flex; align-items: center; justify-content: space-between;
+          width: 100%; gap: 8px; flex-wrap: wrap;
+        }
+        .qpm-type-place-badge {
+          background:none !important;
+           border: none !important;
+          font-size: 11px; font-weight: 800; text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        .qpm-type-format-tag {
+          font-size: 11px; font-weight: 600; color: var(--color-gray-500);
+          background: var(--color-gray-100); padding: 2px 8px; border-radius: 6px;
+        }
+        [data-theme="dark"] .qpm-type-format-tag, [data-theme="black"] .qpm-type-format-tag {
+          background: rgba(255, 255, 255, 0.08); color: var(--color-gray-400);
+        }
+        .qpm-type-card-center {
+          display: flex; align-items: center; gap: 12px; width: 100%;
         }
         .qpm-type-card-icon {
-          width: 44px; height: 44px; border-radius: 12px;
-          background: color-mix(in srgb, var(--pt-color) 12%, transparent);
+          width: 46px; height: 46px; border-radius: 12px;
+          background: color-mix(in srgb, var(--pt-color) 14%, transparent);
           display: flex; align-items: center; justify-content: center;
-          color: var(--pt-color);
+          color: var(--pt-color); flex-shrink: 0; transition: transform 0.2s ease;
         }
-        .qpm-type-card-label { font-size:14px; font-weight:700; color:var(--color-black,#0d0d0d); }
+        .qpm-type-card:hover .qpm-type-card-icon { transform: scale(1.08); }
+        .qpm-type-card-text { display: flex; flex-direction: column; gap: 2px; }
+        .qpm-type-card-label {
+          font-size: 16px; font-weight: 800; font-family: var(--font-display, sans-serif);
+          color: var(--color-black,#0d0d0d); line-height: 1.2;
+        }
         [data-theme="dark"] .qpm-type-card-label, [data-theme="black"] .qpm-type-card-label { color:var(--color-black); }
-        .qpm-type-card-desc { font-size:11px; color:var(--color-gray-500,#6b7280); line-height:1.4; }
+        .qpm-type-card-place {
+          font-size: 11.5px; font-weight: 600; color: var(--color-gray-500);
+        }
+        .qpm-type-card-desc {
+          font-size: 12.5px; color: var(--color-gray-600,#4b5563); line-height: 1.5; flex: 1;
+        }
+        [data-theme="dark"] .qpm-type-card-desc, [data-theme="black"] .qpm-type-card-desc { color: var(--color-gray-400); }
+        .qpm-type-card-footer {
+          width: 100%; padding-top: 10px; border-top: 1px solid var(--color-gray-100);
+          display: flex; justify-content: flex-end;
+        }
+        [data-theme="dark"] .qpm-type-card-footer, [data-theme="black"] .qpm-type-card-footer { border-top-color: var(--color-gray-200); }
+        .qpm-type-card-action {
+          font-size: 12px; font-weight: 700; color: var(--pt-color);
+        }
         .qpm-close-x {
           width:32px; height:32px; border:none; background:var(--color-gray-100,#f3f4f6);
           border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:center;
@@ -768,6 +1036,206 @@ const QuickPublishModal = ({
           background:var(--color-white); border-color:var(--color-gray-200); color:var(--color-black);
         }
         .qpm-caption-input-small::placeholder { color:var(--color-gray-400,#9ca3af); }
+
+        /* ── Picture's Speak Rich Story Builder ── */
+        .qpm-picture-studio {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+        .qpm-picture-story-list {
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+          margin-bottom: 8px;
+        }
+        .qpm-picture-card {
+          display: grid;
+          grid-template-columns: 190px 1fr;
+          gap: 14px;
+          border: 1.5px solid var(--color-gray-200, #e5e7eb);
+          border-radius: 12px;
+          padding: 12px;
+          background: var(--color-gray-50, #f9fafb);
+          transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        @media (max-width: 640px) {
+          .qpm-picture-card {
+            grid-template-columns: 1fr;
+          }
+        }
+        [data-theme="dark"] .qpm-picture-card,
+        [data-theme="black"] .qpm-picture-card {
+          border-color: var(--color-gray-200);
+          background: var(--color-white);
+        }
+        .qpm-picture-card:focus-within {
+          border-color: var(--accent-color, #0055a4);
+          box-shadow: 0 0 0 3px rgba(0, 85, 164, 0.08);
+        }
+        .qpm-picture-card.is-cover {
+          border-color: #ca8a04;
+          background: color-mix(in srgb, #ca8a04 4%, var(--color-gray-50, #f9fafb));
+        }
+        [data-theme="dark"] .qpm-picture-card.is-cover,
+        [data-theme="black"] .qpm-picture-card.is-cover {
+          background: color-mix(in srgb, #ca8a04 8%, var(--color-white));
+        }
+        .qpm-picture-preview-col {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        .qpm-picture-thumb-wrap {
+          position: relative;
+          aspect-ratio: 16/10;
+          border-radius: 8px;
+          overflow: hidden;
+          background: #000;
+        }
+        .qpm-picture-thumb-wrap img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+        }
+        .qpm-picture-badge {
+          position: absolute;
+          top: 6px;
+          left: 6px;
+          background: rgba(0, 0, 0, 0.75);
+          color: #fff;
+          font-size: 10px;
+          font-weight: 800;
+          padding: 3px 7px;
+          border-radius: 4px;
+          letter-spacing: 0.04em;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+        .qpm-picture-badge.is-cover-badge {
+          background: #ca8a04;
+          color: #fff;
+        }
+        .qpm-picture-actions {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          flex-wrap: wrap;
+        }
+        .qpm-picture-action-btn {
+          padding: 4px 8px;
+          font-size: 11px;
+          font-weight: 600;
+          border-radius: 5px;
+          border: 1px solid var(--color-gray-200, #e5e7eb);
+          background: var(--color-paper, #ffffff);
+          color: var(--color-black, #0d0d0d);
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          transition: all 0.15s ease;
+        }
+        [data-theme="dark"] .qpm-picture-action-btn,
+        [data-theme="black"] .qpm-picture-action-btn {
+          background: var(--color-white);
+          border-color: var(--color-gray-200);
+          color: var(--color-black);
+        }
+        .qpm-picture-action-btn:hover:not(:disabled) {
+          border-color: var(--accent-color, #0055a4);
+          color: var(--accent-color, #0055a4);
+        }
+        .qpm-picture-action-btn:disabled {
+          opacity: 0.4;
+          cursor: not-allowed;
+        }
+        .qpm-picture-action-btn.danger:hover {
+          background: rgba(239, 68, 68, 0.1);
+          border-color: #ef4444;
+          color: #ef4444;
+        }
+        .qpm-picture-content-col {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+        .qpm-picture-header-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+        .qpm-picture-label {
+          font-size: 12px;
+          font-weight: 700;
+          color: var(--color-black, #0d0d0d);
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+        }
+        [data-theme="dark"] .qpm-picture-label,
+        [data-theme="black"] .qpm-picture-label {
+          color: var(--color-black);
+        }
+        .qpm-picture-counter {
+          font-size: 11px;
+          color: var(--color-gray-500, #6b7280);
+          font-variant-numeric: tabular-nums;
+        }
+        .qpm-picture-textarea {
+          width: 100%;
+          min-height: 84px;
+          max-height: 200px;
+          resize: vertical;
+          border: 1.5px solid var(--color-gray-200, #e5e7eb);
+          border-radius: 8px;
+          padding: 8px 10px;
+          font-size: 13px;
+          line-height: 1.5;
+          background: var(--color-paper, #ffffff);
+          color: var(--color-black, #0d0d0d);
+          outline: none;
+          box-sizing: border-box;
+          font-family: inherit;
+          transition: border-color 0.15s;
+        }
+        [data-theme="dark"] .qpm-picture-textarea,
+        [data-theme="black"] .qpm-picture-textarea {
+          background: var(--color-white);
+          border-color: var(--color-gray-200);
+          color: var(--color-black);
+        }
+        .qpm-picture-textarea:focus {
+          border-color: var(--accent-color, #0055a4);
+        }
+        .qpm-picture-textarea::placeholder {
+          color: var(--color-gray-400, #9ca3af);
+        }
+        .qpm-picture-tools-row {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          flex-wrap: wrap;
+          margin-top: 2px;
+        }
+        .qpm-tool-chip {
+          padding: 3px 8px;
+          border-radius: 4px;
+          font-size: 11px;
+          font-weight: 600;
+          background: color-mix(in srgb, var(--accent-color, #0055a4) 8%, transparent);
+          color: var(--accent-color, #0055a4);
+          border: 1px solid color-mix(in srgb, var(--accent-color, #0055a4) 25%, transparent);
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 3px;
+          transition: background 0.15s;
+        }
+        .qpm-tool-chip:hover {
+          background: color-mix(in srgb, var(--accent-color, #0055a4) 16%, transparent);
+        }
 
         /* Add images button */
         .qpm-add-images-zone {
@@ -1074,13 +1542,38 @@ const QuickPublishModal = ({
             <div className="qpm-type-screen">
               <div className="qpm-type-screen-header">
                 <div>
-                  <h2>Create Content</h2>
-                  <p>Choose the type of content you want to publish</p>
+                  <div className="qpm-type-role-badge">
+                    {isStudent ? (
+                      <span className="qpm-role-pill student">
+                        🎓 Student Access · Tea Shop & Picture's Speak
+                      </span>
+                    ) : (
+                      <span className="qpm-role-pill staff">
+                        ✍️ Editorial Staff · Official Publications
+                      </span>
+                    )}
+                  </div>
+                  <h2>{isStudent ? 'Create Content (Student Hub)' : 'Publish Story (Editorial Hub)'}</h2>
+                  <p>
+                    {isStudent
+                      ? 'Select an allowed student format to share your voice. Posts in Tea Shop publish directly to the community; photo essays in Picture’s Speak are held for Admin review.'
+                      : 'Choose an official journalism format to publish breaking news, university governance updates, staff editorials, features, heritage events, or visual photo essays.'}
+                  </p>
                 </div>
                 <button className="qpm-close-x" onClick={handleClose} aria-label="Close">
                   <FiX size={16} />
                 </button>
               </div>
+
+              {isStudent && (
+                <div className="qpm-student-notice-bar">
+                  <FiAlertCircle size={16} style={{ flexShrink: 0, color: '#f59e0b' }} />
+                  <span>
+                    <strong>Student Access Guidelines:</strong> You can publish freely to Tea Shop (*Mind, Spoken, Ground*) or submit photo galleries to Picture’s Speak (with Admin approval). Official News, University Row, Editorial, Features, and KYP are reserved for Editorial Staff.
+                  </span>
+                </div>
+              )}
+
               <div className="qpm-type-grid">
                 {visiblePostTypes.map(pt => {
                   const Icon = pt.icon;
@@ -1091,11 +1584,30 @@ const QuickPublishModal = ({
                       style={{ '--pt-color': pt.color }}
                       onClick={() => handleTypeSelect(pt)}
                     >
-                      <div className="qpm-type-card-icon">
-                        <Icon size={20} />
+                      <div className="qpm-type-card-top">
+                        <span className="qpm-type-place-badge" style={{ color: pt.color }}>
+                          {pt.sectionBadge || pt.category}
+                        </span>
+                        {pt.formatTag && (
+                          <span className="qpm-type-format-tag">{pt.formatTag}</span>
+                        )}
                       </div>
-                      <span className="qpm-type-card-label">{pt.label}</span>
+
+                      <div className="qpm-type-card-center">
+                        <div className="qpm-type-card-icon">
+                          <Icon size={22} />
+                        </div>
+                        <div className="qpm-type-card-text">
+                          <span className="qpm-type-card-label">{pt.label}</span>
+                          <span className="qpm-type-card-place">{pt.placeLabel}</span>
+                        </div>
+                      </div>
+
                       <span className="qpm-type-card-desc">{pt.desc}</span>
+
+                      <div className="qpm-type-card-footer">
+                        <span className="qpm-type-card-action">Select Format →</span>
+                      </div>
                     </button>
                   );
                 })}
@@ -1206,7 +1718,7 @@ const QuickPublishModal = ({
                               </span>
                             </div>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                              {CATEGORIES.map((cat) => {
+                              {availableCategories.map((cat) => {
                                 const isSelected = selectedCategories.includes(cat.value);
                                 const isPrimary = selectedCategories[0] === cat.value;
                                 return (
@@ -1326,71 +1838,179 @@ const QuickPublishModal = ({
                           </div>
                           <div className="qpm-story-images-body">
 
-                            {/* Cover image */}
-                            <span className="qpm-cover-zone-label">Cover Image</span>
-                            {previewUrl ? (
-                              <div className="qpm-cover-preview-wrap">
-                                <img src={previewUrl} alt="Cover preview" />
-                                <button
-                                  type="button"
-                                  className="qpm-cover-remove"
-                                  onClick={() => { setCoverImage(null); setPreviewUrl(''); }}
-                                >
-                                  <FiX size={11} /> Remove
-                                </button>
-                              </div>
-                            ) : (
-                              <label className="qpm-cover-dropzone">
-                                <FiUpload size={20} />
-                                <span>Upload cover image</span>
-                                <small>Supported: JPEG, PNG, GIF, WebP, SVG · Max 10MB</small>
-                                <input
-                                  type="file"
-                                  accept="image/*"
-                                  style={{ display:'none' }}
-                                  onChange={handleCoverImageChange}
-                                />
-                              </label>
+                            {/* Cover image for standard articles */}
+                            {selectedType.id !== 'picture' && (
+                              <>
+                                <span className="qpm-cover-zone-label">Cover Image</span>
+                                {previewUrl ? (
+                                  <div className="qpm-cover-preview-wrap">
+                                    <img src={previewUrl} alt="Cover preview" />
+                                    <button
+                                      type="button"
+                                      className="qpm-cover-remove"
+                                      onClick={() => { setCoverImage(null); setPreviewUrl(''); }}
+                                    >
+                                      <FiX size={11} /> Remove
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <label className="qpm-cover-dropzone">
+                                    <FiUpload size={20} />
+                                    <span>Upload cover image</span>
+                                    <small>Supported: JPEG, PNG, GIF, WebP, SVG · Max 10MB</small>
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      style={{ display:'none' }}
+                                      onChange={handleCoverImageChange}
+                                    />
+                                  </label>
+                                )}
+                              </>
                             )}
 
-                            {/* Picture-Speaks: multi-images in cover zone */}
+                            {/* Picture-Speaks: Dedicated Photo Story & Rich Caption Studio */}
                             {selectedType.id === 'picture' && (
-                              <>
+                              <div className="qpm-picture-studio">
+                                <div className="qpm-picture-studio-header" style={{ marginBottom: 6 }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-black, #0d0d0d)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                      📸 Photo Story Sequence ({multipleImages.length} {multipleImages.length === 1 ? 'Photo' : 'Photos'})
+                                    </span>
+                                    {multipleImages.length > 0 && (
+                                      <span style={{ fontSize: 11, color: 'var(--color-gray-500, #6b7280)' }}>
+                                        Slide #1 is your primary cover
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p style={{ margin: 0, fontSize: 12, color: 'var(--color-gray-500, #6b7280)', lineHeight: 1.4 }}>
+                                    Each photo tells a chapter of your visual journalism. Add rich captions, quotes, location context, or photographer notes for each image.
+                                  </p>
+                                </div>
+
                                 {multipleImages.length > 0 && (
-                                  <div className="qpm-images-grid">
-                                    {multipleImages.map((img, idx) => (
-                                      <div key={idx} className="qpm-img-card">
-                                        <div className="qpm-img-thumb-wrap">
-                                          <img src={img.previewUrl} alt={`#${idx+1}`} />
-                                          <span className="qpm-img-badge">#{idx+1}</span>
-                                          <button
-                                            type="button"
-                                            className="qpm-img-remove"
-                                            onClick={() => handleRemoveMultipleImage(idx)}
-                                          >
-                                            <FiX size={9} />
-                                          </button>
+                                  <div className="qpm-picture-story-list">
+                                    {multipleImages.map((img, idx) => {
+                                      const isCover = idx === 0;
+                                      const charCount = (img.caption || '').length;
+                                      const wordCount = (img.caption || '').trim() ? (img.caption || '').trim().split(/\s+/).length : 0;
+
+                                      return (
+                                        <div key={idx} className={`qpm-picture-card ${isCover ? 'is-cover' : ''}`}>
+                                          {/* Preview & Slide controls */}
+                                          <div className="qpm-picture-preview-col">
+                                            <div className="qpm-picture-thumb-wrap">
+                                              <img src={img.previewUrl} alt={`Slide #${idx + 1}`} />
+                                              <span className={`qpm-picture-badge ${isCover ? 'is-cover-badge' : ''}`}>
+                                                {isCover ? '⭐ #1 Lead Cover' : `#${idx + 1}`}
+                                              </span>
+                                            </div>
+
+                                            <div className="qpm-picture-actions">
+                                              <button
+                                                type="button"
+                                                className="qpm-picture-action-btn"
+                                                onClick={() => handleMoveImage(idx, idx - 1)}
+                                                disabled={idx === 0}
+                                                title="Move slide up"
+                                              >
+                                                <FiArrowUp size={11} /> Up
+                                              </button>
+                                              <button
+                                                type="button"
+                                                className="qpm-picture-action-btn"
+                                                onClick={() => handleMoveImage(idx, idx + 1)}
+                                                disabled={idx === multipleImages.length - 1}
+                                                title="Move slide down"
+                                              >
+                                                <FiArrowDown size={11} /> Down
+                                              </button>
+                                              {!isCover && (
+                                                <button
+                                                  type="button"
+                                                  className="qpm-picture-action-btn"
+                                                  onClick={() => handleSetCoverPhoto(idx)}
+                                                  title="Make this the lead cover photo"
+                                                >
+                                                  <FiStar size={11} /> Make Cover
+                                                </button>
+                                              )}
+                                              <button
+                                                type="button"
+                                                className="qpm-picture-action-btn danger"
+                                                onClick={() => handleRemoveMultipleImage(idx)}
+                                                style={{ marginLeft: 'auto' }}
+                                                title="Remove photo"
+                                              >
+                                                <FiTrash2 size={11} />
+                                              </button>
+                                            </div>
+                                          </div>
+
+                                          {/* Rich Caption & Story context */}
+                                          <div className="qpm-picture-content-col">
+                                            <div className="qpm-picture-header-row">
+                                              <span className="qpm-picture-label">
+                                                {isCover ? '📸 Photo #1 · Cover Caption & Story' : `📸 Photo #${idx + 1} Story Caption`}
+                                              </span>
+                                              <span className="qpm-picture-counter">
+                                                {wordCount} words · {charCount} chars
+                                              </span>
+                                            </div>
+
+                                            <textarea
+                                              className="qpm-picture-textarea"
+                                              rows={3}
+                                              placeholder="Tell the story behind this photo... Describe the moment, subject emotion, campus event context, or photographer notes..."
+                                              value={img.caption || ''}
+                                              onChange={(e) => handleCaptionChange(idx, e.target.value)}
+                                            />
+
+                                            <div className="qpm-picture-tools-row">
+                                              <span style={{ fontSize: 11, color: 'var(--color-gray-400, #9ca3af)', marginRight: 2 }}>Quick tags:</span>
+                                              <button
+                                                type="button"
+                                                className="qpm-tool-chip"
+                                                onClick={() => handleInsertCaptionPrefix(idx, '📍 Location: ')}
+                                              >
+                                                <FiMapPin size={10} /> + Location
+                                              </button>
+                                              <button
+                                                type="button"
+                                                className="qpm-tool-chip"
+                                                onClick={() => handleInsertCaptionPrefix(idx, '📷 Photo by: ')}
+                                              >
+                                                <FiCamera size={10} /> + Credit
+                                              </button>
+                                              <button
+                                                type="button"
+                                                className="qpm-tool-chip"
+                                                onClick={() => handleInsertCaptionPrefix(idx, '🕒 Time: ')}
+                                              >
+                                                <FiClock size={10} /> + Time
+                                              </button>
+                                              <button
+                                                type="button"
+                                                className="qpm-tool-chip"
+                                                onClick={() => handleInsertCaptionPrefix(idx, '💬 Quote: ')}
+                                              >
+                                                <FiFeather size={10} /> + Quote
+                                              </button>
+                                            </div>
+                                          </div>
                                         </div>
-                                        <div className="qpm-img-card-body">
-                                          <input
-                                            type="text"
-                                            className="qpm-caption-input-small"
-                                            placeholder={`Caption…`}
-                                            value={img.caption}
-                                            onChange={(e) => handleCaptionChange(idx, e.target.value)}
-                                          />
-                                        </div>
-                                      </div>
-                                    ))}
+                                      );
+                                    })}
                                   </div>
                                 )}
+
                                 <label className="qpm-add-images-zone">
-                                  <FiUpload size={18} style={{ color:'var(--accent-color,#0055a4)' }} />
-                                  <span>+ Add Photos</span>
-                                  <small>Supported: JPEG, PNG, GIF, WebP, SVG · Max 10MB each</small>
+                                  <FiUpload size={20} style={{ color:'var(--accent-color,#0055a4)' }} />
+                                  <span>+ {multipleImages.length > 0 ? 'Add More Photos to Story' : 'Upload Photos for Picture’s Speak'}</span>
+                                  <small>Select multiple images · Supported: JPEG, PNG, GIF, WebP, SVG · Max 10MB each</small>
                                   <input type="file" accept="image/*" multiple style={{ display:'none' }} onChange={handlePictureImageChange} />
                                 </label>
-                              </>
+                              </div>
                             )}
 
                             {/* Article story images (with drag-to-insert tags) */}

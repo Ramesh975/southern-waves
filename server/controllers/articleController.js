@@ -1,5 +1,6 @@
 const Article = require('../models/Article');
 const Comment = require('../models/Comment');
+const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const { scanText, scanForBlockedTags } = require('../utils/filter');
 
@@ -8,47 +9,72 @@ const { scanText, scanForBlockedTags } = require('../utils/filter');
 // @access  Public
 exports.getArticles = async (req, res, next) => {
   try {
-    const { category, status, featured, trending, breaking, tag, page = 1, limit = 10, search, sort, pushedToHome, author, likedBy } = req.query;
+    const { category, status, featured, trending, breaking, tag, page = 1, limit = 10, search, sort, pushedToHome, author, likedBy, safeSearch } = req.query;
 
-    const query = {};
+    const conditions = [];
 
     if (author) {
-      query.author = author;
+      conditions.push({ author });
     }
 
     if (likedBy) {
-      query.likes = likedBy;
+      conditions.push({ likes: likedBy });
     }
 
     // Public users only see published, except if they query their own posts
     if (!req.user || req.user.role === 'student') {
       if (req.user && author === req.user.id) {
         if (status) {
-          query.status = status;
+          conditions.push({ status });
         }
       } else {
-        query.status = 'published';
+        conditions.push({ status: 'published' });
       }
     } else if (status) {
-      query.status = status;
+      conditions.push({ status });
     }
 
     // Always exclude banned articles from public listings unless admin/moderator is in adminView
     if (req.query.adminView !== 'true') {
-      query.isBanned = { $ne: true };
+      conditions.push({ isBanned: { $ne: true } });
     }
 
     if (category) {
-      query.$or = [{ category: category }, { categories: category }];
+      conditions.push({
+        $or: [{ category: category }, { categories: category }]
+      });
     } else if (req.query.adminView !== 'true' && !tag) {
       // Exclude tea-shop from general public listings only when not filtering by tag
-      query.category = { $ne: 'tea-shop' };
+      conditions.push({ category: { $ne: 'tea-shop' } });
     }
-    if (featured === 'true') query.isFeatured = true;
-    if (trending === 'true') query.isTrending = true;
-    if (breaking === 'true') query.isBreaking = true;
-    if (pushedToHome === 'true') query.isPushedToHome = true;
-    if (tag) query.tags = { $in: [tag.toLowerCase()] };
+
+    if (featured === 'true') conditions.push({ isFeatured: true });
+    if (trending === 'true') conditions.push({ isTrending: true });
+    if (breaking === 'true') conditions.push({ isBreaking: true });
+    if (pushedToHome === 'true') conditions.push({ isPushedToHome: true });
+
+    if (tag) {
+      let decodedTag = tag;
+      try {
+        decodedTag = decodeURIComponent(tag).trim();
+      } catch (e) {
+        decodedTag = tag.trim();
+      }
+      const rawClean = tag.trim();
+      const noHash = decodedTag.replace(/^#/, '');
+      const rawNoHash = rawClean.replace(/^#/, '');
+      conditions.push({
+        tags: {
+          $in: [
+            decodedTag.toLowerCase(),
+            rawClean.toLowerCase(),
+            noHash.toLowerCase(),
+            rawNoHash.toLowerCase()
+          ]
+        }
+      });
+    }
+
     if (search) {
       const cleanTerm = search.trim().replace(/^@/, '');
       const escapedSearch = cleanTerm.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
@@ -66,7 +92,7 @@ exports.getArticles = async (req, res, next) => {
       }).select('_id');
       const authorIds = matchedUsers.map(u => u._id);
 
-      query.$or = [
+      const searchConditions = [
         { title: searchRegex },
         { lead: searchRegex },
         { body: searchRegex },
@@ -76,15 +102,30 @@ exports.getArticles = async (req, res, next) => {
       ];
 
       if (authorIds.length > 0) {
-        query.$or.push({ author: { $in: authorIds } });
+        searchConditions.push({ author: { $in: authorIds } });
       }
+
+      conditions.push({ $or: searchConditions });
     }
 
-    const skip = (Number(page) - 1) * Number(limit);
+    // Filter unsafe tags if safeSearch parameter is active
+    if (safeSearch === 'true' || safeSearch === true) {
+      const unsafePattern = /nsfw|18\+|porn|explicit|gore|violence|nude/i;
+      conditions.push({ tags: { $nin: [unsafePattern] } });
+    }
+
+    const query = conditions.length > 0 ? { $and: conditions } : {};
+
+    const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 50);
+    const skip = (Number(page) - 1) * safeLimit;
     const total = await Article.countDocuments(query);
     let sortQuery = { publishedAt: -1, createdAt: -1 };
     if (sort === 'views') {
       sortQuery = { views: -1 };
+    } else if (sort === 'oldest') {
+      sortQuery = { createdAt: 1 };
+    } else if (sort === 'title') {
+      sortQuery = { title: 1 };
     } else if (sort === 'historicalYearAsc') {
       sortQuery = { historicalYear: 1, createdAt: -1 };
     } else if (sort === 'historicalYearDesc') {
@@ -92,20 +133,86 @@ exports.getArticles = async (req, res, next) => {
     }
 
     const articles = await Article.find(query)
+      .select('-body -annotations')
       .populate('author', 'name username showRealNamePublicly avatar role firstName lastName')
       .populate('references.article', 'title slug category coverImage')
       .populate('securityChangedBy', 'name role')
       .sort(sortQuery)
       .skip(skip)
-      .limit(Number(limit));
+      .limit(safeLimit)
+      .lean();
 
     res.status(200).json({
       success: true,
       count: articles.length,
       total,
-      totalPages: Math.ceil(total / Number(limit)),
+      totalPages: Math.ceil(total / safeLimit),
       currentPage: Number(page),
       data: articles,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// @desc    Get consolidated home feed (single request for all 12 home sections)
+// @route   GET /api/articles/home-feed
+// @access  Public
+exports.getHomeFeed = async (req, res, next) => {
+  try {
+    res.set('Cache-Control', 'public, max-age=15, stale-while-revalidate=30');
+
+    const [
+      allArticles,
+      editorialArticles,
+      featuresArticles,
+      kypArticles,
+      teaShopArticles,
+      picsArticles,
+      trendingArticles,
+      tagsRaw,
+      mostReadArticles,
+      mostLikedArticles,
+      pushedArticles,
+      newsArticles
+    ] = await Promise.all([
+      Article.find({ status: 'published', category: { $ne: 'tea-shop' } }).select('-body -annotations').populate('author', 'name username showRealNamePublicly avatar role').sort({ publishedAt: -1 }).limit(12).lean(),
+      Article.find({ status: 'published', category: 'editorial' }).select('-body -annotations').populate('author', 'name username showRealNamePublicly avatar role').sort({ publishedAt: -1 }).limit(6).lean(),
+      Article.find({ status: 'published', category: 'features' }).select('-body -annotations').populate('author', 'name username showRealNamePublicly avatar role').sort({ publishedAt: -1 }).limit(6).lean(),
+      Article.find({ status: 'published', category: 'kyp' }).select('-body -annotations').populate('author', 'name username showRealNamePublicly avatar role').sort({ publishedAt: -1 }).limit(6).lean(),
+      Article.find({ status: 'published', category: 'tea-shop' }).select('-body -annotations').populate('author', 'name username showRealNamePublicly avatar role').sort({ publishedAt: -1 }).limit(3).lean(),
+      Article.find({ status: 'published', category: 'pictures-speak' }).select('-body -annotations').populate('author', 'name username showRealNamePublicly avatar role').sort({ publishedAt: -1 }).limit(6).lean(),
+      Article.find({ status: 'published' }).select('-body -annotations').populate('author', 'name username showRealNamePublicly avatar role').sort({ isTrending: -1, views: -1, publishedAt: -1 }).limit(6).lean(),
+      Article.aggregate([
+        { $match: { status: 'published' } },
+        { $unwind: '$tags' },
+        { $group: { _id: '$tags', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 10 },
+        { $project: { tag: '$_id', count: 1, _id: 0 } }
+      ]),
+      Article.find({ status: 'published' }).select('-body -annotations').populate('author', 'name username showRealNamePublicly avatar role').sort({ views: -1 }).limit(8).lean(),
+      Article.find({ status: 'published', category: { $ne: 'tea-shop' } }).select('-body -annotations').populate('author', 'name username showRealNamePublicly avatar role').sort({ views: -1, publishedAt: -1 }).limit(8).lean(),
+      Article.find({ status: 'published', isPushedToHome: true }).select('-body -annotations').populate('author', 'name username showRealNamePublicly avatar role').sort({ publishedAt: -1 }).limit(5).lean(),
+      Article.find({ status: 'published', category: 'news' }).select('-body -annotations').populate('author', 'name username avatar role').sort({ publishedAt: -1 }).limit(8).lean()
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        articles: allArticles,
+        editorial: editorialArticles,
+        features: featuresArticles,
+        kyp: kypArticles,
+        teaShop: teaShopArticles,
+        pics: picsArticles,
+        trending: trendingArticles,
+        trendingTags: tagsRaw,
+        mostRead: mostReadArticles,
+        mostLiked: mostLikedArticles,
+        pushed: pushedArticles,
+        news: newsArticles
+      }
     });
   } catch (err) {
     next(err);
@@ -123,7 +230,7 @@ exports.getArticleBySlug = async (req, res, next) => {
       : { slug: req.params.slug };
 
     const article = await Article.findOne(lookupQuery)
-      .populate('author', 'name username showRealNamePublicly avatar bio role firstName lastName')
+      .populate('author', 'name username showRealNamePublicly avatar bio role firstName lastName email university educationLevel createdAt phone')
       .populate('references.article', 'title slug category coverImage author')
       .populate('securityChangedBy', 'name role');
     if (!article) return res.status(404).json({ success: false, message: 'Article not found' });
@@ -277,12 +384,28 @@ exports.createArticle = async (req, res, next) => {
       req.body.categories = [req.body.category];
     }
 
-    // Role-based field restrictions for regular authors
+    // Role-based field restrictions and category access check
+    const targetCategory = req.body.category || (Array.isArray(req.body.categories) ? req.body.categories[0] : 'news');
     if (req.user.role === 'student') {
+      if (targetCategory !== 'tea-shop') {
+        return res.status(403).json({
+          success: false,
+          message: 'Students are only permitted to publish posts in the Tea Shop section.'
+        });
+      }
+      req.body.category = 'tea-shop';
+      req.body.categories = ['tea-shop'];
       req.body.isFeatured = false;
       req.body.isTrending = false;
       req.body.isBreaking = false;
       req.body.isPushedToHome = false;
+    } else if (['editor', 'admin', 'moderator'].includes(req.user.role)) {
+      if (targetCategory === 'tea-shop') {
+        return res.status(403).json({
+          success: false,
+          message: 'Tea Shop is reserved exclusively for student publications.'
+        });
+      }
     }
 
     // Only admin can push to home
@@ -396,7 +519,16 @@ exports.updateArticle = async (req, res, next) => {
       return res.status(403).json({ success: false, message: 'Not authorized to update this article' });
     }
 
-    // Role-based field restrictions for regular authors
+    // Role-based field restrictions and category access check
+    if (req.body.category) {
+      if (req.user.role === 'student' && req.body.category !== 'tea-shop') {
+        return res.status(403).json({ success: false, message: 'Students are only permitted to publish in the Tea Shop section.' });
+      }
+      if (['editor', 'admin', 'moderator'].includes(req.user.role) && req.body.category === 'tea-shop') {
+        return res.status(403).json({ success: false, message: 'Tea Shop is reserved exclusively for student publications.' });
+      }
+    }
+
     if (req.user.role === 'student') {
       req.body.isFeatured = false;
       req.body.isTrending = false;
@@ -573,12 +705,20 @@ exports.getTrending = async (req, res, next) => {
       query.category = req.query.category;
     }
 
+    // Fetch candidate articles (top views and admin-trending articles) instead of scanning the entire database
     const articles = await Article.find(query)
-      .populate('author', 'name username showRealNamePublicly avatar role');
+      .select('-body -annotations')
+      .sort({ isTrending: -1, views: -1, publishedAt: -1 })
+      .limit(100)
+      .populate('author', 'name username showRealNamePublicly avatar role')
+      .lean();
 
-    // Aggregate comment counts
+    const candidateIds = articles.map(a => a._id);
+
+    // Aggregate comment counts ONLY for candidate articles
     const Comment = require('../models/Comment');
     const commentCounts = await Comment.aggregate([
+      { $match: { article: { $in: candidateIds } } },
       { $group: { _id: '$article', count: { $sum: 1 } } }
     ]);
     const commentCountsMap = {};
@@ -622,7 +762,7 @@ exports.getTrending = async (req, res, next) => {
 
     // Take top 6 articles
     const result = scoredArticles.slice(0, 6).map(item => {
-      const artObj = item.article.toObject();
+      const artObj = { ...item.article };
       artObj.hypeScore = Math.round(item.hypeScore);
       artObj.trendingScore = item.trendingScore;
       return artObj;
@@ -639,14 +779,17 @@ exports.getTrending = async (req, res, next) => {
 // @access  Public
 exports.getMostRead = async (req, res, next) => {
   try {
-    const limit = req.query.limit ? parseInt(req.query.limit, 10) : 6;
+    const rawLimit = req.query.limit ? parseInt(req.query.limit, 10) : 6;
+    const limit = Math.min(Math.max(rawLimit, 1), 50);
     const category = req.query.category;
     const query = { status: 'published' };
     if (category) query.category = category;
     const articles = await Article.find(query)
+      .select('-body -annotations')
       .populate('author', 'name username showRealNamePublicly avatar role')
       .sort({ views: -1 })
-      .limit(limit);
+      .limit(limit)
+      .lean();
     res.status(200).json({ success: true, data: articles });
   } catch (err) {
     next(err);
@@ -730,11 +873,18 @@ exports.getTrendingTags = async (req, res, next) => {
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     match.publishedAt = { $gte: thirtyDaysAgo };
 
-    const articles = await Article.find(match).select('tags views shares likes dislikes publishedAt createdAt');
+    const articles = await Article.find(match)
+      .select('tags views shares likes dislikes publishedAt createdAt')
+      .sort({ views: -1 })
+      .limit(150)
+      .lean();
 
-    // Aggregate comment counts
+    const candidateIds = articles.map(a => a._id);
+
+    // Aggregate comment counts ONLY for candidate articles
     const Comment = require('../models/Comment');
     const commentCounts = await Comment.aggregate([
+      { $match: { article: { $in: candidateIds } } },
       { $group: { _id: '$article', count: { $sum: 1 } } }
     ]);
     const commentCountsMap = {};
@@ -806,6 +956,143 @@ exports.getTrendingTags = async (req, res, next) => {
     } else {
       res.status(200).json({ success: true, data: resultTags });
     }
+  } catch (err) {
+    next(err);
+  }
+};
+
+// @desc    Get search suggestions & recommended tags based on recent view history
+// @route   GET /api/articles/search-suggestions
+// @access  Public (Optional Auth)
+exports.getSearchSuggestions = async (req, res, next) => {
+  try {
+    const { q, safeSearch } = req.query;
+    let recommendedTags = [];
+    let userPreferredCategories = [];
+
+    if (req.user) {
+      const user = await User.findById(req.user.id || req.user._id)
+        .populate({
+          path: 'viewedArticles.article',
+          select: 'tags category categories title'
+        })
+        .lean();
+
+      if (user) {
+        if (user.recommendationSettings?.preferredTags?.length > 0) {
+          user.recommendationSettings.preferredTags.forEach(t => {
+            if (t && !recommendedTags.includes(t)) recommendedTags.push(t);
+          });
+        }
+        if (user.recommendationSettings?.preferredCategories?.length > 0) {
+          userPreferredCategories.push(...user.recommendationSettings.preferredCategories);
+        }
+
+        if (user.viewedArticles && user.viewedArticles.length > 0) {
+          // Sort viewed articles by viewedAt descending
+          const sortedViewed = [...user.viewedArticles].sort((a, b) => new Date(b.viewedAt) - new Date(a.viewedAt));
+          for (const item of sortedViewed) {
+            if (item.article && item.article.tags && Array.isArray(item.article.tags)) {
+              item.article.tags.forEach(tag => {
+                if (tag && !recommendedTags.includes(tag)) {
+                  recommendedTags.push(tag);
+                }
+              });
+            }
+          }
+        }
+      }
+    }
+
+    // If we have fewer than 10 tags, complement with top trending tags
+    if (recommendedTags.length < 10) {
+      const trendingArticles = await Article.find({ status: 'published', isBanned: { $ne: true } })
+        .select('tags')
+        .sort({ views: -1, publishedAt: -1 })
+        .limit(30)
+        .lean();
+
+      for (const art of trendingArticles) {
+        if (art.tags && Array.isArray(art.tags)) {
+          for (const t of art.tags) {
+            if (t && !recommendedTags.includes(t)) {
+              recommendedTags.push(t);
+              if (recommendedTags.length >= 12) break;
+            }
+          }
+        }
+        if (recommendedTags.length >= 12) break;
+      }
+    }
+
+    // Filter unsafe tags if safeSearch parameter is true
+    if (safeSearch === 'true' || safeSearch === true) {
+      const unsafePattern = /nsfw|18\+|porn|explicit|gore|violence|nude/i;
+      recommendedTags = recommendedTags.filter(t => !unsafePattern.test(t));
+    }
+
+    // Live search word suggestions and article suggestions if q parameter is present
+    let wordSuggestions = [];
+    let articleSuggestions = [];
+
+    if (q && q.trim().length > 0) {
+      const cleanTerm = q.trim().replace(/^@/, '');
+      const escaped = cleanTerm.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+      const regex = new RegExp(escaped, 'i');
+
+      const matchArticles = await Article.find({
+        status: 'published',
+        isBanned: { $ne: true },
+        $or: [
+          { title: regex },
+          { tags: regex },
+          { category: regex }
+        ]
+      })
+        .select('title tags category slug')
+        .limit(8)
+        .lean();
+
+      articleSuggestions = matchArticles.map(a => ({
+        id: a._id,
+        title: a.title,
+        category: a.category,
+        slug: a.slug
+      }));
+
+      // Extract matching words/tags
+      const wordSet = new Set();
+      matchArticles.forEach(a => {
+        if (a.tags) {
+          a.tags.forEach(t => {
+            if (t && t.toLowerCase().includes(cleanTerm.toLowerCase())) {
+              wordSet.add(t);
+            }
+          });
+        }
+        if (a.title && a.title.toLowerCase().includes(cleanTerm.toLowerCase())) {
+          wordSet.add(a.title);
+        }
+      });
+      wordSuggestions = Array.from(wordSet).slice(0, 6);
+    }
+
+    // Recommended search queries from top popular articles
+    const topArticles = await Article.find({ status: 'published', isBanned: { $ne: true } })
+      .select('title tags')
+      .sort({ views: -1 })
+      .limit(5)
+      .lean();
+
+    const recommendedQueries = topArticles.map(a => a.title);
+
+    return res.status(200).json({
+      success: true,
+      recommendedTags: recommendedTags.slice(0, 10),
+      wordSuggestions,
+      articleSuggestions,
+      recommendedQueries
+    });
   } catch (err) {
     next(err);
   }
@@ -970,7 +1257,12 @@ exports.getRecommendations = async (req, res, next) => {
         status: 'published',
         category: { $ne: 'tea-shop' },
         _id: { $nin: excludeIds }
-      }).populate('author', 'name username showRealNamePublicly avatar role');
+      })
+        .select('-body -annotations')
+        .sort({ views: -1, publishedAt: -1 })
+        .limit(120)
+        .populate('author', 'name username showRealNamePublicly avatar role')
+        .lean();
 
       const scoredCandidates = candidates.map(article => {
         const { hypeScore, trendingScore, hoursElapsed } = getArticleStats(article);
@@ -1009,7 +1301,7 @@ exports.getRecommendations = async (req, res, next) => {
 
       scoredCandidates.sort((a, b) => b.score - a.score);
       recommendations = scoredCandidates.slice(0, 10).map(item => {
-        const artObj = item.article.toObject();
+        const artObj = { ...item.article };
         artObj.recommendationRationale = item.rationale;
         artObj.recommendationScore = item.score;
         return artObj;
@@ -1022,21 +1314,29 @@ exports.getRecommendations = async (req, res, next) => {
           category: { $ne: 'tea-shop' },
           _id: { $nin: [...excludeIds, ...currentIds] }
         })
+          .select('-body -annotations')
+          .sort({ views: -1, publishedAt: -1 })
+          .limit(8 - recommendations.length)
           .populate('author', 'name username showRealNamePublicly avatar role')
-          .limit(8 - recommendations.length);
+          .lean();
 
         extraArticles.forEach(article => {
-          const artObj = article.toObject();
+          const artObj = { ...article };
           artObj.recommendationRationale = 'Highly recommended trending story';
           recommendations.push(artObj);
         });
       }
     } else {
-      // Guest or no interaction history fallback
+      // Guest or no interaction history fallback: candidate pool of top 80 stories
       const articles = await Article.find({
         status: 'published',
         category: { $ne: 'tea-shop' }
-      }).populate('author', 'name username showRealNamePublicly avatar role');
+      })
+        .select('-body -annotations')
+        .sort({ views: -1, publishedAt: -1 })
+        .limit(80)
+        .populate('author', 'name username showRealNamePublicly avatar role')
+        .lean();
 
       const scored = articles.map(article => {
         const { hypeScore, trendingScore, hoursElapsed } = getArticleStats(article);
@@ -1054,7 +1354,7 @@ exports.getRecommendations = async (req, res, next) => {
 
       scored.sort((a, b) => b.score - a.score);
       recommendations = scored.slice(0, 10).map(item => {
-        const artObj = item.article.toObject();
+        const artObj = { ...item.article };
         artObj.recommendationRationale = item.rationale;
         artObj.recommendationScore = item.score;
         return artObj;
@@ -1066,6 +1366,210 @@ exports.getRecommendations = async (req, res, next) => {
       count: recommendations.length,
       data: recommendations,
       userInterests
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// @desc    Get personalized web stories (infinite pagination, 8 per batch)
+// @route   GET /api/articles/web-stories
+// @access  Public (Optional Auth)
+exports.getWebStories = async (req, res, next) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.max(1, Math.min(50, parseInt(req.query.limit, 10) || 8));
+
+    let userId = null;
+    let token = null;
+
+    if (req.user && req.user._id) {
+      userId = req.user._id;
+    } else if (req.cookies && req.cookies.access_token) {
+      token = req.cookies.access_token;
+    } else if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+      token = req.headers.authorization.split(' ')[1];
+    }
+
+    if (!userId && token) {
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        userId = decoded.id;
+      } catch (err) {
+        // Proceed as anonymous
+      }
+    }
+
+    const now = new Date();
+    let user = null;
+    let likedArticles = [];
+
+    if (userId) {
+      user = await User.findById(userId).populate('savedArticles');
+      likedArticles = await Article.find({ likes: userId }).select('category tags');
+    }
+
+    // Weight maps for categories and tags
+    const categoryWeights = {};
+    const tagWeights = {};
+
+    const addWeights = (art, weight) => {
+      if (!art) return;
+      if (art.category) {
+        categoryWeights[art.category] = (categoryWeights[art.category] || 0) + weight;
+      }
+      if (art.tags && Array.isArray(art.tags)) {
+        art.tags.forEach(tag => {
+          const cleanTag = tag.toLowerCase().trim();
+          if (cleanTag) {
+            tagWeights[cleanTag] = (tagWeights[cleanTag] || 0) + weight;
+          }
+        });
+      }
+    };
+
+    const hasHistoryOrPreferences = user && (
+      (user.savedArticles && user.savedArticles.length > 0) ||
+      (user.viewedArticles && user.viewedArticles.length > 0) ||
+      likedArticles.length > 0 ||
+      (user.recommendationSettings && (
+        (user.recommendationSettings.preferredCategories && user.recommendationSettings.preferredCategories.length > 0) ||
+        (user.recommendationSettings.preferredTags && user.recommendationSettings.preferredTags.length > 0)
+      ))
+    );
+
+    if (hasHistoryOrPreferences) {
+      // 1. User feed settings (Highest priority)
+      if (user.recommendationSettings) {
+        if (user.recommendationSettings.preferredCategories && Array.isArray(user.recommendationSettings.preferredCategories)) {
+          user.recommendationSettings.preferredCategories.forEach(cat => {
+            categoryWeights[cat] = (categoryWeights[cat] || 0) + 16;
+          });
+        }
+        if (user.recommendationSettings.preferredTags && Array.isArray(user.recommendationSettings.preferredTags)) {
+          user.recommendationSettings.preferredTags.forEach(tag => {
+            const cleanTag = tag.toLowerCase().trim();
+            if (cleanTag) {
+              tagWeights[cleanTag] = (tagWeights[cleanTag] || 0) + 14;
+            }
+          });
+        }
+      }
+
+      // 2. Academic Major / Year of Study
+      if (user.academicMajor) {
+        const cleanMajor = user.academicMajor.toLowerCase().trim();
+        if (cleanMajor) tagWeights[cleanMajor] = (tagWeights[cleanMajor] || 0) + 8;
+      }
+      if (user.yearOfStudy) {
+        const cleanYear = user.yearOfStudy.toLowerCase().trim();
+        if (cleanYear) tagWeights[cleanYear] = (tagWeights[cleanYear] || 0) + 6;
+      }
+
+      // 3. User History: Saved (6), Liked (5), Viewed (3)
+      if (user.savedArticles) {
+        user.savedArticles.forEach(art => addWeights(art, 6));
+      }
+      likedArticles.forEach(art => addWeights(art, 5));
+
+      if (user.viewedArticles && user.viewedArticles.length > 0) {
+        const viewedIds = user.viewedArticles.map(v => v.article).filter(Boolean);
+        if (viewedIds.length > 0) {
+          const viewedDetails = await Article.find({ _id: { $in: viewedIds } }).select('category tags');
+          viewedDetails.forEach(art => addWeights(art, 3));
+        }
+      }
+    }
+
+    // Query candidate published articles with valid cover images (excluding tea-shop & banned)
+    const candidates = await Article.find({
+      status: 'published',
+      isBanned: { $ne: true },
+      category: { $ne: 'tea-shop' },
+      coverImage: { $exists: true, $nin: ['', null] }
+    })
+      .select('-body -annotations')
+      .populate('author', 'name username showRealNamePublicly avatar role')
+      .lean();
+
+    // Score candidates
+    const scoredCandidates = candidates.map(article => {
+      const likesCount = article.likes ? article.likes.length : 0;
+      const viewsCount = article.views || 0;
+      const sharesCount = article.shares || 0;
+      const pubTime = article.publishedAt || article.createdAt || now;
+      const hoursElapsed = Math.max(0.1, (now - new Date(pubTime)) / (1000 * 60 * 60));
+
+      const hypeScore = viewsCount + (sharesCount * 4) + (likesCount * 3);
+      const recencyDecay = Math.pow(hoursElapsed + 2, 1.25);
+      const baseTrending = hypeScore / recencyDecay;
+
+      if (!hasHistoryOrPreferences) {
+        let guestScore = baseTrending;
+        if (article.isFeatured) guestScore *= 1.5;
+        if (article.isBreaking) guestScore *= 1.8;
+        return {
+          article,
+          score: guestScore,
+          rationale: article.isBreaking ? 'Breaking News' : (article.isFeatured ? 'Featured Story' : 'Trending on Campus')
+        };
+      }
+
+      // Personalized scoring strictly matching user history and feed reference settings
+      const catWeight = categoryWeights[article.category] || 0;
+      let tagWeightSum = 0;
+      let matchedTags = [];
+      if (article.tags && Array.isArray(article.tags)) {
+        article.tags.forEach(t => {
+          const cleanT = t.toLowerCase().trim();
+          if (tagWeights[cleanT]) {
+            tagWeightSum += tagWeights[cleanT];
+            matchedTags.push(cleanT);
+          }
+        });
+      }
+
+      const matchScore = (catWeight * 2.0) + (tagWeightSum * 1.8);
+      // Strictly prioritize stories matching user history and feed reference settings
+      const finalScore = (1 + matchScore * 10) * (1 + hypeScore) / recencyDecay;
+
+      let rationale = 'Recommended for you';
+      if (matchedTags.length > 0) {
+        rationale = `Matches #${matchedTags[0]}`;
+      } else if (catWeight > 0) {
+        rationale = `Trending in ${article.category.toUpperCase()}`;
+      }
+
+      return {
+        article,
+        score: finalScore,
+        rationale
+      };
+    });
+
+    // Sort descending by calculated score
+    scoredCandidates.sort((a, b) => b.score - a.score);
+
+    const total = scoredCandidates.length;
+    const startIndex = (page - 1) * limit;
+    const paginatedItems = scoredCandidates.slice(startIndex, startIndex + limit).map(item => {
+      const art = { ...item.article };
+      art.recommendationRationale = item.rationale;
+      art.recommendationScore = item.score;
+      return art;
+    });
+
+    const totalPages = Math.ceil(total / limit);
+    const hasMore = startIndex + limit < total;
+
+    res.status(200).json({
+      success: true,
+      count: paginatedItems.length,
+      total,
+      page,
+      totalPages,
+      hasMore,
+      data: paginatedItems
     });
   } catch (err) {
     next(err);
@@ -1117,8 +1621,11 @@ exports.getMyUploadsStats = async (req, res, next) => {
     const role = req.user.role;
     const userId = req.user._id;
 
-    // Get own articles
-    const ownArticles = await Article.find({ author: userId });
+    // Get own articles (lean + selected fields only)
+    const ownArticles = await Article.find({ author: userId })
+      .select('status views likes shares category')
+      .lean();
+
     const ownCounts = {
       total: ownArticles.length,
       published: ownArticles.filter(a => a.status === 'published').length,
@@ -1151,21 +1658,23 @@ exports.getMyUploadsStats = async (req, res, next) => {
 
     // Role-based custom integrations
     if (role === 'moderator') {
-      const flaggedArticlesCount = await Article.countDocuments({ isFlagged: true });
-      const pendingCommentsCount = await Comment.countDocuments({ isApproved: false });
+      const [flaggedArticlesCount, pendingCommentsCount] = await Promise.all([
+        Article.countDocuments({ isFlagged: true }),
+        Comment.countDocuments({ isApproved: false })
+      ]);
       responseData.moderatorStats = {
         flaggedArticles: flaggedArticlesCount,
         pendingComments: pendingCommentsCount,
       };
     } 
     else if (role === 'editor') {
-      const pendingSubmissions = await Article.countDocuments({ status: 'pending' });
-      const totalArticlesCount = await Article.countDocuments();
-      const publishedArticlesCount = await Article.countDocuments({ status: 'published' });
-      
-      const allCategories = await Article.aggregate([
-        { $group: { _id: '$category', count: { $sum: 1 } } }
+      const [pendingSubmissions, totalArticlesCount, publishedArticlesCount, allCategories] = await Promise.all([
+        Article.countDocuments({ status: 'pending' }),
+        Article.estimatedDocumentCount(),
+        Article.countDocuments({ status: 'published' }),
+        Article.aggregate([{ $group: { _id: '$category', count: { $sum: 1 } } }])
       ]);
+
       const categoryDistribution = {};
       allCategories.forEach(c => {
         categoryDistribution[c._id] = c.count;
@@ -1180,33 +1689,30 @@ exports.getMyUploadsStats = async (req, res, next) => {
     }
     else if (role === 'admin') {
       const User = require('../models/User');
-      const totalUsers = await User.countDocuments();
-      const usersByRole = await User.aggregate([
-        { $group: { _id: '$role', count: { $sum: 1 } } }
+      const [
+        totalUsers,
+        usersByRole,
+        totalArticles,
+        publishedArticles,
+        pendingSubmissions,
+        flaggedArticles,
+        allArticlesStats,
+        totalComments
+      ] = await Promise.all([
+        User.estimatedDocumentCount(),
+        User.aggregate([{ $group: { _id: '$role', count: { $sum: 1 } } }]),
+        Article.estimatedDocumentCount(),
+        Article.countDocuments({ status: 'published' }),
+        Article.countDocuments({ status: 'pending' }),
+        Article.countDocuments({ isFlagged: true }),
+        Article.aggregate([{ $group: { _id: null, totalViews: { $sum: '$views' }, totalShares: { $sum: '$shares' } } }]),
+        Comment.estimatedDocumentCount()
       ]);
+
       const roleDistribution = {};
       usersByRole.forEach(r => {
         roleDistribution[r._id] = r.count;
       });
-
-      const totalArticles = await Article.countDocuments();
-      const publishedArticles = await Article.countDocuments({ status: 'published' });
-      const pendingSubmissions = await Article.countDocuments({ status: 'pending' });
-      const flaggedArticles = await Article.countDocuments({ isFlagged: true });
-      
-      const allArticlesStats = await Article.aggregate([
-        {
-          $group: {
-            _id: null,
-            totalViews: { $sum: '$views' },
-            totalShares: { $sum: '$shares' },
-          }
-        }
-      ]);
-      
-      const totalViews = allArticlesStats[0]?.totalViews || 0;
-      const totalShares = allArticlesStats[0]?.totalShares || 0;
-      const totalComments = await Comment.countDocuments();
 
       responseData.adminStats = {
         totalUsers,
@@ -1215,8 +1721,8 @@ exports.getMyUploadsStats = async (req, res, next) => {
         publishedArticles,
         pendingSubmissions,
         flaggedArticles,
-        totalViews,
-        totalShares,
+        totalViews: allArticlesStats[0]?.totalViews || 0,
+        totalShares: allArticlesStats[0]?.totalShares || 0,
         totalComments,
       };
     }

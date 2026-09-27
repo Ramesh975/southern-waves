@@ -22,7 +22,9 @@ const TrendingWidget = () => {
       <div className="widget-list">
         {articles.map((item, index) => (
           <div key={item._id} className="widget-item">
-            <span className="widget-rank">0{index + 1}</span>
+            <span className="widget-rank" style={{ flexShrink: 0, minWidth: '32px', whiteSpace: 'nowrap' }}>
+              0{index + 1}
+            </span>
             <div className="widget-item-info">
               <Link to={`/article/${item.slug}`} className="widget-item-title">
                 {item.title}

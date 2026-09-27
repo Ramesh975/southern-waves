@@ -8,11 +8,10 @@ import {
 } from 'react-icons/fi';
 
 const AboutPage = () => {
-  const { theme, themeEngine } = useTheme();
+  const { theme } = useTheme();
   
   const isLight = theme === 'light';
   const isBlack = theme === 'black';
-  const isExpressive = themeEngine === 'expressive';
 
   // Dynamic colors
   const baseBg = isLight ? '#fbf9f5' : (isBlack ? '#000000' : '#151515');
@@ -21,11 +20,11 @@ const AboutPage = () => {
   const textSecondary = isLight ? '#4a5568' : '#a0aec0';
   const borderColor = isLight ? '#e2e8f0' : (isBlack ? '#1a1b24' : '#2d3748');
 
-  // Dynamic shapes based on Theme Engine
-  const radiusLg = isExpressive ? '24px' : '12px';
-  const radiusMd = isExpressive ? '16px' : '8px';
+  // Standard shapes
+  const radiusLg = '12px';
+  const radiusMd = '8px';
   const shadowStyle = isLight 
-    ? (isExpressive ? 'var(--shadow-lg)' : '0 4px 12px rgba(0,0,0,0.05)')
+    ? '0 4px 12px rgba(0,0,0,0.05)'
     : (isBlack ? 'none' : '0 10px 30px rgba(0,0,0,0.3)');
 
   const sections = [

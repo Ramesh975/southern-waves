@@ -9,18 +9,32 @@ const { DEFAULT_WORDS } = require('../utils/filter');
 // @access  Private (admin, moderator)
 exports.getFilterWords = async (req, res, next) => {
   try {
-    const { category, search } = req.query;
+    const { category, search, page = 1, limit = 50 } = req.query;
     const query = {};
     if (category && category !== 'all') query.category = category;
-    if (search) {
-      query.word = { $regex: search, $options: 'i' };
+    if (search && search.trim()) {
+      query.word = { $regex: search.trim(), $options: 'i' };
     }
 
+    const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 200);
+    const skip = (Number(page) - 1) * safeLimit;
+
+    const total = await FilterWord.countDocuments(query);
     const words = await FilterWord.find(query)
       .populate('createdBy', 'name role')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(safeLimit)
+      .lean();
 
-    res.status(200).json({ success: true, count: words.length, data: words });
+    res.status(200).json({
+      success: true,
+      count: words.length,
+      total,
+      totalPages: Math.ceil(total / safeLimit),
+      currentPage: Number(page),
+      data: words,
+    });
   } catch (err) {
     next(err);
   }
@@ -104,11 +118,34 @@ exports.deleteFilterWord = async (req, res, next) => {
 // @access  Private (admin, moderator)
 exports.getFlaggedArticles = async (req, res, next) => {
   try {
-    const articles = await Article.find({ isFlagged: true })
-      .populate('author', 'name email avatar role')
-      .sort({ createdAt: -1 });
+    const { page = 1, limit = 25, search } = req.query;
+    const safeLimit = Math.min(Math.max(Number(limit) || 25, 1), 100);
+    const skip = (Number(page) - 1) * safeLimit;
 
-    res.status(200).json({ success: true, count: articles.length, data: articles });
+    const query = { isFlagged: true };
+    if (search && search.trim()) {
+      const cleanTerm = search.trim().replace(/^@/, '');
+      const escaped = cleanTerm.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+      query.title = new RegExp(escaped, 'i');
+    }
+
+    const total = await Article.countDocuments(query);
+    const articles = await Article.find(query)
+      .select('-body -annotations')
+      .populate('author', 'name email avatar role')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(safeLimit)
+      .lean();
+
+    res.status(200).json({
+      success: true,
+      count: articles.length,
+      total,
+      totalPages: Math.ceil(total / safeLimit),
+      currentPage: Number(page),
+      data: articles,
+    });
   } catch (err) {
     next(err);
   }
@@ -119,11 +156,34 @@ exports.getFlaggedArticles = async (req, res, next) => {
 // @access  Private (admin, moderator)
 exports.getPendingArticles = async (req, res, next) => {
   try {
-    const articles = await Article.find({ status: 'pending' })
-      .populate('author', 'name email avatar role')
-      .sort({ createdAt: -1 });
+    const { page = 1, limit = 25, search } = req.query;
+    const safeLimit = Math.min(Math.max(Number(limit) || 25, 1), 100);
+    const skip = (Number(page) - 1) * safeLimit;
 
-    res.status(200).json({ success: true, count: articles.length, data: articles });
+    const query = { status: 'pending' };
+    if (search && search.trim()) {
+      const cleanTerm = search.trim().replace(/^@/, '');
+      const escaped = cleanTerm.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+      query.title = new RegExp(escaped, 'i');
+    }
+
+    const total = await Article.countDocuments(query);
+    const articles = await Article.find(query)
+      .select('-body -annotations')
+      .populate('author', 'name email avatar role')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(safeLimit)
+      .lean();
+
+    res.status(200).json({
+      success: true,
+      count: articles.length,
+      total,
+      totalPages: Math.ceil(total / safeLimit),
+      currentPage: Number(page),
+      data: articles,
+    });
   } catch (err) {
     next(err);
   }
@@ -217,10 +277,32 @@ exports.dismissFlaggedArticle = async (req, res, next) => {
 // @access  Private (admin, moderator)
 exports.getBlockedTags = async (req, res, next) => {
   try {
-    const tags = await BlockedTag.find()
+    const { search, page = 1, limit = 50 } = req.query;
+    const query = {};
+    if (search && search.trim()) {
+      const cleanSearch = search.trim().replace(/^#/, '');
+      query.tag = { $regex: cleanSearch, $options: 'i' };
+    }
+
+    const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 200);
+    const skip = (Number(page) - 1) * safeLimit;
+
+    const total = await BlockedTag.countDocuments(query);
+    const tags = await BlockedTag.find(query)
       .populate('createdBy', 'name role')
-      .sort({ tag: 1 });
-    res.status(200).json({ success: true, count: tags.length, data: tags });
+      .sort({ tag: 1 })
+      .skip(skip)
+      .limit(safeLimit)
+      .lean();
+
+    res.status(200).json({
+      success: true,
+      count: tags.length,
+      total,
+      totalPages: Math.ceil(total / safeLimit),
+      currentPage: Number(page),
+      data: tags,
+    });
   } catch (err) {
     next(err);
   }

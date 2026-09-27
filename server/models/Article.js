@@ -226,6 +226,8 @@ ArticleSchema.virtual('comments', {
 // Index for performance
 ArticleSchema.index({ title: 'text', lead: 'text', body: 'text', tags: 'text' });
 ArticleSchema.index({ category: 1, status: 1, publishedAt: -1 });
-ArticleSchema.index({ isTrending: 1, views: -1 });
+ArticleSchema.index({ status: 1, publishedAt: -1 });
+ArticleSchema.index({ status: 1, views: -1, publishedAt: -1 });
+ArticleSchema.index({ status: 1, isTrending: -1, views: -1 });
 
 module.exports = mongoose.model('Article', ArticleSchema);

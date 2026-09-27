@@ -13,12 +13,11 @@ import toast from 'react-hot-toast';
 
 const StoriesPage = () => {
   const { user } = useAuth();
-  const { theme, accent, themeEngine } = useTheme();
+  const { theme } = useTheme();
   const navigate = useNavigate();
 
   const isLight = theme === 'light';
   const isBlack = theme === 'black';
-  const isExpressive = themeEngine === 'expressive';
 
   // Core colors
   const baseBg = isLight ? '#fbf9f5' : (isBlack ? '#000000' : '#151515');
@@ -28,13 +27,13 @@ const StoriesPage = () => {
   const borderStrong = isLight ? 'var(--color-gray-200, #e2e7f2)' : 'rgba(255, 255, 255, 0.15)';
 
   // Radii
-  const radiusLg = isExpressive ? '28px' : '20px';
-  const radiusMd = isExpressive ? '16px' : '10px';
-  const radiusPill = isExpressive ? '30px' : '20px';
+  const radiusLg = '20px';
+  const radiusMd = '10px';
+  const radiusPill = '20px';
 
   // Shadows
   const shadowCard = isLight 
-    ? (isExpressive ? 'var(--shadow-lg)' : '0 20px 40px rgba(0,0,0,0.08)') 
+    ? '0 20px 40px rgba(0,0,0,0.08)' 
     : (isBlack ? 'none' : '0 25px 60px rgba(0,0,0,0.7)');
   const shadowNav = isLight 
     ? '0 8px 24px rgba(0,0,0,0.08)' 
@@ -47,13 +46,10 @@ const StoriesPage = () => {
 
   // Default Card Background (when no cover image is uploaded)
   const defaultCardBg = useMemo(() => {
-    if (isExpressive) {
-      return `linear-gradient(135deg, color-mix(in srgb, var(--accent-color) ${isLight ? '15%' : '25%'}, ${baseBg}) 0%, color-mix(in srgb, var(--accent-color) ${isLight ? '8%' : '12%'}, ${baseBg}) 50%, ${baseBg} 100%)`;
-    }
     return isLight
       ? 'linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 50%, #d1d5db 100%)'
       : 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #0f172a 100%)';
-  }, [isLight, isExpressive, baseBg]);
+  }, [isLight]);
 
   const [articles, setArticles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -394,9 +390,7 @@ const StoriesPage = () => {
         position: 'fixed',
         inset: 0,
         background: baseBg,
-        backgroundImage: isExpressive 
-          ? 'radial-gradient(ellipse 80% 50% at 50% -20%, color-mix(in srgb, var(--accent-color) 15%, transparent), transparent 70%), radial-gradient(ellipse 60% 40% at 100% 50%, color-mix(in srgb, var(--accent-color) 8%, transparent), transparent 60%)' 
-          : 'none',
+        backgroundImage: 'none',
         color: textColor,
         zIndex: 9000,
         display: 'flex',
@@ -412,7 +406,7 @@ const StoriesPage = () => {
         alignItems: 'center',
         justifyContent: 'space-between',
         padding: '16px 28px',
-        background: `linear-gradient(to bottom, ${baseBg} 0%, color-mix(in srgb, ${baseBg} 80%, transparent) 70%, transparent 100%)`,
+        
         zIndex: 35,
         opacity: isHolding ? 0.15 : 1,
         transition: 'opacity 0.25s ease',
@@ -520,7 +514,7 @@ const StoriesPage = () => {
               background: buttonBg,
               border: buttonBorder,
               color: buttonTextColor,
-              borderRadius: isExpressive ? '12px' : '50%',
+              borderRadius: '50%',
               width: '38px',
               height: '38px',
               display: 'flex',
@@ -540,7 +534,7 @@ const StoriesPage = () => {
               background: buttonBg,
               border: buttonBorder,
               color: buttonTextColor,
-              borderRadius: isExpressive ? '12px' : '50%',
+              borderRadius: '50%',
               width: '38px',
               height: '38px',
               display: 'flex',
@@ -560,7 +554,7 @@ const StoriesPage = () => {
               background: buttonBg,
               border: buttonBorder,
               color: buttonTextColor,
-              borderRadius: isExpressive ? '12px' : '50%',
+              borderRadius: '50%',
               width: '38px',
               height: '38px',
               display: 'flex',
@@ -627,7 +621,7 @@ const StoriesPage = () => {
                 color: '#fff', 
                 border: 'none', 
                 padding: '10px 20px', 
-                borderRadius: isExpressive ? '16px' : '8px', 
+                borderRadius: '8px', 
                 fontWeight: 700, 
                 cursor: 'pointer',
                 boxShadow: isLight ? '0 4px 12px rgba(0,0,0,0.1)' : '0 4px 12px rgba(0,0,0,0.4)'
@@ -781,7 +775,7 @@ const StoriesPage = () => {
                         fontWeight: 900,
                         textTransform: 'uppercase',
                         padding: '3px 9px',
-                        borderRadius: isExpressive ? '12px' : '10px',
+                        borderRadius: '10px',
                         letterSpacing: '0.5px'
                       }}>
                         {getCategoryLabel(storyItem.category)}
@@ -929,7 +923,7 @@ const StoriesPage = () => {
                 color: isLight ? '#0d0d0d' : '#fff',
                 width: '48px',
                 height: '48px',
-                borderRadius: isExpressive ? '16px' : '50%',
+                borderRadius: '50%',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -957,7 +951,7 @@ const StoriesPage = () => {
                 color: isLight ? '#0d0d0d' : '#fff',
                 width: '48px',
                 height: '48px',
-                borderRadius: isExpressive ? '16px' : '50%',
+                borderRadius: '50%',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -996,7 +990,7 @@ const StoriesPage = () => {
                 color: isLight ? 'var(--accent-color)' : '#93c5fd',
                 width: '40px',
                 height: '40px',
-                borderRadius: isExpressive ? '12px' : '50%',
+                borderRadius: '50%',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -1018,7 +1012,7 @@ const StoriesPage = () => {
                 color: isLight ? 'var(--accent-color)' : '#93c5fd',
                 width: '40px',
                 height: '40px',
-                borderRadius: isExpressive ? '12px' : '50%',
+                borderRadius: '50%',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',

@@ -255,8 +255,11 @@ const BottomNavPill = ({
       return 'mind';
     }
     if (category === 'editorial') return 'editorial';
+    if (category === 'university-row') return 'university';
+    if (category === 'features') return 'features';
+    if (category === 'kyp') return 'event';
     if (category === 'pictures-speak') return 'picture';
-    return 'article';
+    return user?.role === 'student' ? 'mind' : 'article';
   };
 
   useEffect(() => {
@@ -421,7 +424,7 @@ const BottomNavPill = ({
   const canPublish = user && (
     category === 'tea-shop'
       ? user.role === 'student'
-      : (user.role === 'admin' || user.role === 'editor' || category === 'pictures-speak')
+      : (['admin', 'editor', 'moderator'].includes(user.role) || category === 'pictures-speak')
   );
 
   const tabsToRender = customTabs || visibleTabs;

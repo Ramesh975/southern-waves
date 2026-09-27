@@ -31,6 +31,7 @@ const FilterWordSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-FilterWordSchema.index({ category: 1 });
+FilterWordSchema.index({ category: 1, createdAt: -1 });
+FilterWordSchema.index({ createdAt: -1 });
 
 module.exports = mongoose.model('FilterWord', FilterWordSchema);

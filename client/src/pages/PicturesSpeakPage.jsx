@@ -924,6 +924,17 @@ const PicturesSpeakPage = () => {
   // Feed tab state
   const [selectedArticle, setSelectedArticle] = useState(null);
 
+  useEffect(() => {
+    if (selectedArticle) {
+      document.body.classList.add('ps-modal-open');
+    } else {
+      document.body.classList.remove('ps-modal-open');
+    }
+    return () => {
+      document.body.classList.remove('ps-modal-open');
+    };
+  }, [selectedArticle]);
+
   // Home tab state
   const [recentArticles, setRecentArticles] = useState([]);
   const [trendingArticles, setTrendingArticles] = useState([]);
@@ -1204,37 +1215,39 @@ const PicturesSpeakPage = () => {
         </div>
       )}
 
-      {/* Bottom navigation pill */}
-      <BottomNavPill
-        activeTab={activeNavTab}
-        category="pictures-speak"
-        showSearch={true}
-        showPublish={true}
-        customTabs={[
-          { id: 'feed', label: 'Explore', icon: FiRadio },
-          ...(user ? [
-            { id: 'pending', label: 'Pending', icon: FiClock }
-          ] : [])
-        ]}
-        onTabClick={(tabId) => {
-          if (tabId === 'feed') { setActiveNavTab('feed'); }
-          else if (tabId === 'pending') { setActiveNavTab('pending'); setSelectedArticle(null); }
-        }}
-        onPublishSuccess={(newArt) => {
-          if (newArt.category === 'pictures-speak') {
-            if (newArt.status === 'pending') {
-              toast.success('Visual story submitted for admin review! ⏳');
-              loadPending();
-              setActiveNavTab('pending');
-            } else {
-              toast.success('Visual story published live! 🎉');
-              loadPublished();
-              setSelectedArticle(newArt);
-              setActiveNavTab('feed');
+      {/* Bottom navigation pill (hidden when full story modal is open) */}
+      {!selectedArticle && (
+        <BottomNavPill
+          activeTab={activeNavTab}
+          category="pictures-speak"
+          showSearch={true}
+          showPublish={true}
+          customTabs={[
+            { id: 'feed', label: 'Explore', icon: FiRadio },
+            ...(user ? [
+              { id: 'pending', label: 'Pending', icon: FiClock }
+            ] : [])
+          ]}
+          onTabClick={(tabId) => {
+            if (tabId === 'feed') { setActiveNavTab('feed'); }
+            else if (tabId === 'pending') { setActiveNavTab('pending'); setSelectedArticle(null); }
+          }}
+          onPublishSuccess={(newArt) => {
+            if (newArt.category === 'pictures-speak') {
+              if (newArt.status === 'pending') {
+                toast.success('Visual story submitted for admin review! ⏳');
+                loadPending();
+                setActiveNavTab('pending');
+              } else {
+                toast.success('Visual story published live! 🎉');
+                loadPublished();
+                setSelectedArticle(newArt);
+                setActiveNavTab('feed');
+              }
             }
-          }
-        }}
-      />
+          }}
+        />
+      )}
     </main>
   );
 };

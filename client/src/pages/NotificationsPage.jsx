@@ -1,213 +1,344 @@
-import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useChat } from '../context/ChatContext';
 import { notificationAPI, authAPI } from '../services/api';
 import {
   FiBell, FiCheck, FiCheckCircle, FiTrash2, FiSearch,
   FiSend, FiRefreshCw, FiExternalLink, FiMessageSquare,
-  FiAlertTriangle, FiRadio, FiSliders, FiShield, FiPlus,
-  FiX, FiChevronRight, FiFilter, FiInfo, FiTag
+  FiAlertTriangle, FiRadio, FiShield, FiPlus,
+  FiX, FiChevronRight, FiArchive, FiTag, FiClock,
+  FiFileText, FiUser, FiMessageCircle, FiSliders,
 } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import { formatDistanceToNow } from 'date-fns';
-import { getImageUrl } from '../components/ArticleComponents';
+import { resolveNotifUrl } from '../context/ChatContext';
 import './NotificationsPage.css';
 
-const CATEGORIES = [
-  { id: 'all', label: 'All', icon: FiBell },
-  { id: 'announcement', label: 'Announcements 📢', icon: FiRadio },
-  { id: 'board_news', label: 'Board News 📰', icon: FiTag },
-  { id: 'sensitivity', label: 'Critical Alerts ⚡', icon: FiAlertTriangle },
-  { id: 'appeal', label: 'Appeals 🛡️', icon: FiShield },
-  { id: 'message', label: 'Chat & Mentions 💬', icon: FiMessageSquare },
-  { id: 'editorial', label: 'Editorial ✍️', icon: FiSliders }
+// ── Constants ──────────────────────────────────────────────────────────────────
+
+const TABS = [
+  { id: 'active',        label: 'Active Alerts',        icon: FiBell },
+  { id: 'security',      label: 'Security & Appeals',   icon: FiShield },
+  { id: 'announcements', label: 'Announcements',        icon: FiRadio },
+  { id: 'history',       label: 'Notification History', icon: FiArchive },
 ];
+
+const NOTIFICATION_TYPES = [
+  { value: 'announcement', label: '📢 Announcement' },
+  { value: 'board_news',   label: '📰 Campus News' },
+  { value: 'sensitivity',  label: '🚨 Security Alert' },
+  { value: 'editorial',    label: '✍️ Editorial Update' },
+  { value: 'comment',      label: '💬 Comment Mention' },
+  { value: 'system',       label: '⚙️ System' },
+];
+
+const ACTION_TYPES = [
+  { value: 'none',          label: 'No Action Button' },
+  { value: 'open_article',  label: '📄 Read Article (enter slug)' },
+  { value: 'open_profile',  label: '👤 View Profile (enter username)' },
+  { value: 'open_chat_room',label: '🗨️ Join Chat Room (enter room name)' },
+  { value: 'open_comment',  label: '💬 View Comment (enter article slug)' },
+  { value: 'navigate',      label: '→ Navigate to URL' },
+  { value: 'external_url',  label: '🔗 Open External URL' },
+];
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+const getCtaConfig = (n) => {
+  if (!n.actionType || n.actionType === 'none') return null;
+  if (n.actionType === 'open_article')  return { label: 'Read Article',   icon: <FiFileText size={13} />,    variant: 'article' };
+  if (n.actionType === 'open_profile')  return { label: 'View Profile',   icon: <FiUser size={13} />,         variant: 'profile' };
+  if (n.actionType === 'open_chat_room')return { label: 'Join Room',      icon: <FiMessageSquare size={13} />, variant: 'chat' };
+  if (n.actionType === 'open_comment')  return { label: 'View Comment',   icon: <FiMessageCircle size={13} />, variant: 'comment' };
+  if (n.actionType === 'navigate')      return { label: 'Go There',       icon: <FiChevronRight size={13} />,  variant: 'navigate' };
+  if (n.actionType === 'external_url')  return { label: 'Open Link',      icon: <FiExternalLink size={13} />,  variant: 'external' };
+  if (n.actionUrl && !n.actionUrl.startsWith('/notifications')) return { label: 'Open Resource',  icon: <FiExternalLink size={13} />,  variant: 'external' };
+  return null;
+};
+
+const getNotificationIcon = (type, priority) => {
+  if (priority === 'urgent' || type === 'sensitivity') return <FiAlertTriangle size={14} color="#ef4444" />;
+  if (type === 'appeal')    return <FiShield size={14} color="#f59e0b" />;
+  if (type === 'board_news')return <FiTag size={14} color="#0284c7" />;
+  if (type === 'message')   return <FiMessageSquare size={14} color="#8b5cf6" />;
+  if (type === 'comment')   return <FiMessageCircle size={14} color="#7c3aed" />;
+  if (type === 'editorial') return <FiFileText size={14} color="#059669" />;
+  return <FiRadio size={14} color="#10b981" />;
+};
+
+const getTypeLabel = (type, priority) => {
+  if (priority === 'urgent') return 'Urgent Action';
+  if (type === 'sensitivity')return 'Security Alert';
+  if (type === 'appeal')     return 'User Appeal';
+  if (type === 'board_news') return 'Campus News';
+  if (type === 'message')    return 'Chat / Mention';
+  if (type === 'comment')    return 'Comment';
+  if (type === 'editorial')  return 'Editorial';
+  return 'Announcement';
+};
+
+const SenderAvatar = ({ sender }) => {
+  if (!sender) return null;
+  const initial = (sender.name || 'S').charAt(0).toUpperCase();
+  return (
+    <span className="notif-page-avatar" title={sender.name}>
+      {sender.avatar
+        ? <img src={sender.avatar} alt={sender.name} />
+        : initial}
+    </span>
+  );
+};
+
+// ── Component ─────────────────────────────────────────────────────────────────
 
 const NotificationsPage = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, isAdmin, isEditor, isModerator } = useAuth();
+  const isModOrAdmin = isAdmin || isEditor || isModerator;
+
   const {
     notifications,
     unreadNotificationsCount,
     markNotificationRead,
     markAllNotificationsRead,
+    dismissNotification,
     fetchNotifications,
     deleteNotification,
     openRoom,
-    setIsOpen
   } = useChat();
 
-  const [activeCategory, setActiveCategory] = useState('all');
+  const initialTab = searchParams.get('tab') || 'active';
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [searchQuery, setSearchQuery] = useState('');
   const [unreadOnly, setUnreadOnly] = useState(false);
+  const [priorityFilter, setPriorityFilter] = useState('all');
   const [refreshing, setRefreshing] = useState(false);
+  const [expandedIds, setExpandedIds] = useState(new Set());
 
-  // Broadcast announcement modal state
+  // Appeal state
+  const [responseTexts, setResponseTexts] = useState({});
+  const [appealLoadingId, setAppealLoadingId] = useState(null);
+
+  // Broadcast modal
   const [broadcastModalOpen, setBroadcastModalOpen] = useState(false);
-  const [newTitle, setNewTitle] = useState('');
-  const [newMessage, setNewMessage] = useState('');
-  const [newType, setNewType] = useState('announcement');
-  const [newPriority, setNewPriority] = useState('normal');
-  const [newActionUrl, setNewActionUrl] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+  const [broadcastForm, setBroadcastForm] = useState({
+    title: '', message: '', type: 'announcement', priority: 'normal',
+    actionType: 'none', actionUrl: '', actionPayloadRaw: '',
+    targetRoles: [],
+  });
+  const [submittingBroadcast, setSubmittingBroadcast] = useState(false);
 
-  // Appeal response state
-  const [appealResponseId, setAppealResponseId] = useState(null);
-  const [appealText, setAppealText] = useState('');
-  const [appealLoading, setAppealLoading] = useState(false);
-  const [snappingCategory, setSnappingCategory] = useState(null);
-  const [collapsedCategories, setCollapsedCategories] = useState({});
-
+  // Sync tab with URL param
   useEffect(() => {
-    fetchNotifications();
-  }, []);
+    const tabFromUrl = searchParams.get('tab');
+    if (tabFromUrl && tabFromUrl !== activeTab) setActiveTab(tabFromUrl);
+  }, [searchParams]);
+
+  useEffect(() => { if (fetchNotifications) fetchNotifications(); }, []);
+
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
+    setSearchParams({ tab: tabId });
+  };
 
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      await fetchNotifications();
+      if (fetchNotifications) await fetchNotifications();
       toast.success('Notifications updated');
-    } catch {
-      toast.error('Failed to refresh notifications');
-    } finally {
-      setRefreshing(false);
+    } catch { toast.error('Failed to update notifications'); }
+    finally { setRefreshing(false); }
+  };
+
+  const handleToggleExpand = (id) => {
+    setExpandedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  // ── Appeal resolution ──
+  const handleResolveAppeal = async (n, actionType) => {
+    const senderId = typeof n.sender === 'object' ? n.sender?._id : n.sender;
+    if (!senderId) return toast.error('User information not found');
+    const note = responseTexts[n._id] || '';
+    setAppealLoadingId(n._id);
+    try {
+      if (actionType === 'approve') {
+        await authAPI.unblockUser(senderId);
+        toast.success('Appeal approved — account restored!');
+      } else {
+        await authAPI.rejectAppeal(senderId, note);
+        toast.success('Appeal rejected and recorded.');
+      }
+      if (markNotificationRead) markNotificationRead(n._id);
+      if (fetchNotifications) fetchNotifications();
+      setExpandedIds(prev => { const s = new Set(prev); s.delete(n._id); return s; });
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to resolve appeal');
+    } finally { setAppealLoadingId(null); }
+  };
+
+  const executeNotificationNavigation = (n) => {
+    if (!n.isRead && markNotificationRead) markNotificationRead(n._id);
+    const resolved = resolveNotifUrl(n);
+    if (!resolved) {
+      handleToggleExpand(n._id);
+      return;
     }
+
+    if (typeof resolved === 'object') {
+      if (resolved.isChatRoom && openRoom) {
+        const p = resolved.payload || {};
+        openRoom(p.roomType || 'category', p.name || '');
+        return;
+      }
+      if (resolved.isAppealReview) {
+        handleToggleExpand(n._id);
+        return;
+      }
+    }
+
+    if (typeof resolved === 'string') {
+      if (resolved.startsWith('http')) {
+        window.open(resolved, '_blank', 'noopener,noreferrer');
+      } else {
+        navigate(resolved);
+      }
+    }
+  };
+
+  // ── Contextual CTA action ──
+  const handleCtaAction = (n) => {
+    executeNotificationNavigation(n);
+  };
+
+  const handleCardClick = (n) => {
+    executeNotificationNavigation(n);
+  };
+
+  // ── Clear read history ──
+  const handleClearReadHistory = async () => {
+    if (!window.confirm('Clear all read notifications? Historical records remain in the archive.')) return;
+    try {
+      await notificationAPI.clearRead();
+      toast.success('Read notifications cleared');
+      if (fetchNotifications) fetchNotifications();
+    } catch { toast.error('Failed to clear notifications'); }
+  };
+
+  // ── Broadcast modal helpers ──
+  const updateBroadcastForm = (field, value) =>
+    setBroadcastForm(prev => ({ ...prev, [field]: value }));
+
+  const toggleTargetRole = (role) => {
+    setBroadcastForm(prev => ({
+      ...prev,
+      targetRoles: prev.targetRoles.includes(role)
+        ? prev.targetRoles.filter(r => r !== role)
+        : [...prev.targetRoles, role],
+    }));
+  };
+
+  // Build actionPayload from raw input based on actionType
+  const buildActionPayload = (actionType, rawValue) => {
+    if (!rawValue) return null;
+    if (actionType === 'open_article' || actionType === 'open_comment') return { slug: rawValue.trim() };
+    if (actionType === 'open_profile') return { username: rawValue.trim() };
+    if (actionType === 'open_chat_room') {
+      const [roomType = 'category', ...rest] = rawValue.trim().split(':');
+      return { roomType, name: rest.join(':') || rawValue.trim() };
+    }
+    return null;
   };
 
   const handleCreateBroadcast = async (e) => {
     e.preventDefault();
-    if (!newTitle.trim() || !newMessage.trim()) {
-      return toast.error('Please enter a title and message');
-    }
+    const { title, message, type, priority, actionType, actionUrl, actionPayloadRaw, targetRoles } = broadcastForm;
+    if (!title.trim() || !message.trim()) return toast.error('Title and message are required');
 
-    setSubmitting(true);
+    setSubmittingBroadcast(true);
     try {
-      await notificationAPI.create({
-        title: newTitle.trim(),
-        message: newMessage.trim(),
-        type: newType,
-        priority: newPriority,
-        actionUrl: newActionUrl.trim()
-      });
-      toast.success('Announcement broadcasted successfully!');
-      setNewTitle('');
-      setNewMessage('');
-      setNewType('announcement');
-      setNewPriority('normal');
-      setNewActionUrl('');
+      const payload = {
+        title: title.trim(),
+        message: message.trim(),
+        type, priority,
+        actionType: actionType || 'none',
+        actionUrl: ['navigate', 'external_url'].includes(actionType) ? actionUrl.trim() : '',
+        actionPayload: buildActionPayload(actionType, actionPayloadRaw),
+        targetRoles,
+      };
+      await notificationAPI.create(payload);
+      toast.success('Announcement broadcasted to all users! 📢');
+      setBroadcastForm({ title: '', message: '', type: 'announcement', priority: 'normal', actionType: 'none', actionUrl: '', actionPayloadRaw: '', targetRoles: [] });
       setBroadcastModalOpen(false);
-      fetchNotifications();
+      if (fetchNotifications) fetchNotifications();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to push announcement');
-    } finally {
-      setSubmitting(false);
-    }
+      toast.error(err.response?.data?.message || 'Failed to broadcast announcement');
+    } finally { setSubmittingBroadcast(false); }
   };
 
-  const handleResolveAppeal = async (n, actionType) => {
-    const senderId = typeof n.sender === 'object' ? n.sender?._id : n.sender;
-    if (!senderId) return toast.error('User details not found');
-
-    setAppealLoading(true);
-    try {
-      if (actionType === 'approve') {
-        await authAPI.unblockUser(senderId);
-        toast.success('Appeal approved and user unblocked!');
-      } else {
-        await authAPI.rejectAppeal(senderId, appealText);
-        toast.success('Appeal rejected and user notified.');
-      }
-      await markNotificationRead(n._id);
-      setAppealResponseId(null);
-      setAppealText('');
-      fetchNotifications();
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to resolve appeal');
-    } finally {
-      setAppealLoading(false);
-    }
-  };
-
-  const handleNotificationAction = (n) => {
-    if (!n.isRead) markNotificationRead(n._id);
-
-    if (n.actionUrl) {
-      if (n.actionUrl.startsWith('http')) {
-        window.open(n.actionUrl, '_blank');
-      } else {
-        navigate(n.actionUrl);
-      }
-      return;
-    }
-
-    if (n.type === 'message') {
-      openRoom('group', 'news');
-      setIsOpen(true);
-    }
-  };
-
-  const handleSnapClearCategory = async (categoryId) => {
-    setSnappingCategory(categoryId);
-    setTimeout(async () => {
-      const catNotifs = notifications.filter(n => n.type === categoryId && !n.isRead);
-      await Promise.all(catNotifs.map(n => markNotificationRead(n._id)));
-      setSnappingCategory(null);
-    }, 650);
-  };
-
-  // Filtered Notifications
-  const filteredList = useMemo(() => {
-    return notifications.filter(item => {
-      // Category filter
-      if (activeCategory !== 'all') {
-        if (item.type !== activeCategory) return false;
-      }
-      // Unread only filter
-      if (unreadOnly && item.isRead) {
-        return false;
-      }
-      // Search query
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const matchesTitle = item.title?.toLowerCase().includes(q);
-        const matchesMsg = item.message?.toLowerCase().includes(q);
-        return matchesTitle || matchesMsg;
-      }
-      return true;
-    });
-  }, [notifications, activeCategory, unreadOnly, searchQuery]);
-
-  // Featured / Pinned Announcement
-  const featuredAnnouncement = useMemo(() => {
-    return notifications.find(n => (n.priority === 'pinned' || n.type === 'sensitivity') && !n.isRead);
+  // ── Tab counts ──
+  const tabCounts = useMemo(() => {
+    const active = notifications.filter(n => !n.isRead).length;
+    const security = notifications.filter(n => n.type === 'sensitivity' || n.type === 'appeal' || n.priority === 'urgent').length;
+    const announcements = notifications.filter(n => ['announcement', 'board_news', 'editorial'].includes(n.type)).length;
+    const history = notifications.filter(n => n.isRead).length;
+    return { active, security, announcements, history, total: notifications.length };
   }, [notifications]);
 
-  const getTimeAgo = (dateStr) => {
-    try {
-      return formatDistanceToNow(new Date(dateStr), { addSuffix: true });
-    } catch {
-      return '';
-    }
+  // ── Filtered stream ──
+  const filteredNotifications = useMemo(() => {
+    return notifications.filter(n => {
+      // Tab filtering
+      if (activeTab === 'active') {
+        const isRecent = new Date(n.createdAt).getTime() > Date.now() - 48 * 60 * 60 * 1000;
+        const isUrgent = n.priority === 'urgent' || n.priority === 'high' || n.type === 'appeal' || n.type === 'sensitivity';
+        if (n.isRead && !(isRecent && isUrgent)) return false;
+      } else if (activeTab === 'security') {
+        if (n.type !== 'sensitivity' && n.type !== 'appeal' && n.priority !== 'urgent') return false;
+      } else if (activeTab === 'announcements') {
+        if (!['announcement', 'board_news', 'editorial'].includes(n.type)) return false;
+      }
+      // Note: 'history' tab shows everything (no additional filter)
+
+      if (unreadOnly && n.isRead) return false;
+      if (priorityFilter !== 'all' && n.priority !== priorityFilter) return false;
+
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const titleMatch  = (n.title || '').toLowerCase().includes(q);
+        const msgMatch    = (n.message || '').toLowerCase().includes(q);
+        const senderMatch = (n.sender?.name || '').toLowerCase().includes(q);
+        if (!titleMatch && !msgMatch && !senderMatch) return false;
+      }
+
+      return true;
+    });
+  }, [notifications, activeTab, unreadOnly, priorityFilter, searchQuery]);
+
+  const formatTime = (dateString) => {
+    try { return formatDistanceToNow(new Date(dateString), { addSuffix: true }); }
+    catch { return 'recently'; }
   };
 
+  // ── Render ──
   return (
-    <div className="notif-page-shell">
+    <main className="notif-page-shell">
       <div className="notif-page-container">
-        
-        {/* ── Main Header Card ── */}
-        <div className="notif-header-card">
+
+        {/* ── Header Card ── */}
+        <section className="notif-header-card">
           <div className="notif-header-top">
             <div className="notif-title-group">
-              <div className="notif-title-icon-box">
-                <FiBell size={24} />
-              </div>
+              <div className="notif-title-icon-box"><FiBell size={24} /></div>
               <div>
-                <h1 className="notif-main-title">Notifications & Announcements</h1>
+                <h1 className="notif-main-title">Notifications &amp; Security Alerts</h1>
                 <p className="notif-main-subtitle">
-                  {unreadNotificationsCount > 0 
-                    ? `${unreadNotificationsCount} unread update${unreadNotificationsCount > 1 ? 's' : ''} requiring your attention`
-                    : 'You are all caught up with the latest updates'}
+                  Real-time announcements, security warnings, user appeals and history
                 </p>
               </div>
             </div>
@@ -215,428 +346,444 @@ const NotificationsPage = () => {
             <div className="notif-header-actions">
               {unreadNotificationsCount > 0 && (
                 <button
-                  className="notif-btn notif-btn-primary"
-                  onClick={markAllNotificationsRead}
-                  title="Mark all notifications as read"
+                  onClick={() => { if (markAllNotificationsRead) markAllNotificationsRead(); toast.success('All notifications marked as read'); }}
+                  className="notif-btn notif-btn-secondary"
                 >
-                  <FiCheckCircle size={15} />
-                  <span>Mark All Read</span>
+                  <FiCheck size={14} /> Mark All Read ({unreadNotificationsCount})
                 </button>
               )}
-
-              <button
-                className="notif-btn notif-btn-secondary"
-                onClick={handleRefresh}
-                disabled={refreshing}
-                title="Refresh notifications"
-              >
-                <FiRefreshCw size={14} className={refreshing ? 'spin-icon' : ''} />
-                <span>Refresh</span>
+              {isAdmin && (
+                <button onClick={() => setBroadcastModalOpen(true)} className="notif-btn notif-btn-primary">
+                  <FiPlus size={14} /> Push Announcement
+                </button>
+              )}
+              <button onClick={handleRefresh} className="notif-btn notif-btn-icon" title="Refresh">
+                <FiRefreshCw size={14} className={refreshing ? 'notif-spin' : ''} />
               </button>
-
-              {(isAdmin || isEditor) && (
-                <button
-                  className="notif-btn notif-btn-primary"
-                  onClick={() => setBroadcastModalOpen(true)}
-                  style={{ background: 'var(--color-black)', color: 'var(--color-white)' }}
-                  title="Push Announcement"
-                >
-                  <FiPlus size={15} />
-                  <span>New Announcement</span>
-                </button>
-              )}
             </div>
           </div>
 
-          {/* Search & Quick Controls */}
-          <div className="notif-controls-row">
-            <div className="notif-search-box">
-              <FiSearch className="notif-search-icon" size={15} />
-              <input
-                type="text"
-                placeholder="Search alerts, announcements, keywords..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="notif-search-input"
-              />
+          {/* KPI Strip */}
+          <div className="notif-kpi-bar">
+            <div className="notif-kpi-stat" onClick={() => handleTabChange('active')}>
+              <span className="notif-kpi-val" style={{ color: '#0284c7' }}>{tabCounts.active}</span>
+              <span className="notif-kpi-lbl">Unread Alerts</span>
             </div>
-
-            <button
-              className={`notif-tab-chip ${unreadOnly ? 'active' : ''}`}
-              onClick={() => setUnreadOnly(!unreadOnly)}
-            >
-              <FiFilter size={13} />
-              <span>Unread Only</span>
-              {unreadNotificationsCount > 0 && (
-                <span className="notif-tab-badge">{unreadNotificationsCount}</span>
-              )}
-            </button>
+            <div className="notif-kpi-stat" onClick={() => handleTabChange('security')}>
+              <span className="notif-kpi-val" style={{ color: '#ef4444' }}>{tabCounts.security}</span>
+              <span className="notif-kpi-lbl">Security &amp; Appeals</span>
+            </div>
+            <div className="notif-kpi-stat" onClick={() => handleTabChange('announcements')}>
+              <span className="notif-kpi-val" style={{ color: '#10b981' }}>{tabCounts.announcements}</span>
+              <span className="notif-kpi-lbl">Announcements</span>
+            </div>
+            <div className="notif-kpi-stat" onClick={() => handleTabChange('history')}>
+              <span className="notif-kpi-val" style={{ color: '#64748b' }}>{tabCounts.history}</span>
+              <span className="notif-kpi-lbl">Archived History</span>
+            </div>
           </div>
+        </section>
 
-          {/* Categorical Tabs */}
-          <div className="notif-tabs-bar">
-            {CATEGORIES.map(cat => {
-              const count = cat.id === 'all' 
-                ? notifications.length 
-                : notifications.filter(n => n.type === cat.id).length;
-
-              if (count === 0 && cat.id !== 'all') return null;
-
-              const Icon = cat.icon;
+        {/* ── Tabs ── */}
+        <div className="notif-tabs-nav">
+          <div className="notif-tabs-track">
+            {TABS.map((tab) => {
+              const Icon = tab.icon;
+              const count = tabCounts[tab.id] || 0;
               return (
                 <button
-                  key={cat.id}
-                  className={`notif-tab-chip ${activeCategory === cat.id ? 'active' : ''}`}
-                  onClick={() => setActiveCategory(cat.id)}
+                  key={tab.id}
+                  onClick={() => handleTabChange(tab.id)}
+                  className={`notif-tab-chip ${activeTab === tab.id ? 'active' : ''}`}
                 >
                   <Icon size={14} />
-                  <span>{cat.label}</span>
-                  <span className="notif-tab-badge">{count}</span>
+                  <span>{tab.label}</span>
+                  {count > 0 && <span className="notif-tab-badge">{count}</span>}
                 </button>
               );
             })}
           </div>
-        </div>
-
-        {/* ── Featured / Pinned Announcement Banner ── */}
-        {featuredAnnouncement && activeCategory === 'all' && (
-          <div className="notif-announcement-banner">
-            <div className="notif-announcement-icon">
-              <FiAlertTriangle size={20} />
-            </div>
-            <div className="notif-announcement-content">
-              <div className="notif-announcement-header">
-                <h3 className="notif-announcement-title">{featuredAnnouncement.title}</h3>
-                <span className="notif-time-text">{getTimeAgo(featuredAnnouncement.createdAt)}</span>
-              </div>
-              <p className="notif-announcement-text">{featuredAnnouncement.message}</p>
-            </div>
-            <button
-              className="notif-icon-btn"
-              onClick={() => markNotificationRead(featuredAnnouncement._id)}
-              title="Acknowledge & Mark as read"
-            >
-              <FiCheck size={16} />
+          {activeTab === 'history' && isModOrAdmin && (
+            <button onClick={handleClearReadHistory} className="notif-purge-btn" title="Purge read notifications">
+              <FiTrash2 size={13} /> Clear Read History
             </button>
-          </div>
-        )}
-
-        {/* ── Notification Feed ── */}
-        <div className="notif-feed-list">
-          {filteredList.length === 0 ? (
-            <div className="notif-empty-card">
-              <div className="notif-empty-icon"><FiCheckCircle size={32} /></div>
-              <h3 className="notif-empty-title">No notifications found</h3>
-              <p className="notif-empty-desc">
-                {searchQuery
-                  ? 'No notifications match your search keyword. Try clearing filters.'
-                  : 'You are completely caught up! New announcements and mentions will appear here.'}
-              </p>
-            </div>
-          ) : activeCategory === 'all' ? (
-            // ── Categorical grouped view ──
-            CATEGORIES.filter(c => c.id !== 'all').map((cat) => {
-              const catItems = filteredList.filter(n => n.type === cat.id);
-              if (catItems.length === 0) return null;
-              const Icon = cat.icon;
-              const isCollapsed = collapsedCategories[cat.id];
-              const isSnapping = snappingCategory === cat.id;
-
-              return (
-                <div
-                  key={cat.id}
-                  className={`notif-category-group ${isSnapping ? 'snapping' : ''}`}
-                >
-                  <div className="notif-category-group-header">
-                    <div className="notif-category-group-label">
-                      <Icon size={15} />
-                      <span>{cat.label}</span>
-                      <span className="notif-tab-badge">{catItems.length}</span>
-                    </div>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                      <button
-                        className="notif-cat-collapse-btn"
-                        onClick={() => setCollapsedCategories(prev => ({ ...prev, [cat.id]: !prev[cat.id] }))}
-                      >
-                        {isCollapsed ? '▼ Show' : '▲ Hide'}
-                      </button>
-                      {catItems.some(n => !n.isRead) && (
-                        <button
-                          className="notif-cat-clear-btn"
-                          onClick={() => handleSnapClearCategory(cat.id)}
-                        >
-                          ✦ Snap Clear
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {!isCollapsed && (
-                    <div className="notif-category-items">
-                      {catItems.map((item, idx) => {
-                        const senderUser = typeof item.sender === 'object' ? item.sender : null;
-                        const isAppeal = item.type === 'appeal';
-                        const canModerateAppeal = isAppeal && (isAdmin || isEditor || isModerator);
-
-                        return (
-                          <div
-                            key={item._id}
-                            className={`notif-card ${!item.isRead ? 'unread' : ''}`}
-                            style={{ '--snap-index': idx }}
-                          >
-                            <div className="notif-card-header">
-                              <div className="notif-card-meta">
-                                <span className={`notif-type-tag notif-type-${item.type}`}>
-                                  {item.type.replace('_', ' ')}
-                                </span>
-                                {item.priority === 'pinned' && (
-                                  <span className="notif-type-tag" style={{ background: '#fef3c7', color: '#b45309' }}>📌 Pinned</span>
-                                )}
-                                <span className="notif-time-text">{getTimeAgo(item.createdAt)}</span>
-                              </div>
-                              <div className="notif-card-actions">
-                                <button
-                                  className="notif-icon-btn"
-                                  onClick={() => markNotificationRead(item._id)}
-                                  title={item.isRead ? 'Marked read' : 'Mark as read'}
-                                >
-                                  <FiCheck size={14} color={item.isRead ? 'var(--color-gray-400)' : 'var(--accent-color)'} />
-                                </button>
-                                {isAdmin && (
-                                  <button className="notif-icon-btn" onClick={() => deleteNotification(item._id)} title="Delete">
-                                    <FiTrash2 size={14} color="#dc2626" />
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-
-                            <div className="notif-card-body">
-                              {senderUser && (
-                                <img
-                                  src={senderUser.avatar ? getImageUrl(senderUser.avatar) : `https://ui-avatars.com/api/?name=${encodeURIComponent(senderUser.name || 'User')}&background=random`}
-                                  alt=""
-                                  className="notif-sender-avatar"
-                                />
-                              )}
-                              <div className="notif-card-main-text">
-                                <h4 className="notif-card-title">{item.title}</h4>
-                                <p className="notif-card-message">{item.message}</p>
-                              </div>
-                            </div>
-
-                            {(item.actionUrl || canModerateAppeal || item.type === 'message') && (
-                              <div className="notif-card-footer">
-                                {item.actionUrl && (
-                                  <button className="notif-action-link-btn" onClick={() => handleNotificationAction(item)}>
-                                    <span>Open Link</span><FiExternalLink size={13} />
-                                  </button>
-                                )}
-                                {item.type === 'message' && (
-                                  <button className="notif-action-link-btn" onClick={() => handleNotificationAction(item)}>
-                                    <span>Go to Chat</span><FiMessageSquare size={13} />
-                                  </button>
-                                )}
-                                {canModerateAppeal && (
-                                  <button
-                                    className="notif-action-link-btn"
-                                    onClick={() => setAppealResponseId(appealResponseId === item._id ? null : item._id)}
-                                    style={{ color: '#d97706' }}
-                                  >
-                                    <span>{appealResponseId === item._id ? 'Cancel' : 'Review Appeal'}</span>
-                                    <FiChevronRight size={14} />
-                                  </button>
-                                )}
-                              </div>
-                            )}
-
-                            {canModerateAppeal && appealResponseId === item._id && (
-                              <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--color-gray-200)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                <textarea
-                                  value={appealText}
-                                  onChange={e => setAppealText(e.target.value)}
-                                  placeholder="Type decision note..."
-                                  rows={2}
-                                  style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--color-gray-200)', background: 'var(--color-gray-50)', color: 'var(--color-black)', fontSize: '12.5px', outline: 'none', boxSizing: 'border-box' }}
-                                />
-                                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                                  <button className="notif-btn notif-btn-secondary" onClick={() => handleResolveAppeal(item, 'reject')} disabled={appealLoading} style={{ color: '#dc2626', borderColor: '#fca5a5' }}>Reject Appeal</button>
-                                  <button className="notif-btn notif-btn-primary" onClick={() => handleResolveAppeal(item, 'approve')} disabled={appealLoading} style={{ background: '#16a34a' }}>Approve & Unblock</button>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })
-          ) : (
-            // ── Flat list for specific category filter ──
-            filteredList.map(item => {
-              const senderUser = typeof item.sender === 'object' ? item.sender : null;
-              const isAppeal = item.type === 'appeal';
-              const canModerateAppeal = isAppeal && (isAdmin || isEditor || isModerator);
-
-              return (
-                <div key={item._id} className={`notif-card ${!item.isRead ? 'unread' : ''}`}>
-                  <div className="notif-card-header">
-                    <div className="notif-card-meta">
-                      <span className={`notif-type-tag notif-type-${item.type}`}>{item.type.replace('_', ' ')}</span>
-                      {item.priority === 'pinned' && (<span className="notif-type-tag" style={{ background: '#fef3c7', color: '#b45309' }}>📌 Pinned</span>)}
-                      <span className="notif-time-text">{getTimeAgo(item.createdAt)}</span>
-                    </div>
-                    <div className="notif-card-actions">
-                      <button className="notif-icon-btn" onClick={() => markNotificationRead(item._id)} title={item.isRead ? 'Marked read' : 'Mark as read'}>
-                        <FiCheck size={14} color={item.isRead ? 'var(--color-gray-400)' : 'var(--accent-color)'} />
-                      </button>
-                      {isAdmin && (<button className="notif-icon-btn" onClick={() => deleteNotification(item._id)} title="Delete"><FiTrash2 size={14} color="#dc2626" /></button>)}
-                    </div>
-                  </div>
-                  <div className="notif-card-body">
-                    {senderUser && (<img src={senderUser.avatar ? getImageUrl(senderUser.avatar) : `https://ui-avatars.com/api/?name=${encodeURIComponent(senderUser.name || 'User')}&background=random`} alt="" className="notif-sender-avatar" />)}
-                    <div className="notif-card-main-text">
-                      <h4 className="notif-card-title">{item.title}</h4>
-                      <p className="notif-card-message">{item.message}</p>
-                    </div>
-                  </div>
-                  {(item.actionUrl || canModerateAppeal || item.type === 'message') && (
-                    <div className="notif-card-footer">
-                      {item.actionUrl && (<button className="notif-action-link-btn" onClick={() => handleNotificationAction(item)}><span>Open Link</span><FiExternalLink size={13} /></button>)}
-                      {item.type === 'message' && (<button className="notif-action-link-btn" onClick={() => handleNotificationAction(item)}><span>Go to Chat</span><FiMessageSquare size={13} /></button>)}
-                      {canModerateAppeal && (<button className="notif-action-link-btn" onClick={() => setAppealResponseId(appealResponseId === item._id ? null : item._id)} style={{ color: '#d97706' }}><span>{appealResponseId === item._id ? 'Cancel' : 'Review Appeal'}</span><FiChevronRight size={14} /></button>)}
-                    </div>
-                  )}
-                  {canModerateAppeal && appealResponseId === item._id && (
-                    <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--color-gray-200)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <textarea value={appealText} onChange={e => setAppealText(e.target.value)} placeholder="Type decision note to the user..." rows={2} style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--color-gray-200)', background: 'var(--color-gray-50)', color: 'var(--color-black)', fontSize: '12.5px', outline: 'none', boxSizing: 'border-box' }} />
-                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                        <button className="notif-btn notif-btn-secondary" onClick={() => handleResolveAppeal(item, 'reject')} disabled={appealLoading} style={{ color: '#dc2626', borderColor: '#fca5a5' }}>Reject Appeal</button>
-                        <button className="notif-btn notif-btn-primary" onClick={() => handleResolveAppeal(item, 'approve')} disabled={appealLoading} style={{ background: '#16a34a' }}>Approve & Unblock</button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })
           )}
         </div>
 
-      </div>
-
-
-      {/* ── Broadcast Announcement Modal ── */}
-      {broadcastModalOpen && (
-        <div className="notif-modal-overlay" onClick={() => setBroadcastModalOpen(false)}>
-          <div className="notif-modal-card" onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 800 }}>Push Broadcast Announcement</h3>
-              <button 
-                className="notif-icon-btn" 
-                onClick={() => setBroadcastModalOpen(false)}
-              >
-                <FiX size={16} />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateBroadcast} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 750, textTransform: 'uppercase', color: 'var(--color-gray-500)', marginBottom: '6px' }}>
-                  Title
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Campus Spring Festival Registration Open"
-                  value={newTitle}
-                  onChange={e => setNewTitle(e.target.value)}
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--color-gray-200)', background: 'var(--color-gray-50)', color: 'var(--color-black)', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }}
-                  required
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 750, textTransform: 'uppercase', color: 'var(--color-gray-500)', marginBottom: '6px' }}>
-                  Message Content
-                </label>
-                <textarea
-                  placeholder="Write announcement details..."
-                  rows={4}
-                  value={newMessage}
-                  onChange={e => setNewMessage(e.target.value)}
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--color-gray-200)', background: 'var(--color-gray-50)', color: 'var(--color-black)', fontSize: '13px', outline: 'none', resize: 'vertical', boxSizing: 'border-box' }}
-                  required
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 750, textTransform: 'uppercase', color: 'var(--color-gray-500)', marginBottom: '6px' }}>
-                    Type
-                  </label>
-                  <select
-                    value={newType}
-                    onChange={e => setNewType(e.target.value)}
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--color-gray-200)', background: 'var(--color-gray-50)', color: 'var(--color-black)', fontSize: '13px', outline: 'none' }}
-                  >
-                    <option value="announcement">📢 Announcement</option>
-                    <option value="board_news">📰 Board News</option>
-                    <option value="sensitivity">⚡ Critical Alert</option>
-                    <option value="editorial">✍️ Editorial Notice</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 750, textTransform: 'uppercase', color: 'var(--color-gray-500)', marginBottom: '6px' }}>
-                    Priority
-                  </label>
-                  <select
-                    value={newPriority}
-                    onChange={e => setNewPriority(e.target.value)}
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--color-gray-200)', background: 'var(--color-gray-50)', color: 'var(--color-black)', fontSize: '13px', outline: 'none' }}
-                  >
-                    <option value="normal">Normal</option>
-                    <option value="high">High Priority</option>
-                    <option value="pinned">📌 Pinned Banner</option>
-                    <option value="urgent">Urgent</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 750, textTransform: 'uppercase', color: 'var(--color-gray-500)', marginBottom: '6px' }}>
-                  Action URL (Optional)
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. /news or https://university.edu"
-                  value={newActionUrl}
-                  onChange={e => setNewActionUrl(e.target.value)}
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--color-gray-200)', background: 'var(--color-gray-50)', color: 'var(--color-black)', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }}
-                />
-              </div>
-
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '8px' }}>
-                <button
-                  type="button"
-                  className="notif-btn notif-btn-secondary"
-                  onClick={() => setBroadcastModalOpen(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="notif-btn notif-btn-primary"
-                  disabled={submitting}
-                >
-                  {submitting ? 'Pushing...' : 'Broadcast Now'}
-                </button>
-              </div>
-            </form>
+        {/* ── Filter Toolbar ── */}
+        <div className="notif-toolbar-card">
+          <div className="notif-search-input-wrap">
+            <FiSearch className="notif-search-icon" />
+            <input
+              type="text"
+              placeholder="Search by title, content, or sender..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="notif-search-input"
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} className="notif-search-clear">✕</button>
+            )}
+          </div>
+          <div className="notif-toolbar-controls">
+            <label className="notif-unread-toggle">
+              <input type="checkbox" checked={unreadOnly} onChange={(e) => setUnreadOnly(e.target.checked)} />
+              <span>Unread Only</span>
+            </label>
+            <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} className="notif-priority-select">
+              <option value="all">All Priorities</option>
+              <option value="urgent">🔴 Urgent</option>
+              <option value="high">🟡 High</option>
+              <option value="normal">🔵 Normal</option>
+            </select>
           </div>
         </div>
-      )}
-    </div>
+
+        {/* ── Stream ── */}
+        <section className="notif-stream-container">
+          {filteredNotifications.length === 0 ? (
+            <div className="notif-empty-state">
+              <div className="notif-empty-icon-circle">
+                <FiCheckCircle size={36} color="#16a34a" />
+              </div>
+              <h3 className="notif-empty-title">
+                {activeTab === 'active' ? 'No Active Alerts' : 'No Records Found'}
+              </h3>
+              <p className="notif-empty-desc">
+                {searchQuery || unreadOnly || priorityFilter !== 'all'
+                  ? 'No notifications match your filters. Try clearing search.'
+                  : activeTab === 'history'
+                  ? 'Your notification history is empty. Read notifications will appear here.'
+                  : activeTab === 'security'
+                  ? 'No security alerts or user appeals requiring action.'
+                  : 'You are completely caught up!'}
+              </p>
+              {activeTab === 'active' && (
+                <button onClick={() => handleTabChange('history')} className="notif-btn notif-btn-secondary" style={{ marginTop: '12px' }}>
+                  <FiArchive size={14} /> Open Notification History
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="notif-cards-list">
+              {filteredNotifications.map((n) => {
+                const isExpanded  = expandedIds.has(n._id);
+                const isUrgent    = n.priority === 'urgent' || n.priority === 'high' || n.type === 'sensitivity' || n.type === 'appeal';
+                const isAppeal    = n.type === 'appeal';
+                const senderUser  = typeof n.sender === 'object' ? n.sender : null;
+                const ctaConfig   = getCtaConfig(n);
+                const isDismissed = n.isDismissed;
+                const isAppealResolved = Boolean(
+                  n.isResolved ||
+                  n.resolvedStatus === 'approved' ||
+                  n.resolvedStatus === 'rejected' ||
+                  (senderUser && !senderUser.isBlocked && !senderUser.appealRequested)
+                );
+
+                return (
+                  <article
+                    key={n._id}
+                    className={`notif-card ${!n.isRead ? 'unread' : 'read'} ${isUrgent ? 'urgent' : ''} ${isDismissed ? 'dismissed' : ''}`}
+                    onClick={() => handleCardClick(n)}
+                  >
+                    {/* Priority stripe */}
+                    <div className={`notif-priority-stripe ${isUrgent ? 'urgent' : n.type}`} />
+
+                    <div className="notif-card-inner">
+                      {/* Meta row */}
+                      <div className="notif-card-meta-row">
+                        <div className="notif-card-badges">
+                          <span className={`notif-type-badge ${n.type} ${n.priority || ''}`}>
+                            {getNotificationIcon(n.type, n.priority)}
+                            <span>{getTypeLabel(n.type, n.priority)}</span>
+                          </span>
+                          {n.priority === 'urgent' && <span className="notif-urgent-pill">URGENT</span>}
+                          {senderUser && (
+                            <span className="notif-sender-chip">
+                              <SenderAvatar sender={senderUser} />
+                              {senderUser.name || 'System'}
+                              {senderUser.role && <em className="notif-sender-role-chip">{senderUser.role}</em>}
+                            </span>
+                          )}
+                          {isDismissed && <span className="notif-dismissed-badge">Dismissed</span>}
+                        </div>
+                        <div className="notif-card-meta-right">
+                          <span className="notif-card-time" title={new Date(n.createdAt).toLocaleString()}>
+                            <FiClock size={11} style={{ marginRight: '4px' }} />
+                            {formatTime(n.createdAt)}
+                          </span>
+                          {!n.isRead && <span className="notif-glow-dot" title="Unread Alert" />}
+                        </div>
+                      </div>
+
+                      {/* Title */}
+                      <h3 className="notif-card-title">{n.title}</h3>
+
+                      {/* Message */}
+                      <p className={`notif-card-message ${isExpanded ? 'expanded' : ''}`}>
+                        {n.message}
+                      </p>
+
+                      {/* Action bar */}
+                      <div className="notif-card-action-bar" onClick={(e) => e.stopPropagation()}>
+                        <div className="notif-action-left">
+                          {/* Mark read (only for unread) */}
+                          {!n.isRead && (
+                            <button
+                              onClick={() => markNotificationRead && markNotificationRead(n._id)}
+                              className="notif-action-link"
+                            >
+                              <FiCheck size={13} />
+                              <span>Mark as Read</span>
+                            </button>
+                          )}
+
+                          {/* Contextual CTA */}
+                          {ctaConfig && n.actionType !== 'appeal_review' && (
+                            <button
+                              onClick={() => handleCtaAction(n)}
+                              className={`notif-page-cta-btn ${ctaConfig.variant}`}
+                            >
+                              {ctaConfig.icon}
+                              <span>{ctaConfig.label}</span>
+                            </button>
+                          )}
+
+                          {/* Appeal review toggle */}
+                          {isAppeal && isModOrAdmin && !isAppealResolved && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleToggleExpand(n._id); }}
+                              className="notif-action-link appeal-action"
+                            >
+                              <FiShield size={13} />
+                              <span>{isExpanded ? 'Hide Review Panel' : 'Review Appeal'}</span>
+                            </button>
+                          )}
+
+                          {/* Resolved status badge when appeal was already reviewed */}
+                          {isAppeal && isAppealResolved && (
+                            <span
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                                fontSize: '11.5px',
+                                fontWeight: 700,
+                                color: n.resolvedStatus === 'rejected' ? '#ef4444' : '#10b981',
+                                background: n.resolvedStatus === 'rejected' ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)',
+                                padding: '4px 10px',
+                                borderRadius: '6px',
+                                border: `1px solid ${n.resolvedStatus === 'rejected' ? 'rgba(239, 68, 68, 0.25)' : 'rgba(16, 185, 129, 0.25)'}`,
+                              }}
+                            >
+                              <FiCheck size={12} />
+                              <span>{n.resolvedStatus === 'rejected' ? 'Appeal Rejected' : 'Appeal Approved & Restored'}</span>
+                            </span>
+                          )}
+
+                          {/* Dismiss */}
+                          {!isDismissed && (
+                            <button
+                              onClick={() => dismissNotification && dismissNotification(n._id)}
+                              className="notif-action-link dismiss-action"
+                              title="Dismiss from active feed"
+                            >
+                              <FiX size={13} />
+                              <span>Dismiss</span>
+                            </button>
+                          )}
+                        </div>
+
+                        {isAdmin && (
+                          <button
+                            onClick={() => deleteNotification(n._id)}
+                            className="notif-delete-action"
+                            title="Delete notification permanently"
+                          >
+                            <FiTrash2 size={13} />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Inline Appeal Review Panel */}
+                      {isExpanded && isAppeal && isModOrAdmin && !isAppealResolved && (
+                        <div className="notif-appeal-box" onClick={(e) => e.stopPropagation()}>
+                          <div className="notif-appeal-header">
+                            <FiShield size={16} color="#f59e0b" />
+                            <h4>Appeal Review Deck</h4>
+                          </div>
+                          <p className="notif-appeal-subtitle">
+                            Review the user's suspension plea. Approving will immediately restore their account.
+                          </p>
+                          <textarea
+                            value={responseTexts[n._id] || ''}
+                            onChange={(e) => setResponseTexts({ ...responseTexts, [n._id]: e.target.value })}
+                            placeholder="Type a resolution note (sent to the user)..."
+                            rows={3}
+                            className="notif-appeal-textarea"
+                          />
+                          <div className="notif-appeal-actions-row">
+                            <button
+                              onClick={() => handleResolveAppeal(n, 'reject')}
+                              disabled={appealLoadingId !== null}
+                              className="notif-btn-danger"
+                            >
+                              {appealLoadingId === n._id ? 'Processing...' : 'Reject Appeal'}
+                            </button>
+                            <button
+                              onClick={() => handleResolveAppeal(n, 'approve')}
+                              disabled={appealLoadingId !== null}
+                              className="notif-btn-success"
+                            >
+                              {appealLoadingId === n._id ? 'Processing...' : 'Approve & Restore Account'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        {/* ── Broadcast Modal ── */}
+        {broadcastModalOpen && (
+          <div className="notif-modal-overlay" onClick={() => setBroadcastModalOpen(false)}>
+            <div className="notif-modal-card" onClick={(e) => e.stopPropagation()}>
+              <div className="notif-modal-header">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <FiRadio size={20} color="var(--accent-color, #c8102e)" />
+                  <h3 style={{ margin: 0, fontWeight: 900 }}>Push Announcement</h3>
+                </div>
+                <button onClick={() => setBroadcastModalOpen(false)} className="notif-close-x">
+                  <FiX size={18} />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateBroadcast} className="notif-modal-form">
+                {/* Title */}
+                <div className="notif-form-group">
+                  <label>Title</label>
+                  <input
+                    type="text"
+                    placeholder="Brief headline..."
+                    value={broadcastForm.title}
+                    onChange={(e) => updateBroadcastForm('title', e.target.value)}
+                    required
+                  />
+                </div>
+
+                {/* Type + Priority */}
+                <div className="notif-form-row">
+                  <div className="notif-form-group">
+                    <label>Type</label>
+                    <select value={broadcastForm.type} onChange={(e) => updateBroadcastForm('type', e.target.value)}>
+                      {NOTIFICATION_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                    </select>
+                  </div>
+                  <div className="notif-form-group">
+                    <label>Priority</label>
+                    <select value={broadcastForm.priority} onChange={(e) => updateBroadcastForm('priority', e.target.value)}>
+                      <option value="normal">🔵 Normal</option>
+                      <option value="high">🟡 High</option>
+                      <option value="urgent">🔴 Urgent</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Action Type */}
+                <div className="notif-form-group">
+                  <label>Action Button</label>
+                  <select value={broadcastForm.actionType} onChange={(e) => updateBroadcastForm('actionType', e.target.value)}>
+                    {ACTION_TYPES.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
+                  </select>
+                </div>
+
+                {/* Action Payload input — shown conditionally */}
+                {broadcastForm.actionType === 'navigate' || broadcastForm.actionType === 'external_url' ? (
+                  <div className="notif-form-group">
+                    <label>{broadcastForm.actionType === 'external_url' ? 'External URL' : 'Internal Path (e.g. /news)'}</label>
+                    <input
+                      type="text"
+                      placeholder={broadcastForm.actionType === 'external_url' ? 'https://...' : '/path/to/page'}
+                      value={broadcastForm.actionUrl}
+                      onChange={(e) => updateBroadcastForm('actionUrl', e.target.value)}
+                    />
+                  </div>
+                ) : broadcastForm.actionType !== 'none' ? (
+                  <div className="notif-form-group">
+                    <label>
+                      {broadcastForm.actionType === 'open_article' ? 'Article Slug' :
+                       broadcastForm.actionType === 'open_profile' ? 'Username' :
+                       broadcastForm.actionType === 'open_chat_room' ? 'Room (e.g. category:news or tag:exams)' :
+                       broadcastForm.actionType === 'open_comment' ? 'Article Slug' : 'Value'}
+                    </label>
+                    <input
+                      type="text"
+                      placeholder={
+                        broadcastForm.actionType === 'open_article' ? 'e.g. my-article-slug' :
+                        broadcastForm.actionType === 'open_profile' ? 'e.g. john_doe' :
+                        broadcastForm.actionType === 'open_chat_room' ? 'e.g. category:sports' :
+                        broadcastForm.actionType === 'open_comment' ? 'e.g. article-slug' : ''
+                      }
+                      value={broadcastForm.actionPayloadRaw}
+                      onChange={(e) => updateBroadcastForm('actionPayloadRaw', e.target.value)}
+                    />
+                  </div>
+                ) : null}
+
+                {/* Target Roles */}
+                <div className="notif-form-group">
+                  <label>Audience (leave empty for all users)</label>
+                  <div className="notif-role-chips">
+                    {['admin', 'moderator', 'editor', 'author', 'user'].map(role => (
+                      <button
+                        key={role}
+                        type="button"
+                        onClick={() => toggleTargetRole(role)}
+                        className={`notif-role-chip ${broadcastForm.targetRoles.includes(role) ? 'selected' : ''}`}
+                      >
+                        {role}
+                      </button>
+                    ))}
+                  </div>
+                  {broadcastForm.targetRoles.length > 0 && (
+                    <p className="notif-form-hint">
+                      Only visible to: {broadcastForm.targetRoles.join(', ')}
+                    </p>
+                  )}
+                </div>
+
+                {/* Message */}
+                <div className="notif-form-group">
+                  <label>Announcement Content</label>
+                  <textarea
+                    rows={4}
+                    placeholder="Write the detailed institutional message..."
+                    value={broadcastForm.message}
+                    onChange={(e) => updateBroadcastForm('message', e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="notif-modal-footer">
+                  <button type="button" onClick={() => setBroadcastModalOpen(false)} className="notif-btn notif-btn-secondary">
+                    Cancel
+                  </button>
+                  <button type="submit" disabled={submittingBroadcast} className="notif-btn notif-btn-primary">
+                    <FiSend size={14} /> {submittingBroadcast ? 'Broadcasting...' : 'Broadcast Announcement'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+      </div>
+    </main>
   );
 };
 

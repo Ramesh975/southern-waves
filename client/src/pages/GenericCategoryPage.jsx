@@ -1,8 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { articleAPI, chatAPI, commentAPI } from '../services/api';
 import { getImageUrl } from '../components/ArticleComponents';
+import useInfiniteScroll from '../hooks/useInfiniteScroll';
+import InfiniteScrollFooter from '../components/InfiniteScrollFooter';
 import { FiHome, FiPlus, FiMessageSquare, FiThumbsUp, FiThumbsDown, FiShare2, FiSend, FiX, FiHeart } from 'react-icons/fi';
 import io from 'socket.io-client';
 import toast from 'react-hot-toast';
@@ -20,6 +22,18 @@ const GenericCategoryPage = ({ category, title: displayTitle }) => {
   const [chatLoading, setChatLoading] = useState(true);
   const [globalTrendingPosts, setGlobalTrendingPosts] = useState([]);
   const [globalLoading, setGlobalLoading] = useState(true);
+
+  // Infinite scroll pagination state
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  const currentPageRef = useRef(1);
+  const loadingMoreRef = useRef(false);
+  const hasMoreRef = useRef(true);
+
+  loadingMoreRef.current = loadingMore;
+  hasMoreRef.current = hasMore;
 
   // Tab state: 'home' | 'create' | 'chat'
   const [activeTab, setActiveTab] = useState('home');
@@ -45,10 +59,22 @@ const GenericCategoryPage = ({ category, title: displayTitle }) => {
     setChatLoading(true);
     setGlobalLoading(true);
     setActiveTab('home');
+    currentPageRef.current = 1;
+    setPage(1);
+    setHasMore(true);
+    hasMoreRef.current = true;
 
-    // Fetch category posts
-    articleAPI.getAll({ category, status: 'published', limit: 40 })
-      .then((res) => setPosts(res.data.data))
+    // Initial batch of category posts (limit: 10)
+    articleAPI.getAll({ category, status: 'published', page: 1, limit: 10 })
+      .then((res) => {
+        const items = res.data?.data || [];
+        setPosts(items);
+        const total = res.data?.total || 0;
+        const totalPages = res.data?.totalPages || 1;
+        const moreAvailable = 1 < totalPages && items.length < total;
+        setHasMore(moreAvailable);
+        hasMoreRef.current = moreAvailable;
+      })
       .catch((err) => console.error('Failed to load posts:', err))
       .finally(() => setPostsLoading(false));
 
@@ -84,6 +110,46 @@ const GenericCategoryPage = ({ category, title: displayTitle }) => {
       }
     };
   }, [category]);
+
+  const handleLoadMore = useCallback(async () => {
+    if (loadingMoreRef.current || !hasMoreRef.current) return;
+    setLoadingMore(true);
+    loadingMoreRef.current = true;
+    const nextPage = currentPageRef.current + 1;
+    try {
+      const res = await articleAPI.getAll({ category, status: 'published', page: nextPage, limit: 10 });
+      const newItems = res.data?.data || [];
+      if (newItems.length > 0) {
+        setPosts((prev) => {
+          const existingIds = new Set(prev.map(p => p._id));
+          const unique = newItems.filter(p => !existingIds.has(p._id));
+          return [...prev, ...unique];
+        });
+        currentPageRef.current = nextPage;
+        setPage(nextPage);
+        const totalPages = res.data?.totalPages || 1;
+        const moreAvailable = nextPage < totalPages;
+        setHasMore(moreAvailable);
+        hasMoreRef.current = moreAvailable;
+      } else {
+        setHasMore(false);
+        hasMoreRef.current = false;
+      }
+    } catch (err) {
+      console.error('Failed to load more posts:', err);
+      setHasMore(false);
+      hasMoreRef.current = false;
+    } finally {
+      setLoadingMore(false);
+      loadingMoreRef.current = false;
+    }
+  }, [category]);
+
+  const sentinelRef = useInfiniteScroll({
+    onLoadMore: handleLoadMore,
+    hasMore,
+    isLoading: loadingMore || postsLoading,
+  });
 
   // Auto-scroll chat to bottom
   const scrollToBottom = () => {
@@ -265,15 +331,25 @@ const GenericCategoryPage = ({ category, title: displayTitle }) => {
                     No posts shared in this category yet.
                   </p>
                 ) : (
-                  posts.map((post) => (
-                    <PostCard
-                      key={post._id}
-                      post={post}
-                      user={user}
-                      onReaction={handleReaction}
-                      onShare={handleShare}
+                  <>
+                    {posts.map((post) => (
+                      <PostCard
+                        key={post._id}
+                        post={post}
+                        user={user}
+                        onReaction={handleReaction}
+                        onShare={handleShare}
+                      />
+                    ))}
+                    <InfiniteScrollFooter
+                      sentinelRef={sentinelRef}
+                      isLoading={loadingMore}
+                      hasMore={hasMore}
+                      count={posts.length}
+                      onLoadMore={handleLoadMore}
+                      endMessage="You've reached the end of this category."
                     />
-                  ))
+                  </>
                 )}
               </div>
             </div>
@@ -575,6 +651,8 @@ const PostCard = ({ post, user, onReaction, onShare }) => {
           <img
             src={getImageUrl(post.coverImage)}
             alt={post.title}
+            loading="lazy"
+            decoding="async"
           />
         </div>
       )}

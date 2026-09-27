@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { filterAPI, authAPI } from '../../services/api';
 import { getImageUrl } from '../../components/ArticleComponents';
+import { PaginationControls } from '../../components/PaginationControls';
 import toast from 'react-hot-toast';
 import {
   FiAlertTriangle, FiCheck, FiX, FiTrash2, FiLock, FiSlash,
@@ -17,33 +18,79 @@ const TABS = [
 const AdminModerationPage = () => {
   const [activeTab, setActiveTab] = useState('pending');
   const [pending, setPending] = useState([]);
+  const [pendingPage, setPendingPage] = useState(1);
+  const [pendingTotalPages, setPendingTotalPages] = useState(1);
+  const [pendingTotal, setPendingTotal] = useState(0);
+
   const [appeals, setAppeals] = useState([]);
+  const [appealsPage, setAppealsPage] = useState(1);
+  const [appealsTotalPages, setAppealsTotalPages] = useState(1);
+  const [appealsTotal, setAppealsTotal] = useState(0);
+
   const [loading, setLoading] = useState(true);
   const [actionModal, setActionModal] = useState(null); // { type, item }
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
 
-  const fetchData = async () => {
+  // Debounce search
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setPendingPage(1);
+      setAppealsPage(1);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
+
+  const fetchPending = async () => {
     setLoading(true);
     try {
-      const [pendingRes, appealsRes] = await Promise.all([
-        filterAPI.getPending(),
-        authAPI.getAppeals(),
-      ]);
-      setPending(pendingRes.data.data || []);
-      setAppeals(appealsRes.data.data || []);
+      const res = await filterAPI.getPending({
+        page: pendingPage,
+        limit: 20,
+        search: debouncedSearch || undefined,
+      });
+      setPending(res.data.data || []);
+      setPendingTotalPages(res.data.totalPages || 1);
+      setPendingTotal(res.data.total ?? (res.data.data || []).length);
     } catch (err) {
-      toast.error('Failed to load moderation data');
+      toast.error('Failed to load pending articles');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  const fetchAppeals = async () => {
+    setLoading(true);
+    try {
+      const res = await authAPI.getAppeals({
+        page: appealsPage,
+        limit: 20,
+        search: debouncedSearch || undefined,
+      });
+      setAppeals(res.data.data || []);
+      setAppealsTotalPages(res.data.totalPages || 1);
+      setAppealsTotal(res.data.total ?? (res.data.data || []).length);
+    } catch (err) {
+      toast.error('Failed to load appeals');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'pending') {
+      fetchPending();
+    } else {
+      fetchAppeals();
+    }
+  }, [activeTab, pendingPage, appealsPage, debouncedSearch]);
 
   const handleApprove = async (article, unblockAuthor = false) => {
     try {
       await filterAPI.approveArticle(article._id, { unblockAuthor });
       setPending(prev => prev.filter(a => a._id !== article._id));
+      setPendingTotal(prev => Math.max(0, prev - 1));
       toast.success('Article approved and published!');
       setActionModal(null);
     } catch (err) {
@@ -56,6 +103,7 @@ const AdminModerationPage = () => {
     try {
       await filterAPI.dismissArticle(articleId);
       setPending(prev => prev.filter(a => a._id !== articleId));
+      setPendingTotal(prev => Math.max(0, prev - 1));
       toast.success('Article removed.');
     } catch (err) {
       toast.error('Failed to remove article');
@@ -65,7 +113,7 @@ const AdminModerationPage = () => {
   const handleUnblockUser = async (userId) => {
     try {
       await authAPI.unblockUser(userId);
-      await fetchData();
+      fetchAppeals();
       toast.success('User unblocked!');
       setActionModal(null);
     } catch (err) {
@@ -83,26 +131,6 @@ const AdminModerationPage = () => {
 
   const getCatStyle = (cat) => categoryColors[cat] || { bg: '#f3f4f6', color: '#374151' };
 
-  const filteredPending = pending.filter(article => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    const titleMatch = article.title?.toLowerCase().includes(query);
-    const authorMatch = article.author?.name?.toLowerCase().includes(query);
-    const reasonMatch = article.flaggedReason?.toLowerCase().includes(query);
-    const leadMatch = article.lead?.toLowerCase().includes(query);
-    return titleMatch || authorMatch || reasonMatch || leadMatch;
-  });
-
-  const filteredAppeals = appeals.filter(u => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    const nameMatch = u.name?.toLowerCase().includes(query);
-    const emailMatch = u.email?.toLowerCase().includes(query);
-    const messageMatch = u.appealMessage?.toLowerCase().includes(query);
-    const reasonMatch = u.blockedReason?.toLowerCase().includes(query);
-    return nameMatch || emailMatch || messageMatch || reasonMatch;
-  });
-
   return (
     <>
       <div className="admin-header">
@@ -111,7 +139,7 @@ const AdminModerationPage = () => {
           <p className="admin-subtitle">Review flagged content and user appeals to maintain community standards.</p>
         </div>
         <button
-          onClick={fetchData}
+          onClick={activeTab === 'pending' ? fetchPending : fetchAppeals}
           className="btn-admin-secondary"
           style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', fontSize: 12, fontWeight: 700 }}
         >
@@ -122,9 +150,9 @@ const AdminModerationPage = () => {
       {/* Stats Banner */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 24 }}>
         {[
-          { label: 'Pending Review', value: pending.length, icon: <FiFlag size={20} />, color: '#f59e0b' },
-          { label: 'User Appeals', value: appeals.length, icon: <FiUser size={20} />, color: '#6366f1' },
-          { label: 'Total Blocked', value: appeals.length, icon: <FiSlash size={20} />, color: '#ef4444' },
+          { label: 'Pending Review', value: pendingTotal, icon: <FiFlag size={20} />, color: '#f59e0b' },
+          { label: 'User Appeals', value: appealsTotal, icon: <FiUser size={20} />, color: '#6366f1' },
+          { label: 'Total Blocked', value: appealsTotal, icon: <FiSlash size={20} />, color: '#ef4444' },
         ].map(s => (
           <div key={s.label} className="admin-card" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: 16 }}>
             <div style={{
@@ -159,11 +187,11 @@ const AdminModerationPage = () => {
             }}
           >
             {tab.icon} {tab.label}
-            {tab.id === 'pending' && pending.length > 0 && (
-              <span className="admin-badge badge-warning" style={{ padding: '2px 8px', fontSize: 10 }}>{pending.length}</span>
+            {tab.id === 'pending' && pendingTotal > 0 && (
+              <span className="admin-badge badge-warning" style={{ padding: '2px 8px', fontSize: 10 }}>{pendingTotal}</span>
             )}
-            {tab.id === 'appeals' && appeals.length > 0 && (
-              <span className="admin-badge badge-info" style={{ padding: '2px 8px', fontSize: 10 }}>{appeals.length}</span>
+            {tab.id === 'appeals' && appealsTotal > 0 && (
+              <span className="admin-badge badge-info" style={{ padding: '2px 8px', fontSize: 10 }}>{appealsTotal}</span>
             )}
           </button>
         ))}
@@ -175,7 +203,7 @@ const AdminModerationPage = () => {
           <FiSearch style={{ position: 'absolute', left: 14, color: 'var(--admin-text-subtle)' }} size={16} />
           <input
             type="text"
-            placeholder={activeTab === 'pending' ? "Search pending flagged articles by title, author, or reason..." : "Search user appeals by name, email, or appeal message..."}
+            placeholder={activeTab === 'pending' ? "Search pending flagged articles by title..." : "Search user appeals by name, email, or username..."}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="admin-input"
@@ -191,20 +219,30 @@ const AdminModerationPage = () => {
           {/* PENDING REVIEW TAB */}
           {activeTab === 'pending' && (
             <div>
-              {filteredPending.length === 0 ? (
-                <EmptyState icon="✅" title="No Pending Content" desc={searchQuery ? "No pending content matches your search query." : "All clear! No articles awaiting moderation review."} />
+              {pending.length === 0 ? (
+                <EmptyState icon="✅" title="No Pending Content" desc={debouncedSearch ? "No pending content matches your search query." : "All clear! No articles awaiting moderation review."} />
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {filteredPending.map(article => (
-                    <FlaggedArticleCard
-                      key={article._id}
-                      article={article}
-                      getCatStyle={getCatStyle}
-                      onApprove={() => setActionModal({ type: 'approve', item: article })}
-                      onDismiss={() => handleDismiss(article._id)}
-                    />
-                  ))}
-                </div>
+                <>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {pending.map(article => (
+                      <FlaggedArticleCard
+                        key={article._id}
+                        article={article}
+                        getCatStyle={getCatStyle}
+                        onApprove={() => setActionModal({ type: 'approve', item: article })}
+                        onDismiss={() => handleDismiss(article._id)}
+                      />
+                    ))}
+                  </div>
+                  <PaginationControls
+                    currentPage={pendingPage}
+                    totalPages={pendingTotalPages}
+                    totalItems={pendingTotal}
+                    pageSize={20}
+                    onPageChange={setPendingPage}
+                    isLoading={loading}
+                  />
+                </>
               )}
             </div>
           )}
@@ -212,18 +250,28 @@ const AdminModerationPage = () => {
           {/* APPEALS TAB */}
           {activeTab === 'appeals' && (
             <div>
-              {filteredAppeals.length === 0 ? (
-                <EmptyState icon="👍" title="No Pending Appeals" desc={searchQuery ? "No appeals match your search query." : "No users have submitted appeals at this time."} />
+              {appeals.length === 0 ? (
+                <EmptyState icon="👍" title="No Pending Appeals" desc={debouncedSearch ? "No appeals match your search query." : "No users have submitted appeals at this time."} />
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {filteredAppeals.map(u => (
-                    <AppealCard
-                      key={u._id}
-                      user={u}
-                      onUnblock={() => setActionModal({ type: 'unblock', item: u })}
-                    />
-                  ))}
-                </div>
+                <>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {appeals.map(u => (
+                      <AppealCard
+                        key={u._id}
+                        user={u}
+                        onUnblock={() => setActionModal({ type: 'unblock', item: u })}
+                      />
+                    ))}
+                  </div>
+                  <PaginationControls
+                    currentPage={appealsPage}
+                    totalPages={appealsTotalPages}
+                    totalItems={appealsTotal}
+                    pageSize={20}
+                    onPageChange={setAppealsPage}
+                    isLoading={loading}
+                  />
+                </>
               )}
             </div>
           )}

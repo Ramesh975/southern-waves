@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate, Navigate } from 'react-router-dom';
+import { Link, useNavigate, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { FiEye, FiEyeOff } from 'react-icons/fi';
@@ -7,21 +7,35 @@ import { FiEye, FiEyeOff } from 'react-icons/fi';
 const LoginPage = () => {
   const { login, user, loading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [form, setForm] = useState({ email: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // Already signed in → go home
-  if (!loading && user) return <Navigate to="/" replace />;
+  const getDestination = (u) => {
+    if (location.state?.from?.pathname) {
+      return `${location.state.from.pathname}${location.state.from.search || ''}`;
+    }
+    if (typeof location.state?.from === 'string') {
+      return location.state.from;
+    }
+    const isStaff = ['admin', 'editor', 'moderator'].includes(u?.role);
+    return isStaff ? '/admin' : '/';
+  };
 
+  // Already signed in → go to intended page or dashboard
+  if (!loading && user) {
+    return <Navigate to={getDestination(user)} replace />;
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
     try {
-      await login(form.email, form.password);
+      const res = await login(form.email, form.password);
       toast.success('Welcome back!');
-      navigate('/');
+      const destination = getDestination(res.user);
+      navigate(destination, { replace: true });
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Login failed');
     } finally {

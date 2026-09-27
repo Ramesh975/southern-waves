@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { filterAPI } from '../../services/api';
+import { PaginationControls } from '../../components/PaginationControls';
 import toast from 'react-hot-toast';
 import { FiPlus, FiTrash2, FiToggleLeft, FiToggleRight, FiSearch, FiShield, FiAlertOctagon, FiTag, FiHash, FiUser, FiCalendar } from 'react-icons/fi';
 
@@ -20,6 +21,11 @@ const AdminFilterManager = () => {
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedWordSearch, setDebouncedWordSearch] = useState('');
+  const [wordsPage, setWordsPage] = useState(1);
+  const [wordsTotalPages, setWordsTotalPages] = useState(1);
+  const [wordsTotal, setWordsTotal] = useState(0);
+
   const [activeTab, setActiveTab] = useState('custom'); // 'custom' | 'defaults' | 'tags'
 
   // Add form state for words
@@ -31,20 +37,49 @@ const AdminFilterManager = () => {
   // Blocked tags states
   const [blockedTags, setBlockedTags] = useState([]);
   const [tagsLoading, setTagsLoading] = useState(false);
+  const [tagSearch, setTagSearch] = useState('');
+  const [debouncedTagSearch, setDebouncedTagSearch] = useState('');
+  const [tagsPage, setTagsPage] = useState(1);
+  const [tagsTotalPages, setTagsTotalPages] = useState(1);
+  const [tagsTotal, setTagsTotal] = useState(0);
   const [newTagName, setNewTagName] = useState('');
   const [addingTag, setAddingTag] = useState(false);
+
+  // Debounce word search
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedWordSearch(searchQuery);
+      setWordsPage(1);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
+
+  // Debounce tag search
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedTagSearch(tagSearch);
+      setTagsPage(1);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [tagSearch]);
 
   const fetchWords = async () => {
     setLoading(true);
     try {
-      const params = {};
+      const params = {
+        page: wordsPage,
+        limit: 50,
+      };
       if (activeCategory !== 'all') params.category = activeCategory;
-      if (searchQuery) params.search = searchQuery;
+      if (debouncedWordSearch && debouncedWordSearch.trim()) params.search = debouncedWordSearch.trim();
+
       const [wordsRes, defaultsRes] = await Promise.all([
         filterAPI.getWords(params),
         filterAPI.getDefaults(),
       ]);
       setWords(wordsRes.data.data || []);
+      setWordsTotalPages(wordsRes.data.totalPages || 1);
+      setWordsTotal(wordsRes.data.total || 0);
       setDefaults(defaultsRes.data.data || {});
     } catch (err) {
       toast.error('Failed to load filter words');
@@ -56,8 +91,15 @@ const AdminFilterManager = () => {
   const fetchBlockedTags = async () => {
     setTagsLoading(true);
     try {
-      const res = await filterAPI.getBlockedTags();
+      const params = {
+        page: tagsPage,
+        limit: 50,
+      };
+      if (debouncedTagSearch && debouncedTagSearch.trim()) params.search = debouncedTagSearch.trim();
+      const res = await filterAPI.getBlockedTags(params);
       setBlockedTags(res.data.data || []);
+      setTagsTotalPages(res.data.totalPages || 1);
+      setTagsTotal(res.data.total || 0);
     } catch (err) {
       toast.error('Failed to load blocked tags');
     } finally {
@@ -68,10 +110,14 @@ const AdminFilterManager = () => {
   useEffect(() => { 
     if (activeTab === 'custom') {
       fetchWords(); 
-    } else if (activeTab === 'tags') {
+    }
+  }, [activeCategory, activeTab, wordsPage, debouncedWordSearch]);
+
+  useEffect(() => {
+    if (activeTab === 'tags') {
       fetchBlockedTags();
     }
-  }, [activeCategory, activeTab]);
+  }, [activeTab, tagsPage, debouncedTagSearch]);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -363,6 +409,14 @@ const AdminFilterManager = () => {
                   ))}
                 </tbody>
               </table>
+              <PaginationControls
+                currentPage={wordsPage}
+                totalPages={wordsTotalPages}
+                totalItems={wordsTotal}
+                pageSize={50}
+                onPageChange={setWordsPage}
+                isLoading={loading}
+              />
             </div>
           )}
         </>
@@ -408,8 +462,8 @@ const AdminFilterManager = () => {
             <input
               type="text"
               placeholder="Search blocked tags..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              value={tagSearch}
+              onChange={(e) => setTagSearch(e.target.value)}
               className="admin-input"
               style={{ paddingLeft: 36, fontSize: '13px' }}
             />
@@ -417,40 +471,50 @@ const AdminFilterManager = () => {
 
           {tagsLoading ? (
             <div className="loading-spinner"><div className="spinner" /></div>
-          ) : filteredTags.length === 0 ? (
+          ) : blockedTags.length === 0 ? (
             <div className="admin-card ad-empty">
-              {searchQuery ? "No blocked tags match your search query." : "No tags are currently blocked. Admins can select any tag to restrict."}
+              {tagSearch ? "No blocked tags match your search query." : "No tags are currently blocked. Admins can select any tag to restrict."}
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
-              {filteredTags.map(tag => (
-                <div key={tag._id} className="admin-card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                      <FiHash size={18} color="var(--accent-color)" />
-                      <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--admin-text-main)' }}>{tag.tag}</span>
-                      <span className="admin-badge badge-danger">Banned</span>
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+                {blockedTags.map(tag => (
+                  <div key={tag._id} className="admin-card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                        <FiHash size={18} color="var(--accent-color)" />
+                        <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--admin-text-main)' }}>{tag.tag}</span>
+                        <span className="admin-badge badge-danger">Banned</span>
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, color: 'var(--admin-text-muted)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <FiUser size={14} /> Blocked by: <strong>{tag.createdBy?.name || 'System'}</strong>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <FiCalendar size={14} /> Banned on: {new Date(tag.createdAt).toLocaleDateString()}
+                        </div>
+                      </div>
                     </div>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, color: 'var(--admin-text-muted)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <FiUser size={14} /> Blocked by: <strong>{tag.createdBy?.name || 'System'}</strong>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <FiCalendar size={14} /> Banned on: {new Date(tag.createdAt).toLocaleDateString()}
-                      </div>
-                    </div>
+                    <button
+                      onClick={() => handleDeleteTag(tag._id, tag.tag)}
+                      className="btn-admin-danger" style={{ width: '100%', justifyContent: 'center' }}
+                    >
+                      <FiTrash2 size={14} /> Unblock Tag
+                    </button>
                   </div>
-
-                  <button
-                    onClick={() => handleDeleteTag(tag._id, tag.tag)}
-                    className="btn-admin-danger" style={{ width: '100%', justifyContent: 'center' }}
-                  >
-                    <FiTrash2 size={14} /> Unblock Tag
-                  </button>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+              <PaginationControls
+                currentPage={tagsPage}
+                totalPages={tagsTotalPages}
+                totalItems={tagsTotal}
+                pageSize={50}
+                onPageChange={setTagsPage}
+                isLoading={tagsLoading}
+              />
+            </>
           )}
         </>
       )}

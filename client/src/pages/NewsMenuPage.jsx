@@ -13,6 +13,7 @@ import GroundTab from '../components/GroundTab';
 import ForYouTab from '../components/ForYouTab';
 import CommentsPopupModal from '../components/CommentsPopupModal';
 import BottomNavPill from '../components/BottomNavPill';
+import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import './NewsMenu.css';
 const NewsMenuPage = ({ defaultCategory = 'news' }) => {
   const { tag } = useParams() || {};
@@ -71,34 +72,102 @@ const NewsMenuPage = ({ defaultCategory = 'news' }) => {
   const [trending, setTrending] = useState([]);
   const [trendingTags, setTrendingTags] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
   const [activeCommentArticle, setActiveCommentArticle] = useState(null);
   const pageRef = useRef(null);
 
-  // Fetch all article data
+  const currentPageRef = useRef(1);
+  const loadingMoreRef = useRef(false);
+  const hasMoreRef = useRef(true);
+
+  loadingMoreRef.current = loadingMore;
+  hasMoreRef.current = hasMore;
+
+  // Fetch initial article data (Page 1: 10 items)
   useEffect(() => {
+    let isCancelled = false;
     const fetchAll = async () => {
       setLoading(true);
+      currentPageRef.current = 1;
+      setPage(1);
+      setHasMore(true);
+      hasMoreRef.current = true;
       try {
-        const params = {};
+        const params = { page: 1, limit: 10 };
         if (tag) params.tag = tag;
         else params.category = defaultCategory;
 
         const [artRes, trendRes, tagsRes] = await Promise.all([
-          articleAPI.getAll({ ...params, limit: 20 }),
+          articleAPI.getAll(params),
           articleAPI.getTrending({ category: defaultCategory }),
           articleAPI.getTrendingTags({ category: defaultCategory }),
         ]);
-        setArticles(artRes.data?.data || []);
+
+        if (isCancelled) return;
+        const initialArticles = artRes.data?.data || [];
+        setArticles(initialArticles);
         setTrending(trendRes.data?.data || []);
         setTrendingTags(tagsRes.data?.data || []);
+        const totalPages = artRes.data?.totalPages || 1;
+        const moreAvailable = totalPages > 1 && initialArticles.length > 0;
+        setHasMore(moreAvailable);
+        hasMoreRef.current = moreAvailable;
       } catch (e) {
         console.error('NewsMenuPage fetch error:', e);
       } finally {
-        setLoading(false);
+        if (!isCancelled) setLoading(false);
       }
     };
     fetchAll();
+    return () => { isCancelled = true; };
   }, [tag, defaultCategory]);
+
+  // Load next page on scroll
+  const handleLoadMore = useCallback(async () => {
+    if (loadingMoreRef.current || !hasMoreRef.current) return;
+    setLoadingMore(true);
+    loadingMoreRef.current = true;
+    try {
+      const nextPage = currentPageRef.current + 1;
+      const params = { page: nextPage, limit: 10 };
+      if (tag) params.tag = tag;
+      else params.category = defaultCategory;
+
+      const res = await articleAPI.getAll(params);
+      const newArticles = res.data?.data || [];
+      if (newArticles.length > 0) {
+        setArticles(prev => {
+          const existingIds = new Set(prev.map(a => a._id));
+          const unique = newArticles.filter(a => !existingIds.has(a._id));
+          return [...prev, ...unique];
+        });
+        currentPageRef.current = nextPage;
+        setPage(nextPage);
+        const totalPages = res.data?.totalPages || 1;
+        const moreAvailable = nextPage < totalPages;
+        setHasMore(moreAvailable);
+        hasMoreRef.current = moreAvailable;
+      } else {
+        setHasMore(false);
+        hasMoreRef.current = false;
+      }
+    } catch (e) {
+      console.error('Failed to load more articles on scroll:', e);
+      setHasMore(false);
+      hasMoreRef.current = false;
+    } finally {
+      setLoadingMore(false);
+      loadingMoreRef.current = false;
+    }
+  }, [tag, defaultCategory]);
+
+  const sentinelRef = useInfiniteScroll({
+    onLoadMore: handleLoadMore,
+    hasMore,
+    isLoading: loadingMore || loading,
+  });
 
   // Handle reply-to-article → open chat drawer
   const handleReply = useCallback((article) => {
@@ -181,11 +250,16 @@ const NewsMenuPage = ({ defaultCategory = 'news' }) => {
               <HomeTab
                 articles={articles}
                 trending={trending}
+                trendingTags={trendingTags}
                 highlightId={highlightArticleId}
                 onReply={handleReply}
                 onComment={setActiveCommentArticle}
                 onTabSwitch={setActiveTab}
                 category={defaultCategory}
+                sentinelRef={sentinelRef}
+                loadingMore={loadingMore}
+                hasMore={hasMore}
+                onLoadMore={handleLoadMore}
               />
             )}
             {activeTab === 'trend' && (
@@ -204,6 +278,10 @@ const NewsMenuPage = ({ defaultCategory = 'news' }) => {
                 highlightId={highlightArticleId}
                 onReply={handleReply}
                 onComment={setActiveCommentArticle}
+                sentinelRef={sentinelRef}
+                loadingMore={loadingMore}
+                hasMore={hasMore}
+                onLoadMore={handleLoadMore}
               />
             )}
             {activeTab === 'foryou' && (

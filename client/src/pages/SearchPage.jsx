@@ -2,10 +2,14 @@ import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { articleAPI } from '../services/api';
 import TrendingWidget from '../components/TrendingWidget';
+import NewsArticleCard from '../components/NewsArticleCard';
+import CommentsPopupModal from '../components/CommentsPopupModal';
 import { getImageUrl } from '../components/ArticleComponents';
 import { useAuth } from '../context/AuthContext';
+import { useChat } from '../context/ChatContext';
 import { getDisplayName } from '../utils/userUtils';
-import { FiFilter, FiShield, FiEye, FiEyeOff, FiX } from 'react-icons/fi';
+import { FiFilter, FiShield, FiEye, FiEyeOff, FiX, FiTag, FiSearch, FiTrendingUp } from 'react-icons/fi';
+import toast from 'react-hot-toast';
 
 // Client-side bad word categories for safe search filtering
 const FILTER_CATEGORIES = {
@@ -13,11 +17,6 @@ const FILTER_CATEGORIES = {
   'hate-speech': ['kill all', 'genocide', 'white power', 'sub-human', 'inferior race', 'ethnic cleansing'],
   scam: ['click here to win', 'lottery winner', 'send money', 'bitcoin investment', 'double your money', 'get rich quick', 'free money'],
   cyberbullying: ['kill yourself', 'kys', 'go kill yourself', 'nobody loves you', 'you are worthless', 'end your life'],
-};
-
-const matchesFilterWord = (text, word) => {
-  const normalText = text.toLowerCase();
-  return normalText.includes(word.toLowerCase());
 };
 
 const checkArticleAgainstFilters = (article, activeFilters, personalList) => {
@@ -48,6 +47,7 @@ const checkArticleAgainstFilters = (article, activeFilters, personalList) => {
 
 const SearchPage = () => {
   const { user } = useAuth();
+  const { openRoom, setIsOpen } = useChat();
   const [articles, setArticles] = useState([]);
   const [loading, setLoading] = useState(true);
   const location = useLocation();
@@ -59,6 +59,14 @@ const SearchPage = () => {
 
   const [searchInput, setSearchInput] = useState(q || tag);
   const searchInputRef = useRef(null);
+  const [activeCommentArticle, setActiveCommentArticle] = useState(null);
+
+  // Search Suggestions and Recommended Tags based on history
+  const [recommendedTags, setRecommendedTags] = useState([]);
+  const [recommendedQueries, setRecommendedQueries] = useState([]);
+  const [wordSuggestions, setWordSuggestions] = useState([]);
+  const [articleSuggestions, setArticleSuggestions] = useState([]);
+  const [showSuggestionsDropdown, setShowSuggestionsDropdown] = useState(false);
 
   // Safe search state
   const [showFilters, setShowFilters] = useState(false);
@@ -69,7 +77,66 @@ const SearchPage = () => {
   const [personalBlocklist, setPersonalBlocklist] = useState('');
   const [revealedArticles, setRevealedArticles] = useState(new Set());
 
-  const personalList = personalBlocklist.split(',').map(w => w.trim()).filter(Boolean);
+  const [isInputFocused, setIsInputFocused] = useState(false);
+  const [isUserTyping, setIsUserTyping] = useState(false);
+  const searchWrapperRef = useRef(null);
+
+  // Fetch search suggestions (recommended tags based on recent views)
+  useEffect(() => {
+    articleAPI.getSearchSuggestions({ safeSearch: safeSearchEnabled ? 'true' : undefined })
+      .then(res => {
+        if (res.data?.success) {
+          setRecommendedTags(res.data.recommendedTags || []);
+          setRecommendedQueries(res.data.recommendedQueries || []);
+        }
+      })
+      .catch(() => {});
+  }, [safeSearchEnabled]);
+
+  // Click outside to close search suggestions dropdown
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (searchWrapperRef.current && !searchWrapperRef.current.contains(e.target)) {
+        setIsInputFocused(false);
+        setIsUserTyping(false);
+        setShowSuggestionsDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, []);
+
+  // Live search suggestions ONLY when user is actively focused AND typing
+  useEffect(() => {
+    if (!isInputFocused || !isUserTyping || !searchInput.trim() || searchInput.trim().length < 2) {
+      setWordSuggestions([]);
+      setArticleSuggestions([]);
+      setShowSuggestionsDropdown(false);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      articleAPI.getSearchSuggestions({
+        q: searchInput.trim(),
+        safeSearch: safeSearchEnabled ? 'true' : undefined
+      })
+        .then(res => {
+          if (res.data?.success && isInputFocused && isUserTyping) {
+            setWordSuggestions(res.data.wordSuggestions || []);
+            setArticleSuggestions(res.data.articleSuggestions || []);
+            const hasMatches = (res.data.wordSuggestions?.length > 0) || (res.data.articleSuggestions?.length > 0);
+            setShowSuggestionsDropdown(hasMatches);
+          }
+        })
+        .catch(() => {});
+    }, 200);
+
+    return () => clearTimeout(timer);
+  }, [searchInput, safeSearchEnabled, isInputFocused, isUserTyping]);
 
   useEffect(() => {
     const fetchResults = async () => {
@@ -78,10 +145,11 @@ const SearchPage = () => {
         const params = { status: 'published' };
         if (q) params.search = q;
         if (tag) params.tag = tag;
+        if (safeSearchEnabled) params.safeSearch = 'true';
 
         if (q || tag) {
           const res = await articleAPI.getAll(params);
-          setArticles(res.data.data);
+          setArticles(res.data.data || []);
         } else {
           setArticles([]);
         }
@@ -94,17 +162,21 @@ const SearchPage = () => {
     fetchResults();
     setSearchInput(q || tag);
     setRevealedArticles(new Set());
-  }, [q, tag]);
+  }, [q, tag, safeSearchEnabled]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     if (searchInput.trim()) {
+      setIsUserTyping(false);
+      setShowSuggestionsDropdown(false);
       navigate(`/search?q=${encodeURIComponent(searchInput.trim())}`);
     }
   };
 
   const handleKeyDown = (e) => {
     if (e.key === 'Escape') {
+      setIsUserTyping(false);
+      setShowSuggestionsDropdown(false);
       setSearchInput('');
       searchInputRef.current?.blur();
     }
@@ -123,6 +195,22 @@ const SearchPage = () => {
       else next.add(id);
       return next;
     });
+  };
+
+  const handleReply = (article) => {
+    if (!user) {
+      toast.error('Please login to discuss stories');
+      return;
+    }
+    const topic = article.tags && article.tags.length > 0
+      ? (typeof article.tags[0] === 'string' ? article.tags[0] : article.tags[0].tag)
+      : (article.category || 'General');
+    openRoom(topic);
+    setIsOpen(true);
+  };
+
+  const handleComment = (article) => {
+    setActiveCommentArticle(article);
   };
 
   const hasResults = articles.length > 0;
@@ -151,28 +239,162 @@ const SearchPage = () => {
               <div className="search-no-results">
                 <h1>Nothing Found!</h1>
                 <p>
-                  Apologies, but no results were found for the requested archive. Try using the search with a relevant phrase to find the post you are looking for.
+                  Apologies, but no results were found for the requested search archive. Try using the search box with a relevant phrase or tag.
                 </p>
               </div>
             )}
 
-            {/* Giant Search Input Box */}
-            <div className="giant-search-wrapper">
+            {/* Giant Search Input Box with Live Suggestions */}
+            <div ref={searchWrapperRef} className="giant-search-wrapper" style={{ position: 'relative' }}>
               <form onSubmit={handleSearchSubmit}>
                 <input
                   ref={searchInputRef}
                   type="text"
                   className="giant-search-input"
-                  placeholder="Search..."
+                  placeholder="Search articles, topics, or authors..."
                   value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
+                  onChange={(e) => {
+                    setSearchInput(e.target.value);
+                    setIsUserTyping(true);
+                  }}
+                  onFocus={() => {
+                    setIsInputFocused(true);
+                  }}
+                  onBlur={() => {
+                    // Delay blur so click events on suggestion items register
+                    setTimeout(() => {
+                      setIsInputFocused(false);
+                      setIsUserTyping(false);
+                      setShowSuggestionsDropdown(false);
+                    }, 200);
+                  }}
                   onKeyDown={handleKeyDown}
                 />
               </form>
-              <div className="giant-search-helper">
+
+              {/* Live Search Suggestions Dropdown Overlay */}
+              {showSuggestionsDropdown && (wordSuggestions.length > 0 || articleSuggestions.length > 0) && (
+                <div 
+                  className="search-suggestions-dropdown"
+                  style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    zIndex: 99,
+                    background: 'var(--color-surface, #ffffff)',
+                    border: '1px solid var(--color-gray-200, #e2e8f0)',
+                    borderRadius: '0 0 12px 12px',
+                    boxShadow: '0 12px 28px rgba(0,0,0,0.15)',
+                    padding: '12px 16px',
+                    marginTop: '2px',
+                  }}
+                >
+                  {wordSuggestions.length > 0 && (
+                    <div style={{ marginBottom: 12 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-gray-500)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>
+                        Suggested Terms & Tags
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                        {wordSuggestions.map((word, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => {
+                              setSearchInput(word);
+                              setShowSuggestionsDropdown(false);
+                              navigate(`/search?q=${encodeURIComponent(word)}`);
+                            }}
+                            style={{
+                              background: 'var(--color-gray-100, #f1f5f9)',
+                              border: '1px solid var(--color-gray-300, #cbd5e1)',
+                              borderRadius: '16px',
+                              padding: '4px 12px',
+                              fontSize: 12,
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 4
+                            }}
+                          >
+                            <FiSearch size={12} /> {word}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {articleSuggestions.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-gray-500)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>
+                        Matching Stories
+                      </div>
+                      {articleSuggestions.slice(0, 4).map(item => (
+                        <Link
+                          key={item.id}
+                          to={`/article/${item.slug}`}
+                          onClick={() => setShowSuggestionsDropdown(false)}
+                          style={{
+                            display: 'block',
+                            padding: '6px 8px',
+                            borderRadius: '6px',
+                            fontSize: 13,
+                            fontWeight: 600,
+                            color: 'var(--color-text, #1e293b)',
+                            textDecoration: 'none',
+                          }}
+                        >
+                          <span style={{ fontSize: 10, background: '#3b82f6', color: '#fff', padding: '1px 6px', borderRadius: '4px', marginRight: 6 }}>
+                            {item.category}
+                          </span>
+                          {item.title}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="giant-search-helper" style={{ marginTop: 8 }}>
                 Type above and press <em>Enter</em> to search. Press <em>Esc</em> to cancel.
               </div>
             </div>
+
+            {/* Recommended Tags Based on Viewing History */}
+            {recommendedTags.length > 0 && (
+              <div style={{ marginBottom: 20, background: 'var(--color-gray-50, #f8fafc)', padding: '12px 16px', borderRadius: 10, border: '1px solid var(--color-gray-200, #e2e8f0)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: 'var(--color-gray-600, #475569)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  <FiTag size={13} color="#3b82f6" /> Recommended Tags (Based on Recent Views)
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {recommendedTags.map(recTag => {
+                    const display = recTag.replace(/^#/, '');
+                    return (
+                      <Link
+                        key={recTag}
+                        to={`/tag/${encodeURIComponent(display)}`}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4,
+                          padding: '4px 12px',
+                          borderRadius: 20,
+                          fontSize: 12,
+                          fontWeight: 600,
+                          background: 'var(--color-white, #ffffff)',
+                          border: '1px solid var(--color-gray-300, #cbd5e1)',
+                          color: '#2563eb',
+                          textDecoration: 'none',
+                          transition: 'all 0.2s',
+                        }}
+                      >
+                        #{display}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Safe Search Settings */}
             <div style={{
@@ -193,7 +415,7 @@ const SearchPage = () => {
               >
                 <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <FiShield size={15} color={safeSearchEnabled ? '#6366f1' : 'var(--color-gray-500)'} />
-                  Safe Search & Filters
+                  Safe Search & Content Filter
                   {safeSearchEnabled && (
                     <span style={{ fontSize: 10, background: '#6366f1', color: '#fff', padding: '1px 8px', borderRadius: 10, fontWeight: 800 }}>
                       ON
@@ -222,7 +444,7 @@ const SearchPage = () => {
                         transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
                       }} />
                     </div>
-                    Enable Safe Search
+                    Enable Safe Search Filter
                   </label>
 
                   {safeSearchEnabled && (
@@ -276,9 +498,9 @@ const SearchPage = () => {
             {/* Loading Indicator */}
             {loading && <div className="loading-spinner"><div className="spinner" /></div>}
 
-            {/* Results Grid */}
+            {/* Results Grid with NewsArticleCard */}
             {hasResults && (
-              <div className="search-results-list">
+              <div className="search-results-list" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                 {articles.map((art) => {
                   const filtered = safeSearchEnabled
                     ? checkArticleAgainstFilters(art, activeFilters, personalList)
@@ -288,7 +510,6 @@ const SearchPage = () => {
                   if (filtered.flagged && !isRevealed) {
                     return (
                       <div key={art._id} className="apple-card" style={{ position: 'relative', overflow: 'hidden' }}>
-                        {/* Blurred background */}
                         <div style={{ filter: 'blur(4px)', pointerEvents: 'none', opacity: 0.3, flex: 1 }}>
                           <div style={{ width: 80, height: 60, background: 'var(--color-gray-200)', borderRadius: 6, flexShrink: 0 }} />
                           <div style={{ flex: 1 }}>
@@ -297,7 +518,6 @@ const SearchPage = () => {
                             <div style={{ height: 12, background: 'var(--color-gray-200)', borderRadius: 4, width: '40%' }} />
                           </div>
                         </div>
-                        {/* Overlay */}
                         <div style={{
                           position: 'absolute', inset: 0,
                           background: 'linear-gradient(135deg, rgba(99,102,241,0.12), rgba(99,102,241,0.06))',
@@ -327,35 +547,12 @@ const SearchPage = () => {
                   }
 
                   return (
-                    <div key={art._id} className="apple-card">
-                      {art.coverImage && (
-                        <Link to={`/article/${art.slug}`} style={{ flexShrink: 0 }}>
-                          <img src={getImageUrl(art.coverImage)} alt={art.title} className="apple-card-img" />
-                        </Link>
-                      )}
-                      <div className="apple-card-content">
-                        <div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <div className="apple-card-cat">{art.category.toUpperCase()}</div>
-                            {filtered.flagged && isRevealed && (
-                              <button
-                                onClick={() => toggleReveal(art._id)}
-                                style={{ fontSize: 10, color: '#6366f1', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}
-                              >
-                                <FiEyeOff size={10} /> Hide
-                              </button>
-                            )}
-                          </div>
-                          <h2 className="apple-card-title">
-                            <Link to={`/article/${art.slug}`}>{art.title}</Link>
-                          </h2>
-                          <p className="apple-card-lead">{art.lead}</p>
-                        </div>
-                        <div className="apple-card-meta">
-                          {new Date(art.publishedAt || art.createdAt).toLocaleDateString()} • By {getDisplayName(art.author, user)}
-                        </div>
-                      </div>
-                    </div>
+                    <NewsArticleCard
+                      key={art._id}
+                      article={art}
+                      onReply={handleReply}
+                      onComment={handleComment}
+                    />
                   );
                 })}
               </div>
@@ -372,6 +569,13 @@ const SearchPage = () => {
 
         </div>
       </div>
+
+      {activeCommentArticle && (
+        <CommentsPopupModal
+          article={activeCommentArticle}
+          onClose={() => setActiveCommentArticle(null)}
+        />
+      )}
     </main>
   );
 };

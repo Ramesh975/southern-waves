@@ -2,11 +2,11 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { articleAPI, authAPI, commentAPI, filterAPI } from '../services/api';
+import { articleAPI, authAPI, filterAPI } from '../services/api';
 import { getImageUrl } from './ArticleComponents';
 import {
   FiSearch, FiX, FiFileText, FiUser, FiSettings,
-  FiSliders, FiShield, FiAlertTriangle, FiCheckCircle,
+  FiSliders, FiShield, FiCheckCircle,
   FiEdit3, FiEye, FiActivity, FiArrowRight, FiCommand,
   FiTrendingUp, FiClock, FiPlusCircle, FiLogOut, FiMoon,
   FiSun, FiExternalLink, FiCornerDownLeft, FiFolder
@@ -87,15 +87,6 @@ const STATIC_SYSTEM_ACTIONS = [
     category: 'settings',
     icon: FiSliders,
     path: '/admin/filters',
-    adminOnly: true,
-  },
-  {
-    id: 'act-comments',
-    title: 'Comments Moderation',
-    subtitle: 'Approve, review, or delete campus comments',
-    category: 'pending',
-    icon: FiAlertTriangle,
-    path: '/admin/comments',
     adminOnly: true,
   },
   {
@@ -206,28 +197,22 @@ export const GlobalSearchAssist = ({ isOpen, onClose }) => {
 
         // 2. Users Search
         promises.push(
-          authAPI.getAllUsers().then(res => {
+          authAPI.getAllUsers({
+            search: q || undefined,
+            limit: 15,
+          }).then(res => {
             const all = Array.isArray(res.data?.data) ? res.data.data : Array.isArray(res.data?.users) ? res.data.users : Array.isArray(res.data) ? res.data : [];
-            if (!q) return all.slice(0, 15);
-            const lowerQ = q.toLowerCase();
-            return all.filter(u => 
-              (u.name && u.name.toLowerCase().includes(lowerQ)) ||
-              (u.email && u.email.toLowerCase().includes(lowerQ)) ||
-              (u.role && u.role.toLowerCase().includes(lowerQ)) ||
-              (u.username && u.username.toLowerCase().includes(lowerQ)) ||
-              (u.university && u.university.toLowerCase().includes(lowerQ)) ||
-              (u.academicMajor && u.academicMajor.toLowerCase().includes(lowerQ))
-            ).slice(0, 20);
+            return all.slice(0, 15);
           }).catch(() => [])
         );
 
         // 3. Pending reviews
         if (isAdmin || isEditor || isModerator) {
           promises.push(
-            filterAPI.getPending().then(res => res.data?.data || []).catch(() => [])
+            filterAPI.getPending({ search: q || undefined, limit: 10 }).then(res => res.data?.data || []).catch(() => [])
           );
           promises.push(
-            filterAPI.getFlagged().then(res => res.data?.data || []).catch(() => [])
+            filterAPI.getFlagged({ search: q || undefined, limit: 10 }).then(res => res.data?.data || []).catch(() => [])
           );
         } else {
           promises.push(Promise.resolve([]));

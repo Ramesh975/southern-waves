@@ -11,17 +11,18 @@ import {
 } from 'react-icons/fi';
 import { IoContrast } from 'react-icons/io5';
 import { useChat } from '../../context/ChatContext';
-import { articleAPI, commentAPI, filterAPI } from '../../services/api';
+import { articleAPI, filterAPI } from '../../services/api';
 import '../../components/NavbarModern.css';
 import './AdminLayout.css';
 import AccountSettingsModal from '../../components/AccountSettingsModal';
 import { getImageUrl } from '../../components/ArticleComponents';
 import GlobalSearchAssist from '../../components/GlobalSearchAssist';
+import NotificationDrawer from '../../components/NotificationDrawer';
 
 const AdminLayout = () => {
-  const { user, isAdmin, isEditor, isModerator, logout, refreshUser } = useAuth();
-  const { theme, setTheme, toggleTheme, themeEngine, setThemeEngine, toggleThemeEngine, accent, setAccent, ACCENT_COLORS } = useTheme();
-  const { isOpen, setIsOpen, setActiveTab, replies, totalUnread, notifications, unreadNotificationsCount, markNotificationRead, markAllNotificationsRead } = useChat();
+  const { user, loading: authLoading, isAdmin, isEditor, isModerator, logout, refreshUser } = useAuth();
+  const { theme, setTheme, toggleTheme } = useTheme();
+  const { isOpen, setIsOpen, setActiveTab, replies, totalUnread, notifications, unreadNotificationsCount, markNotificationRead, markAllNotificationsRead, dismissNotification, fetchNotifications } = useChat();
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -44,7 +45,6 @@ const AdminLayout = () => {
   }, []);
   
   const [pendingReviewsCount, setPendingReviewsCount] = useState(0);
-  const [pendingCommentsCount, setPendingCommentsCount] = useState(0);
   const [submissionsCount, setSubmissionsCount] = useState(0);
   const [sidebarSearch, setSidebarSearch] = useState('');
   const [expandedGroups, setExpandedGroups] = useState({
@@ -74,10 +74,6 @@ const AdminLayout = () => {
     if (isAdmin || isModerator || isEditor) {
       filterAPI.getPending()
         .then(res => setPendingReviewsCount(res.data.data?.length || 0))
-        .catch(() => {});
-      
-      commentAPI.getPending()
-        .then(res => setPendingCommentsCount(res.data.data?.length || 0))
         .catch(() => {});
 
       articleAPI.getAll({ category: 'tea-shop', adminView: 'true', limit: 50 })
@@ -125,8 +121,11 @@ const AdminLayout = () => {
   };
 
   useEffect(() => {
-    if (!isAdmin && !isEditor && !isModerator) navigate('/login');
-  }, [isAdmin, isEditor, isModerator, navigate]);
+    if (authLoading) return;
+    if (!isAdmin && !isEditor && !isModerator) {
+      navigate('/login', { replace: true, state: { from: location } });
+    }
+  }, [authLoading, isAdmin, isEditor, isModerator, navigate, location]);
 
   useEffect(() => {
     setMobileSidebarOpen(false);
@@ -183,7 +182,6 @@ const AdminLayout = () => {
       items: [
         { to: '/admin/moderation', label: 'Content Moderation', icon: <FiShield size={16} />, hide: !isAdmin && user?.role !== 'moderator', count: pendingReviewsCount },
         { to: '/admin/filters', label: 'Filter Manager', icon: <FiAlertOctagon size={16} />, hide: !isAdmin && user?.role !== 'moderator' },
-        { to: '/admin/comments', label: 'Comments', icon: <FiMessageSquare size={16} />, count: pendingCommentsCount },
         { to: '/admin/security', label: 'Content Security', icon: <FiShield size={16} /> },
       ].filter(item => !item.hide),
     }] : []),
@@ -214,6 +212,22 @@ const AdminLayout = () => {
 
   const roleLabel = isAdmin ? 'Admin' : isModerator ? 'Moderator' : 'Editor';
   const roleColor = isAdmin ? '#0055a4' : isModerator ? '#dc2626' : '#2563eb';
+
+  if (authLoading) {
+    return (
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100vh',
+        width: '100%',
+        background: 'var(--color-bg, #0d0d0d)',
+        color: 'var(--color-text-primary, #ffffff)'
+      }}>
+        <div className="spinner" />
+      </div>
+    );
+  }
 
   if (!isAdmin && !isEditor && !isModerator) return null;
 
@@ -376,19 +390,7 @@ const AdminLayout = () => {
             >
               {theme === 'light' ? <FiMoon size={17} /> : theme === 'dark' ? <IoContrast size={17} /> : <FiSun size={17} />}
               <span className="ad-tooltip-top">
-                {theme === 'light' ? 'Switch to Dark Mode' : theme === 'dark' ? 'Switch to Black Mode' : 'Switch to Light Mode'}
-              </span>
-            </button>
-
-            <button 
-              className="ad-footer-icon-btn" 
-              onClick={toggleThemeEngine} 
-              aria-label="Toggle Theme Engine"
-              style={{ color: themeEngine === 'expressive' ? 'var(--accent-color)' : undefined }}
-            >
-              {themeEngine === 'expressive' ? <FiZap size={17} /> : <FiLayers size={17} />}
-              <span className="ad-tooltip-top">
-                {themeEngine === 'expressive' ? 'Spread Accent (M3 ON)' : 'Default Engine (M3 OFF)'}
+                {theme === 'light' ? 'Switch to Light Dark' : theme === 'dark' ? 'Switch to Pure Dark' : 'Switch to Light'}
               </span>
             </button>
 
@@ -436,8 +438,8 @@ const AdminLayout = () => {
                     : location.pathname.includes('articles') ? 'Articles'
                     : location.pathname.includes('new-article') ? 'New Article'
                     : location.pathname.includes('edit-article') ? 'Edit Article'
+                    : location.pathname.includes('submission/') ? 'Submission Detail'
                     : location.pathname.includes('submissions') ? 'Submissions'
-                    : location.pathname.includes('comments') ? 'Comments'
                     : location.pathname.includes('moderation') ? 'Content Moderation'
                     : location.pathname.includes('filters') ? 'Filter Manager'
                     : location.pathname.includes('security') ? 'Security'
@@ -502,76 +504,24 @@ const AdminLayout = () => {
                     justifyContent: 'center',
                     position: 'relative'
                   }}
-                  title="Change Accent Color & Themes"
-                  aria-label="Customize Appearance"
+                  title="Theme Mode (Light, Light Dark, Pure Dark)"
+                  aria-label="Theme Mode"
                 >
-                  <div style={{
-                    width: '20px',
-                    height: '20px',
-                    borderRadius: '50%',
-                    backgroundColor: 'var(--accent-color)',
-                    border: '2px solid var(--color-white)',
-                    boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
-                    transition: 'transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                    transform: customizerOpen ? 'scale(1.2)' : 'scale(1)'
-                  }} />
+                  {theme === 'light' ? <FiSun size={18} /> : theme === 'dark' ? <FiMoon size={18} /> : <IoContrast size={18} />}
                 </button>
 
                 {customizerOpen && (
-                  <div className="appearance-popover">
+                  <div className="appearance-popover" style={{ minWidth: '220px' }}>
                     <div className="popover-header">
-                      <h3>Appearance</h3>
+                      <h3>Theme Mode</h3>
                     </div>
 
                     <div className="popover-section">
-                      <span className="section-label">Accent Color</span>
-                      <div className="accent-color-row">
-                        {ACCENT_COLORS && Object.keys(ACCENT_COLORS).map((colorKey) => {
-                          const colorInfo = ACCENT_COLORS[colorKey];
-                          const isSelected = accent === colorKey;
-                          return (
-                            <button
-                              key={colorKey}
-                              className={`accent-color-option ${isSelected ? 'selected' : ''}`}
-                              onClick={() => setAccent(colorKey)}
-                              style={{
-                                width: '24px',
-                                height: '24px',
-                                borderRadius: '50%',
-                                backgroundColor: colorInfo.primary,
-                                border: isSelected ? '2px solid var(--color-black)' : '1px solid rgba(0,0,0,0.1)',
-                                boxShadow: isSelected ? '0 0 0 2px var(--accent-color)' : 'none',
-                                cursor: 'pointer',
-                                position: 'relative',
-                                padding: 0
-                              }}
-                              title={colorInfo.name}
-                            >
-                              {isSelected && (
-                                <span style={{
-                                  position: 'absolute',
-                                  inset: 0,
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  color: '#fff',
-                                  fontSize: '10px',
-                                  fontWeight: 'bold'
-                                }}>✓</span>
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    <div className="popover-section">
-                      <span className="section-label">Theme Mode</span>
                       <div className="theme-toggle-row">
                         {[
                           { id: 'light', label: 'Light', icon: <FiSun size={14} /> },
-                          { id: 'dark', label: 'Dark', icon: <FiMoon size={14} /> },
-                          { id: 'black', label: 'Black', icon: <IoContrast size={14} /> }
+                          { id: 'dark', label: 'Light Dark', icon: <FiMoon size={14} /> },
+                          { id: 'black', label: 'Pure Dark', icon: <IoContrast size={14} /> }
                         ].map((mode) => {
                           const isSelected = theme === mode.id;
                           return (
@@ -585,34 +535,6 @@ const AdminLayout = () => {
                             </button>
                           );
                         })}
-                      </div>
-                    </div>
-
-                    {/* Material 3 Expressive / Spread Accent Engine */}
-                    <div className="popover-section" style={{ borderTop: '1px solid var(--color-gray-200)', paddingTop: '10px' }}>
-                      <span className="section-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <span>Theme Engine</span>
-                        <span style={{ fontSize: '10px', color: 'var(--accent-color)', fontWeight: 800 }}>M3</span>
-                      </span>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-                        <button
-                          className={`theme-mode-btn ${themeEngine === 'default' ? 'selected' : ''}`}
-                          onClick={() => setThemeEngine('default')}
-                          style={{ padding: '6px 8px', fontSize: '11px' }}
-                          title="Option 1: Classic Current Theme"
-                        >
-                          <FiLayers size={13} />
-                          <span>Default</span>
-                        </button>
-                        <button
-                          className={`theme-mode-btn ${themeEngine === 'expressive' ? 'selected' : ''}`}
-                          onClick={() => setThemeEngine('expressive')}
-                          style={{ padding: '6px 8px', fontSize: '11px' }}
-                          title="Option 2: Material 3 Expressive Spread Accent"
-                        >
-                          <FiZap size={13} />
-                          <span>Spread Accent</span>
-                        </button>
                       </div>
                     </div>
                   </div>
@@ -654,11 +576,16 @@ const AdminLayout = () => {
                   )}
                 </button>
                 {notifOpen && (
-                  <NotificationsPopover 
+                  <NotificationDrawer 
                     notifications={notifications}
                     markNotificationRead={markNotificationRead}
                     markAllNotificationsRead={markAllNotificationsRead}
+                    dismissNotification={dismissNotification}
                     setNotificationsOpen={setNotifOpen}
+                    fetchNotifications={fetchNotifications}
+                    currentUser={user}
+                    navigate={navigate}
+                    isAdminDrawer={true}
                   />
                 )}
               </div>
@@ -814,7 +741,7 @@ const AdminLayout = () => {
                 <div className="mega-column">
                   <div className="mega-column-links">
                     {renderAdminNavLink('/admin/articles', 'Articles')}
-                    {isAdmin ? renderAdminNavLink('/admin/users', 'Users') : renderAdminNavLink('/admin/comments', 'Comments')}
+                    {isAdmin && renderAdminNavLink('/admin/users', 'Users')}
                   </div>
                 </div>
 
@@ -938,166 +865,6 @@ const AdminLayout = () => {
   );
 };
 
-const NotificationsPopover = ({ notifications, markNotificationRead, markAllNotificationsRead, setNotificationsOpen }) => {
-  const [filter, setFilter] = useState('all');
-  const [expandedId, setExpandedId] = useState(null);
 
-  const filtered = notifications.filter(n => {
-    if (filter === 'all') return true;
-    return n.type === filter;
-  });
-
-  const getLabel = (type) => {
-    if (type === 'board_news') return 'Board News';
-    if (type === 'sensitivity') return 'Critical Alert';
-    return 'Announcement';
-  };
-
-  const getTypeStyle = (type, isRead) => {
-    if (type === 'sensitivity') {
-      return {
-        borderLeft: '4px solid #c8102e',
-        background: isRead ? 'rgba(200, 16, 46, 0.02)' : 'rgba(200, 16, 46, 0.06)'
-      };
-    }
-    if (type === 'board_news') {
-      return {
-        borderLeft: '4px solid var(--accent-color)',
-        background: isRead ? 'transparent' : 'rgba(0, 122, 255, 0.04)'
-      };
-    }
-    return {
-      borderLeft: '4px solid #4b5563',
-      background: isRead ? 'transparent' : 'rgba(75, 85, 99, 0.04)'
-    };
-  };
-
-  const formatTime = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
-
-  return (
-    <div className="profile-popover notifications-popover" style={{ width: '360px', minWidth: '280px', padding: '16px', gap: '12px', textAlign: 'left', right: 0 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--color-gray-200)', paddingBottom: '8px' }}>
-        <h4 style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--color-black)' }}>University Alerts</h4>
-        {notifications.some(n => !n.isRead) && (
-          <button 
-            onClick={markAllNotificationsRead}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'var(--accent-color)',
-              fontSize: '11px',
-              fontWeight: 700,
-              cursor: 'pointer',
-              padding: 0,
-              textTransform: 'uppercase'
-            }}
-          >
-            Mark all read
-          </button>
-        )}
-      </div>
-
-      {/* Filters */}
-      <div style={{ display: 'flex', gap: '4px', overflowX: 'auto', paddingBottom: '4px', scrollbarWidth: 'none' }}>
-        {[
-          { id: 'all', label: 'All' },
-          { id: 'board_news', label: 'News' },
-          { id: 'announcement', label: 'Announcements' },
-          { id: 'sensitivity', label: 'Critical' }
-        ].map(tab => (
-          <button
-            key={tab.id}
-            onClick={(e) => {
-              e.stopPropagation();
-              setFilter(tab.id); 
-              setExpandedId(null); 
-            }}
-            style={{
-              padding: '4px 10px',
-              fontSize: '11px',
-              fontWeight: 700,
-              borderRadius: '12px',
-              border: filter === tab.id ? '1.5px solid var(--color-black)' : '1.5px solid var(--color-gray-300)',
-              background: filter === tab.id ? 'var(--color-black)' : 'transparent',
-              color: filter === tab.id ? 'var(--color-white)' : 'var(--color-gray-700)',
-              cursor: 'pointer',
-              whiteSpace: 'nowrap',
-              transition: 'all 0.2s'
-            }}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* List */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '280px', overflowY: 'auto', paddingRight: '2px' }}>
-        {filtered.length === 0 ? (
-          <div style={{ padding: '24px 0', textAlign: 'center', fontSize: '13px', color: 'var(--color-gray-500)' }}>
-            No alerts found.
-          </div>
-        ) : (
-          filtered.map(n => (
-            <div
-              key={n._id}
-              onClick={(e) => {
-                e.stopPropagation();
-                setExpandedId(expandedId === n._id ? null : n._id);
-                if (!n.isRead) markNotificationRead(n._id);
-              }}
-              style={{
-                padding: '10px 12px',
-                borderRadius: '8px',
-                border: '1px solid var(--color-gray-200)',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px',
-                textAlign: 'left',
-                ...getTypeStyle(n.type, n.isRead)
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
-                <span style={{
-                  fontSize: '9px',
-                  fontWeight: 800,
-                  textTransform: 'uppercase',
-                  padding: '2px 6px',
-                  borderRadius: '4px',
-                  background: n.type === 'sensitivity' ? '#fee2e2' : n.type === 'board_news' ? '#e0f2fe' : '#f3f4f6',
-                  color: n.type === 'sensitivity' ? '#991b1b' : n.type === 'board_news' ? '#0369a1' : '#374151'
-                }}>
-                  {getLabel(n.type)}
-                </span>
-                <span style={{ fontSize: '9px', color: 'var(--color-gray-500)', fontWeight: 500 }}>
-                  {formatTime(n.createdAt)}
-                </span>
-              </div>
-              <div style={{ fontWeight: n.isRead ? 600 : 800, fontSize: '12px', color: 'var(--color-black)' }}>
-                {n.title}
-              </div>
-              <div style={{
-                fontSize: '11.5px',
-                color: 'var(--color-gray-600)',
-                lineHeight: 1.4,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                display: '-webkit-box',
-                WebKitLineClamp: expandedId === n._id ? 'initial' : 2,
-                WebKitBoxOrient: 'vertical'
-              }}>
-                {n.message}
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-    </div>
-  );
-};
 
 export default AdminLayout;

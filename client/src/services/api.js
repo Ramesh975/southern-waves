@@ -89,18 +89,19 @@ export const authAPI = {
   switchAccount: (userId) => API.post(`/auth/admin/switch-account/${userId}`),
   revertAccount: (originalAdminId) => API.post('/auth/admin/revert-account', { originalAdminId }),
   getAuthorProfile: (identifier) => API.get(`/auth/author/${identifier}`),
-  getAllUsers: () => API.get('/auth/users'),
+  getAllUsers: (params) => API.get('/auth/users', { params }),
   updateUserRole: (id, role) => API.put(`/auth/users/${id}/role`, { role }),
   // Moderation
   blockUser: (id, data) => API.put(`/auth/users/${id}/block`, data),
   unblockUser: (id) => API.put(`/auth/users/${id}/unblock`),
   submitAppeal: (message) => API.post('/auth/appeal', { message }),
-  getAppeals: () => API.get('/auth/appeals'),
+  getAppeals: (params) => API.get('/auth/appeals', { params }),
   rejectAppeal: (id, response) => API.put(`/auth/users/${id}/reject-appeal`, { response }),
 };
 
 // --- Articles ---
 export const articleAPI = {
+  getHomeFeed: () => API.get('/articles/home-feed'),
   getAll: (params) => API.get('/articles', { params }),
   getMostRead: (params) => API.get('/articles/most-read', { params }),
   getMostLiked: (params) => API.get('/articles/most-liked', { params }),
@@ -109,6 +110,8 @@ export const articleAPI = {
   getTrending: (params) => API.get('/articles/trending', { params }),
   getTrendingTags: (params) => API.get('/articles/tags/trending', { params }),
   getRecommendations: (params) => API.get('/articles/recommendations', { params }),
+  getWebStories: (params) => API.get('/articles/web-stories', { params }),
+  getSearchSuggestions: (params) => API.get('/articles/search-suggestions', { params }),
   create: (data) => API.post('/articles', data),
   update: (id, data) => API.put(`/articles/${id}`, data),
   delete: (id) => API.delete(`/articles/${id}`),
@@ -124,6 +127,7 @@ export const commentAPI = {
   edit: (id, data) => API.put(`/comments/${id}`, data),
   approve: (id) => API.put(`/comments/${id}/approve`),
   delete: (id) => API.delete(`/comments/${id}`),
+  like: (id) => API.post(`/comments/${id}/like`),
   getPending: () => API.get('/comments/pending'),
   getMyComments: () => API.get('/comments/my-comments'),
 };
@@ -143,11 +147,13 @@ export const chatAPI = {
 
 // --- Notifications ---
 export const notificationAPI = {
-  getAll: () => API.get('/notifications'),
+  getAll: (params) => API.get('/notifications', { params }),
   create: (data) => API.post('/notifications', data),
   markRead: (id) => API.put(`/notifications/${id}/read`),
   markAllRead: () => API.put('/notifications/read-all'),
+  dismiss: (id) => API.put(`/notifications/${id}/dismiss`),
   delete: (id) => API.delete(`/notifications/${id}`),
+  clearRead: () => API.delete('/notifications/clear-read'),
 };
 
 // --- Filter / Moderation ---
@@ -157,13 +163,13 @@ export const filterAPI = {
   addWord: (data) => API.post('/filters', data),
   updateWord: (id, data) => API.put(`/filters/${id}`, data),
   deleteWord: (id) => API.delete(`/filters/${id}`),
-  getFlagged: () => API.get('/filters/flagged'),
-  getPending: () => API.get('/filters/pending'),
+  getFlagged: (params) => API.get('/filters/flagged', { params }),
+  getPending: (params) => API.get('/filters/pending', { params }),
   approveArticle: (id, data) => API.put(`/filters/articles/${id}/approve`, data),
   lockArticle: (id, lock) => API.put(`/filters/articles/${id}/lock`, { lock }),
   banArticle: (id, ban) => API.put(`/filters/articles/${id}/ban`, { ban }),
   dismissArticle: (id) => API.delete(`/filters/articles/${id}`),
-  getBlockedTags: () => API.get('/filters/tags'),
+  getBlockedTags: (params) => API.get('/filters/tags', { params }),
   addBlockedTag: (tag) => API.post('/filters/tags', { tag }),
   deleteBlockedTag: (id) => API.delete(`/filters/tags/${id}`),
   getSettings: () => API.get('/filters/settings'),

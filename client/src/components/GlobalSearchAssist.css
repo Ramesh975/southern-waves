@@ -53,14 +53,6 @@
   color: var(--color-black);
 }
 
-/* Expressive Theme Engine / Spread Accent */
-[data-theme-engine="expressive"] .gsa-container,
-[data-spread-accent="true"] .gsa-container {
-  background: var(--color-paper);
-  border-color: color-mix(in srgb, var(--accent-color) 25%, var(--color-gray-200));
-  box-shadow: 0 25px 60px -15px color-mix(in srgb, var(--accent-color) 20%, rgba(0, 0, 0, 0.6)), 0 0 0 1px color-mix(in srgb, var(--accent-color) 15%, transparent);
-}
-
 /* Search Header Bar */
 .gsa-header {
   display: flex;
@@ -75,12 +67,6 @@
 [data-theme="black"] .gsa-header {
   background: var(--color-paper);
   border-bottom-color: var(--color-gray-200);
-}
-
-[data-theme-engine="expressive"] .gsa-header,
-[data-spread-accent="true"] .gsa-header {
-  background: color-mix(in srgb, var(--color-paper) 95%, var(--accent-color));
-  border-bottom-color: color-mix(in srgb, var(--accent-color) 18%, var(--color-gray-200));
 }
 
 .gsa-search-icon {
@@ -181,11 +167,6 @@
   border-bottom-color: var(--color-gray-200);
 }
 
-[data-theme-engine="expressive"] .gsa-filters-bar,
-[data-spread-accent="true"] .gsa-filters-bar {
-  background: color-mix(in srgb, var(--color-paper) 92%, var(--accent-color));
-  border-bottom-color: color-mix(in srgb, var(--accent-color) 15%, var(--color-gray-200));
-}
 
 .gsa-filter-chip {
   background: var(--color-white);
@@ -496,11 +477,6 @@
   color: var(--color-gray-500);
 }
 
-[data-theme-engine="expressive"] .gsa-footer,
-[data-spread-accent="true"] .gsa-footer {
-  background: color-mix(in srgb, var(--color-paper) 93%, var(--accent-color));
-  border-top-color: color-mix(in srgb, var(--accent-color) 15%, var(--color-gray-200));
-}
 
 .gsa-footer-hints {
   display: flex;
@@ -565,10 +541,6 @@
   background: var(--color-white);
 }
 
-[data-theme-engine="expressive"] .gsa-trigger-bar,
-[data-spread-accent="true"] .gsa-trigger-bar {
-  border-color: color-mix(in srgb, var(--accent-color) 20%, var(--color-gray-200));
-}
 
 .gsa-trigger-text {
   display: flex;

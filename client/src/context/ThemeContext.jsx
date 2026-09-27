@@ -4,38 +4,24 @@ const ThemeContext = createContext();
 
 export const useTheme = () => useContext(ThemeContext);
 
+// Primary Color: Ocean Blue only
 export const ACCENT_COLORS = {
   blue: {
     name: 'Ocean Blue',
     primary: '#0055a4',
     hover: '#003f7f',
-    light: '#3377cc'
-  },
-  green: {
-    name: 'Emerald Green',
-    primary: '#0f9f59',
-    hover: '#0b7541',
-    light: '#34b779'
-  },
-  red: {
-    name: 'Crimson Red',
-    primary: '#c8102e',
-    hover: '#9e0c23',
-    light: '#e8374f'
-  },
-  purple: {
-    name: 'Royal Purple',
-    primary: '#6f42c1',
-    hover: '#563d7c',
-    light: '#8c67d9'
-  },
-  orange: {
-    name: 'Warm Amber',
-    primary: '#d97706',
-    hover: '#b45309',
-    light: '#f59e0b'
+    light: '#3377cc',
+    darkPrimary: '#38bdf8',
+    darkHover: '#0ea5e9',
+    darkLight: '#7dd3fc'
   }
 };
+
+export const THEME_MODES = [
+  { id: 'light', label: 'Light' },
+  { id: 'dark', label: 'Light Dark' },
+  { id: 'black', label: 'Pure Dark' }
+];
 
 export const ThemeProvider = ({ children }) => {
   const [theme, setTheme] = useState(() => {
@@ -50,14 +36,8 @@ export const ThemeProvider = ({ children }) => {
 
   const [styleMode] = useState('modern');
 
-  // Theme Engine: 'default' (Current Theme) vs 'expressive' (Spread Accent / Material 3 Expressive)
-  const [themeEngine, setThemeEngine] = useState(() => {
-    return localStorage.getItem('southern_waves_engine') || 'default';
-  });
-
-  const [accent, setAccent] = useState(() => {
-    return localStorage.getItem('southern_waves_accent') || 'blue';
-  });
+  // Accent is locked to Primary Blue
+  const accent = 'blue';
 
   useEffect(() => {
     // Set data-theme attribute on <html> element
@@ -66,11 +46,12 @@ export const ThemeProvider = ({ children }) => {
   }, [theme]);
 
   useEffect(() => {
-    // Set data-theme-engine attribute on <html> element
-    document.documentElement.setAttribute('data-theme-engine', themeEngine);
-    document.documentElement.setAttribute('data-spread-accent', themeEngine === 'expressive' ? 'true' : 'false');
-    localStorage.setItem('southern_waves_engine', themeEngine);
-  }, [themeEngine]);
+    // Spread Accent / Theme Engine removed: clean up any legacy attributes and localStorage
+    document.documentElement.removeAttribute('data-theme-engine');
+    document.documentElement.removeAttribute('data-spread-accent');
+    localStorage.removeItem('southern_waves_engine');
+    localStorage.removeItem('southern_waves_accent');
+  }, []);
 
   useEffect(() => {
     // Always set data-style to modern
@@ -79,14 +60,20 @@ export const ThemeProvider = ({ children }) => {
   }, []);
 
   useEffect(() => {
-    // Dynamically update accent colors in root CSS variables
-    const selected = ACCENT_COLORS[accent] || ACCENT_COLORS.blue;
-    document.documentElement.style.setProperty('--accent-color', selected.primary);
-    document.documentElement.style.setProperty('--accent-color-hover', selected.hover);
-    document.documentElement.style.setProperty('--accent-color-light', selected.light);
-    localStorage.setItem('southern_waves_accent', accent);
-  }, [accent]);
+    // Dynamically update Ocean Blue primary colors in root CSS variables
+    const selected = ACCENT_COLORS.blue;
+    const isDark = theme === 'dark' || theme === 'black';
+    const primary = isDark ? selected.darkPrimary : selected.primary;
+    const hover = isDark ? selected.darkHover : selected.hover;
+    const light = isDark ? selected.darkLight : selected.light;
 
+    document.documentElement.style.setProperty('--accent-color', primary);
+    document.documentElement.style.setProperty('--accent-color-hover', hover);
+    document.documentElement.style.setProperty('--accent-color-light', light);
+    document.documentElement.style.setProperty('--color-text-on-accent', '#ffffff');
+  }, [theme]);
+
+  // Cycle: Light -> Light Dark ('dark') -> Pure Dark ('black') -> Light ('light')
   const toggleTheme = () => {
     setTheme((prevTheme) => {
       if (prevTheme === 'light') return 'dark';
@@ -95,27 +82,21 @@ export const ThemeProvider = ({ children }) => {
     });
   };
 
-  const toggleThemeEngine = () => {
-    setThemeEngine((prev) => (prev === 'expressive' ? 'default' : 'expressive'));
-  };
-
-  const toggleStyleMode = () => {};
-  const setStyleMode = () => {};
-
   return (
     <ThemeContext.Provider value={{ 
       theme, 
       toggleTheme, 
       setTheme, 
       styleMode, 
-      toggleStyleMode, 
-      setStyleMode, 
-      themeEngine,
-      setThemeEngine,
-      toggleThemeEngine,
+      toggleStyleMode: () => {}, 
+      setStyleMode: () => {}, 
+      themeEngine: 'default',
+      setThemeEngine: () => {},
+      toggleThemeEngine: () => {},
       accent, 
-      setAccent, 
-      ACCENT_COLORS 
+      setAccent: () => {}, 
+      ACCENT_COLORS,
+      THEME_MODES
     }}>
       {children}
     </ThemeContext.Provider>

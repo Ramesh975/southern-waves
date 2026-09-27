@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { articleAPI, commentAPI } from '../../services/api';
+import { articleAPI, uploadsAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { Link } from 'react-router-dom';
 import {
   FiFileText, FiEye, FiCheckCircle, FiEdit3,
-  FiArrowUpRight, FiTrendingUp, FiMessageSquare,
+  FiArrowUpRight, FiTrendingUp,
   FiPlusCircle, FiClock, FiActivity
 } from 'react-icons/fi';
 
@@ -152,26 +152,37 @@ const AdminDashboard = () => {
   const { user, isAdmin } = useAuth();
   const [stats, setStats] = useState({ articles: 0, published: 0, drafts: 0, views: 0 });
   const [recentArticles, setRecentArticles] = useState([]);
-  const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [weeklyViews] = useState([120, 180, 145, 210, 195, 260, 310]);
 
   useEffect(() => {
     Promise.all([
-      articleAPI.getAll({ limit: 8 }),
-      articleAPI.getAll({ status: 'published', limit: 1 }),
-      articleAPI.getAll({ status: 'draft', limit: 1 }),
-      commentAPI.getPending().catch(() => ({ data: { data: [] } })),
-    ]).then(([all, published, drafts, cmts]) => {
-      const totalViews = all.data.data.reduce((s, a) => s + (a.views || 0), 0);
-      setStats({
-        articles: all.data.total,
-        published: published.data.total,
-        drafts: drafts.data.total,
-        views: totalViews,
-      });
-      setRecentArticles(all.data.data.slice(0, 6));
-      setComments(cmts.data?.data || []);
+      articleAPI.getAll({ limit: 6, adminView: 'true' }),
+      uploadsAPI.getStats(),
+    ]).then(([articlesRes, statsRes]) => {
+      const recent = articlesRes.data?.data || [];
+      setRecentArticles(recent);
+
+      const adminStats = statsRes.data?.data?.adminStats;
+      const ownStats = statsRes.data?.data?.ownStats;
+
+      if (adminStats) {
+        setStats({
+          articles: adminStats.totalArticles || 0,
+          published: adminStats.publishedArticles || 0,
+          drafts: Math.max(0, (adminStats.totalArticles - adminStats.publishedArticles - adminStats.pendingSubmissions)),
+          views: adminStats.totalViews || 0,
+        });
+      } else if (ownStats) {
+        setStats({
+          articles: ownStats.total || 0,
+          published: ownStats.published || 0,
+          drafts: ownStats.draft || 0,
+          views: ownStats.views || 0,
+        });
+      }
+    }).catch(err => {
+      console.error('Failed to load dashboard metrics:', err);
     }).finally(() => setLoading(false));
   }, []);
 
@@ -370,7 +381,6 @@ const AdminDashboard = () => {
               {[
                 { to: '/admin/new-article', label: 'Write Article', icon: <FiEdit3 size={18} />, color: '#c8102e' },
                 { to: '/admin/submissions', label: 'Submissions', icon: <FiFileText size={18} />, color: '#7c3aed' },
-                { to: '/admin/comments', label: 'Comments', icon: <FiMessageSquare size={18} />, color: '#d97706' },
                 ...(isAdmin ? [{ to: '/admin/users', label: 'Manage Users', icon: <FiActivity size={18} />, color: '#16a34a' }] : []),
               ].map(q => (
                 <Link key={q.to} to={q.to} className="ad-quick-item">
@@ -382,33 +392,6 @@ const AdminDashboard = () => {
           </div>
         </div>
       </div>
-
-      {/* ── Recent Comments ── */}
-      {comments.length > 0 && (
-        <div className="admin-card">
-          <div className="admin-card-header">
-            <div className="admin-card-title"><FiMessageSquare size={16} /> Recent Comments</div>
-            <Link to="/admin/comments" className="ad-see-all">Manage →</Link>
-          </div>
-          <div>
-            {comments.slice(0, 4).map((c) => (
-              <div key={c._id} className="ad-list-row">
-                <div className="ad-comment-avatar">{c.author?.name?.charAt(0)?.toUpperCase() || '?'}</div>
-                <div className="ad-comment-body">
-                  <div className="ad-comment-meta">
-                    <strong>{c.author?.name || 'Anonymous'}</strong>
-                    <span>{timeAgo(c.createdAt)}</span>
-                    <span className={`admin-badge ${c.isApproved ? 'badge-success' : 'badge-warning'}`}>
-                      {c.isApproved ? 'Approved' : 'Pending'}
-                    </span>
-                  </div>
-                  <p className="ad-comment-text">{c.text?.slice(0, 120)}{c.text?.length > 120 ? '…' : ''}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 };

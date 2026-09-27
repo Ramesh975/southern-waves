@@ -251,13 +251,23 @@ const ForYouTab = ({ highlightId, onReply, onComment }) => {
                       <FiHash size={13} /> Subscribed Tags
                     </h4>
                     <div className="nm-interest-tags-list">
-                      {interests.tags.map(t => (
-                        <Link key={t.tag} to={`/tag/${t.tag}`} className="nm-interest-tag-pill">
-                          <span className="tag-hash">#</span>
-                          <span className="tag-name">{t.tag}</span>
-                          <span className="tag-weight">{t.weight}</span>
-                        </Link>
-                      ))}
+                      {interests.tags.map(t => {
+                        const rawName = typeof t === 'string' ? t : (t?.tag || '');
+                        let cleanName = rawName;
+                        try {
+                          cleanName = decodeURIComponent(rawName).trim();
+                        } catch (e) {
+                          cleanName = rawName.trim();
+                        }
+                        const displayTag = cleanName.replace(/^#/, '');
+                        return (
+                          <Link key={rawName} to={`/tag/${encodeURIComponent(displayTag)}`} className="nm-interest-tag-pill">
+                            <span className="tag-hash">#</span>
+                            <span className="tag-name">{displayTag}</span>
+                            <span className="tag-weight">{t.weight}</span>
+                          </Link>
+                        );
+                      })}
                     </div>
                   </div>
                 )}

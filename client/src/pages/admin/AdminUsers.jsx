@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { authAPI } from '../../services/api';
+import { PaginationControls } from '../../components/PaginationControls';
 import toast from 'react-hot-toast';
 import { FiSlash, FiCheckCircle, FiChevronDown, FiAlertCircle, FiX, FiClock } from 'react-icons/fi';
 
@@ -20,8 +21,13 @@ const AdminUsers = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filterRole, setFilterRole] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [stats, setStats] = useState({ total: 0, blocked: 0, appeals: 0, moderators: 0 });
 
   // Block modal state
   const [blockModal, setBlockModal] = useState(null); // user to block
@@ -29,15 +35,39 @@ const AdminUsers = () => {
   const [blockDuration, setBlockDuration] = useState('24');
   const [blocking, setBlocking] = useState(false);
 
+  // Debounce search input (300ms)
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
+
   const fetchUsers = () => {
     setLoading(true);
-    authAPI.getAllUsers()
-      .then((res) => setUsers(res.data.data))
+    authAPI.getAllUsers({
+      page,
+      limit: 25,
+      search: debouncedSearch,
+      role: filterRole,
+      status: filterStatus,
+    })
+      .then((res) => {
+        setUsers(res.data.data || []);
+        setTotalItems(res.data.total || 0);
+        setTotalPages(res.data.totalPages || 1);
+        if (res.data.stats) {
+          setStats(res.data.stats);
+        }
+      })
       .catch(() => toast.error('Failed to load users'))
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { fetchUsers(); }, []);
+  useEffect(() => {
+    fetchUsers();
+  }, [page, debouncedSearch, filterRole, filterStatus]);
 
   const handleRoleChange = async (id, role) => {
     try {
@@ -77,16 +107,6 @@ const AdminUsers = () => {
     }
   };
 
-  const filteredUsers = users.filter(u => {
-    const matchesSearch = !searchQuery || u.name?.toLowerCase().includes(searchQuery.toLowerCase()) || u.email?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesRole = filterRole === 'all' || u.role === filterRole;
-    const matchesStatus = filterStatus === 'all'
-      ? true
-      : filterStatus === 'blocked' ? u.isBlocked
-      : !u.isBlocked;
-    return matchesSearch && matchesRole && matchesStatus;
-  });
-
   const isEffectivelyBlocked = (u) => {
     if (!u.isBlocked) return false;
     if (u.blockedUntil && new Date() > new Date(u.blockedUntil)) return false;
@@ -105,17 +125,17 @@ const AdminUsers = () => {
       <div className="admin-header" style={{ marginBottom: '24px' }}>
         <div>
           <h1 className="admin-title">User Management</h1>
-          <p className="admin-subtitle">{users.length} total users registered in the system</p>
+          <p className="admin-subtitle">{stats.total || totalItems} total users registered in the system</p>
         </div>
       </div>
 
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '32px' }}>
         {[
-          { label: 'Total Users', value: users.length, color: 'var(--accent-color)' },
-          { label: 'Blocked', value: users.filter(isEffectivelyBlocked).length, color: '#ef4444' },
-          { label: 'Appeals', value: users.filter(u => u.isBlocked && u.appealRequested).length, color: '#f59e0b' },
-          { label: 'Moderators', value: users.filter(u => u.role === 'moderator').length, color: '#10b981' },
+          { label: 'Total Users', value: stats.total || totalItems, color: 'var(--accent-color)' },
+          { label: 'Blocked', value: stats.blocked, color: '#ef4444' },
+          { label: 'Appeals', value: stats.appeals, color: '#f59e0b' },
+          { label: 'Moderators', value: stats.moderators, color: '#10b981' },
         ].map(s => (
           <div key={s.label} className="admin-card" style={{ padding: '24px' }}>
             <div style={{ fontSize: '32px', fontWeight: 800, color: s.color, marginBottom: '8px', lineHeight: 1 }}>{s.value}</div>
@@ -130,13 +150,13 @@ const AdminUsers = () => {
           type="text"
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
-          placeholder="Search by name or email..."
+          placeholder="Search by name, email, or username..."
           className="admin-input"
           style={{ flex: 1, minWidth: '180px' }}
         />
         <select
           value={filterRole}
-          onChange={e => setFilterRole(e.target.value)}
+          onChange={e => { setFilterRole(e.target.value); setPage(1); }}
           className="admin-input"
           style={{ width: 'auto', cursor: 'pointer' }}
         >
@@ -145,7 +165,7 @@ const AdminUsers = () => {
         </select>
         <select
           value={filterStatus}
-          onChange={e => setFilterStatus(e.target.value)}
+          onChange={e => { setFilterStatus(e.target.value); setPage(1); }}
           className="admin-input"
           style={{ width: 'auto', cursor: 'pointer' }}
         >
@@ -172,7 +192,7 @@ const AdminUsers = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredUsers.map((u) => {
+              {users.map((u) => {
                 const blocked = isEffectivelyBlocked(u);
                 const hasAppeal = u.isBlocked && u.appealRequested;
                 return (
@@ -255,11 +275,19 @@ const AdminUsers = () => {
                   </tr>
                 );
               })}
-              {filteredUsers.length === 0 && (
+              {users.length === 0 && (
                 <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--color-gray-500)', padding: 32 }}>No users found</td></tr>
               )}
             </tbody>
           </table>
+          <PaginationControls
+            currentPage={page}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            pageSize={25}
+            onPageChange={setPage}
+            isLoading={loading}
+          />
         </div>
       )}
 

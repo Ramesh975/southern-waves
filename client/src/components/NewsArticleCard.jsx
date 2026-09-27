@@ -27,7 +27,8 @@ const NewsArticleCard = ({ article, onReply, onComment, highlight }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [likes, setLikes] = useState(article.likes || []);
-  const hasLiked = user && likes.includes(user._id);
+  const userId = user ? (user._id || user.id) : null;
+  const hasLiked = Boolean(userId && likes.some(id => (id._id || id || '').toString() === userId.toString()));
 
   const handleLike = async (e) => {
     e.preventDefault();
@@ -35,12 +36,21 @@ const NewsArticleCard = ({ article, onReply, onComment, highlight }) => {
     if (!user) {
       return toast.error('Please log in to respond to posts');
     }
+    const previousLikes = [...likes];
+    const isCurrentlyLiked = likes.some(id => (id._id || id || '').toString() === userId.toString());
+    const optimisticLikes = isCurrentlyLiked
+      ? likes.filter(id => (id._id || id || '').toString() !== userId.toString())
+      : [...likes, userId];
+
+    setLikes(optimisticLikes);
+
     try {
       const res = await articleAPI.like(article._id);
-      if (res.data?.success) {
+      if (res.data?.success && res.data.likes) {
         setLikes(res.data.likes);
       }
     } catch (err) {
+      setLikes(previousLikes);
       toast.error('Failed to register reaction');
     }
   };
@@ -128,9 +138,22 @@ const NewsArticleCard = ({ article, onReply, onComment, highlight }) => {
       </div>
       {article.tags?.length > 0 && (
         <div className="nm-card-tags">
-          {article.tags.slice(0, 3).map(tag => (
-            <Link key={tag} to={`/tag/${tag}`} className="nm-tag-chip">#{tag}</Link>
-          ))}
+          {article.tags.slice(0, 3).map(tag => {
+            const rawName = typeof tag === 'string' ? tag : (tag?.tag || '');
+            let cleanName = rawName;
+            try {
+              cleanName = decodeURIComponent(rawName).trim();
+            } catch (e) {
+              cleanName = rawName.trim();
+            }
+            const displayTag = cleanName.replace(/^#/, '');
+            if (!displayTag) return null;
+            return (
+              <Link key={rawName} to={`/tag/${encodeURIComponent(displayTag)}`} className="nm-tag-chip">
+                #{displayTag}
+              </Link>
+            );
+          })}
         </div>
       )}
     </article>

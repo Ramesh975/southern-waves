@@ -18,4 +18,6 @@ const BlockedTagSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+BlockedTagSchema.index({ createdAt: -1 });
+
 module.exports = mongoose.model('BlockedTag', BlockedTagSchema);

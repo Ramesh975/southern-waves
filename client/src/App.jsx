@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
-import { Toaster } from 'react-hot-toast';
+import { Toaster, resolveValue } from 'react-hot-toast';
+import LiquidGlassToast from './components/LiquidGlassToast/LiquidGlassToast';
 import { useEffect, useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -33,6 +34,7 @@ import StoriesPage from './pages/StoriesPage';
 import UniversityRowPage from './pages/UniversityRowPage';
 import NotificationsPage from './pages/NotificationsPage';
 import AboutPage from './pages/AboutPage';
+import ExploreHistoryPage from './pages/ExploreHistoryPage';
 
 // Admin Pages
 import AdminLayout from './pages/admin/AdminLayout';
@@ -40,9 +42,9 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminArticles from './pages/admin/AdminArticles';
 import AdminArticleDetail from './pages/admin/AdminArticleDetail';
 import ArticleEditor from './pages/admin/ArticleEditor';
-import AdminComments from './pages/admin/AdminComments';
 import AdminUsers from './pages/admin/AdminUsers';
 import AdminSubmissions from './pages/admin/AdminSubmissions';
+import AdminSubmissionDetail from './pages/admin/AdminSubmissionDetail';
 import AdminNotifications from './pages/admin/AdminNotifications';
 import AdminModerationPage from './pages/admin/AdminModerationPage';
 import AdminFilterManager from './pages/admin/AdminFilterManager';
@@ -182,7 +184,9 @@ const AppInner = () => {
           <Route path="/features" element={<NewsMenuPage defaultCategory="features" />} />
           <Route path="/university-row" element={<NewsMenuPage defaultCategory="university-row" />} />
           <Route path="/know-your-past" element={<KnowYourPastPage />} />
+          <Route path="/explore-history" element={<ExploreHistoryPage />} />
           <Route path="/tea-shop" element={<NewsMenuPage defaultCategory="tea-shop" />} />
+          <Route path="/tea-shop/:slug" element={<ArticleDetailPage />} />
           <Route path="/pictures-speak" element={<PicturesSpeakPage />} />
           <Route path="/stories" element={<StoriesPage />} />
           <Route path="/author/:identifier" element={<AuthorProfilePage />} />
@@ -203,32 +207,30 @@ const AppInner = () => {
             <Route path="/saved-articles" element={<SavedArticlesPage />} />
             <Route path="/my-uploads" element={<AuthorProfilePage />} />
             <Route path="/author-studio" element={<AuthorProfilePage />} />
+            <Route path="/author/me" element={<AuthorProfilePage />} />
             <Route path="/onboarding" element={<OnboardingPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>
 
           {/* Admin (no main navbar, handled inside AdminLayout) */}
-          <Route path="/admin" element={<AdminLayout />}>
-            <Route index element={<AdminDashboard />} />
-            
-            <Route element={<ProtectedRoute allowedRoles={['editor', 'admin', 'moderator']} />}>
+          <Route element={<ProtectedRoute allowedRoles={['editor', 'admin', 'moderator']} />}>
+            <Route path="/admin" element={<AdminLayout />}>
+              <Route index element={<AdminDashboard />} />
               <Route path="articles" element={<AdminArticles />} />
               <Route path="article/:id" element={<AdminArticleDetail />} />
               <Route path="new-article" element={<ArticleEditor />} />
               <Route path="edit-article/:id" element={<ArticleEditor />} />
               <Route path="submissions" element={<AdminSubmissions />} />
-            </Route>
-            <Route element={<ProtectedRoute allowedRoles={['editor', 'admin', 'moderator']} />}>
-              <Route path="comments" element={<AdminComments />} />
+              <Route path="submission/:id" element={<AdminSubmissionDetail />} />
               <Route path="moderation" element={<AdminModerationPage />} />
               <Route path="filters" element={<AdminFilterManager />} />
               <Route path="security" element={<AdminSecurity />} />
               <Route path="system" element={<AdminSystemCenter />} />
-            </Route>
-            
-            <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
-              <Route path="users" element={<AdminUsers />} />
-              <Route path="notifications" element={<AdminNotifications />} />
+              
+              <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+                <Route path="users" element={<AdminUsers />} />
+                <Route path="notifications" element={<AdminNotifications />} />
+              </Route>
             </Route>
           </Route>
 
@@ -276,17 +278,23 @@ function App() {
           <Router>
             <Toaster
               position="top-right"
-              toastOptions={{
-                duration: 3500,
-                style: {
-                  fontFamily: 'Inter, sans-serif',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  border: '2px solid #0d0d0d',
-                  borderRadius: 0,
-                },
+              gutter={12}
+              containerStyle={{
+                top: 20,
+                right: 20,
+                zIndex: 999999,
               }}
-            />
+              toastOptions={{
+                duration: 3800,
+              }}
+            >
+              {(t) => {
+                if (t.type === 'custom') {
+                  return resolveValue(t.message, t);
+                }
+                return <LiquidGlassToast toast={t} />;
+              }}
+            </Toaster>
             <AppInner />
           </Router>
         </ChatProvider>

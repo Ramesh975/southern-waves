@@ -5,20 +5,24 @@ const {
   getNotifications,
   markAsRead,
   markAllAsRead,
-  deleteNotification
+  dismissNotification,
+  deleteNotification,
+  clearReadNotifications,
 } = require('../controllers/notificationController');
 
 const router = express.Router();
 
-// All notifications routes are protected
+// All notification routes are protected
 router.use(protect);
 
 router.route('/')
   .get(getNotifications)
   .post(authorize('admin'), createNotification);
 
+router.delete('/clear-read', clearReadNotifications);
 router.put('/read-all', markAllAsRead);
 router.put('/:id/read', markAsRead);
+router.put('/:id/dismiss', dismissNotification);
 router.delete('/:id', authorize('admin'), deleteNotification);
 
 module.exports = router;

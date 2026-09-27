@@ -8,7 +8,7 @@ import {
   FiEdit3, FiSettings, FiCamera, FiPlus, FiTrash2, FiSearch, 
   FiCheck, FiSend, FiClock, FiCalendar, FiAlertTriangle, 
   FiCheckCircle, FiUnlock, FiLock, FiInfo, FiHash, FiPhone, FiBookOpen,
-  FiChevronRight, FiArrowLeft, FiEye, FiEyeOff, FiX, FiKey, FiLayers, FiZap
+  FiChevronRight, FiArrowLeft, FiEye, FiEyeOff, FiX, FiKey
 } from 'react-icons/fi';
 import { IoContrast } from 'react-icons/io5';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -44,7 +44,7 @@ const BLOCK_DURATIONS = [
   { label: 'Indefinite', value: 'forever' },
 ];
 
-const IOSSwitch = ({ checked, onChange, activeColor = 'var(--accent-color)', disabled = false }) => {
+const ToggleSwitch = ({ checked, onChange, activeColor = 'var(--accent-color)', disabled = false }) => {
   return (
     <div 
       onClick={() => !disabled && onChange()}
@@ -74,12 +74,11 @@ const IOSSwitch = ({ checked, onChange, activeColor = 'var(--accent-color)', dis
     </div>
   );
 };
-
-const ToggleSwitch = IOSSwitch;
+const IOSSwitch = ToggleSwitch;
 
 const SettingsPage = () => {
   const { user, refreshUser, isBlocked, isAdmin, isModerator, isEditor, changePassword, deactivateAccount, switchAccount } = useAuth();
-  const { theme, setTheme, styleMode, setStyleMode, themeEngine, setThemeEngine, accent, setAccent, ACCENT_COLORS } = useTheme();
+  const { theme, setTheme, styleMode, setStyleMode } = useTheme();
   
   // Password change state
   const [currentPassword, setCurrentPassword] = useState('');
@@ -322,18 +321,12 @@ const SettingsPage = () => {
   };
 
   // ==========================================
-  // STATE 2: Feed Preferences / Recommendation Settings & Auto-Scroll
+  // STATE 2: Feed Preferences / Recommendation Settings
   // ==========================================
   const [preferredCategories, setPreferredCategories] = useState(user?.recommendationSettings?.preferredCategories || []);
   const [preferredTags, setPreferredTags] = useState(user?.recommendationSettings?.preferredTags || []);
   const [customTagInput, setCustomTagInput] = useState('');
   const [savingPrefs, setSavingPrefs] = useState(false);
-
-  // Story Feed Auto-Scroll & Interaction Settings
-  const [storyAutoScroll, setStoryAutoScroll] = useState(() => localStorage.getItem('sw_story_autoscroll') !== 'false');
-  const [storyDuration, setStoryDuration] = useState(() => parseInt(localStorage.getItem('sw_story_duration') || '6500', 10));
-  const [storyAnimation, setStoryAnimation] = useState(() => localStorage.getItem('sw_story_animation') || '3d-cube');
-  const [storyLongPressHold, setStoryLongPressHold] = useState(() => localStorage.getItem('sw_story_hold') !== 'false');
 
   useEffect(() => {
     if (user?.recommendationSettings) {
@@ -399,15 +392,8 @@ const SettingsPage = () => {
           preferredTags
         }
       });
-      
-      // Save client-side Story Feed & Auto-Scroll Preferences
-      localStorage.setItem('sw_story_autoscroll', storyAutoScroll ? 'true' : 'false');
-      localStorage.setItem('sw_story_duration', storyDuration.toString());
-      localStorage.setItem('sw_story_animation', storyAnimation);
-      localStorage.setItem('sw_story_hold', storyLongPressHold ? 'true' : 'false');
-
       await refreshUser();
-      toast.success('Feed & Story playback settings saved! ⚡');
+      toast.success('Recommendation settings saved!');
       if (isMobile) {
         handleTabChange('menu');
       }
@@ -1509,82 +1495,6 @@ const SettingsPage = () => {
                   </div>
                 </div>
 
-                {/* ── Story Auto-Scroll, Gestures & Card Animation Preferences ── */}
-                <div style={{
-                  background: 'var(--color-gray-50, #f8fafc)',
-                  border: '1.5px solid var(--color-gray-200, #e2e8f0)',
-                  borderRadius: '12px',
-                  padding: '20px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '18px'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div>
-                      <span className="settings-label" style={{ display: 'block', marginBottom: '2px' }}>
-                        ⚡ 2D Stories Auto-Scroll
-                      </span>
-                      <span style={{ fontSize: '12px', color: 'var(--color-gray-500)' }}>
-                        Automatically progress to the next story and transition to recommended authors on story completion.
-                      </span>
-                    </div>
-                    <IOSSwitch
-                      checked={storyAutoScroll}
-                      onChange={() => setStoryAutoScroll(prev => !prev)}
-                    />
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', paddingTop: '14px', borderTop: '1px solid var(--color-gray-200, #e2e8f0)' }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--color-gray-700)', marginBottom: '6px' }}>
-                        ⏱️ Auto-Scroll Duration
-                      </label>
-                      <select
-                        value={storyDuration}
-                        onChange={(e) => setStoryDuration(parseInt(e.target.value, 10))}
-                        className="settings-input"
-                        style={{ width: '100%', fontSize: '13px' }}
-                      >
-                        <option value={5000}>5 Seconds (Fast)</option>
-                        <option value={6500}>6.5 Seconds (Default)</option>
-                        <option value={9000}>9 Seconds (Relaxed)</option>
-                        <option value={12000}>12 Seconds (Long Reads)</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--color-gray-700)', marginBottom: '6px' }}>
-                        🎴 Horizontal Card Animation
-                      </label>
-                      <select
-                        value={storyAnimation}
-                        onChange={(e) => setStoryAnimation(e.target.value)}
-                        className="settings-input"
-                        style={{ width: '100%', fontSize: '13px' }}
-                      >
-                        <option value="3d-cube">3D Cube Perspective Flip</option>
-                        <option value="smooth-slide">Smooth Spring Carousel</option>
-                        <option value="scale-fade">Scale & Depth Shift</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '14px', borderTop: '1px solid var(--color-gray-200, #e2e8f0)' }}>
-                    <div>
-                      <span style={{ fontSize: '13px', fontWeight: 700, display: 'block', color: 'var(--color-gray-800)' }}>
-                        👆 Long-Press / Hold Gesture
-                      </span>
-                      <span style={{ fontSize: '11.5px', color: 'var(--color-gray-500)' }}>
-                        Press & hold anywhere on a story to freeze time and hide overlays to inspect images clearly.
-                      </span>
-                    </div>
-                    <IOSSwitch
-                      checked={storyLongPressHold}
-                      onChange={() => setStoryLongPressHold(prev => !prev)}
-                    />
-                  </div>
-                </div>
-
                 <div className="settings-btn-row">
                   <button type="submit" className="settings-btn-primary" disabled={savingPrefs}>
                     {savingPrefs ? 'Updating Preferences...' : 'Apply Feed Customizations'}
@@ -1597,33 +1507,12 @@ const SettingsPage = () => {
             {activeTab === 'appearance' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
                 <div>
-                  <span className="settings-label">1. Accent Identity Color</span>
-                  <div className="accent-row">
-                    {Object.keys(ACCENT_COLORS).map(colorKey => {
-                      const colorVal = ACCENT_COLORS[colorKey];
-                      const isActive = accent === colorKey;
-                      return (
-                        <button
-                          key={colorKey}
-                          className={`accent-bubble ${isActive ? 'active' : ''}`}
-                          style={{ backgroundColor: colorVal.primary }}
-                          onClick={() => setAccent(colorKey)}
-                          title={colorVal.name}
-                        >
-                          {isActive && <FiCheck className="accent-checkmark" />}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div>
-                  <span className="settings-label">2. Visual Environment Theme</span>
+                  <span className="settings-label">1. Theme Mode</span>
                   <div className="theme-cards-grid">
                     {[
                       { 
                         id: 'light', 
-                        label: 'Light Paper', 
+                        label: 'Light', 
                         icon: <FiSun />, 
                         bgPreview: '#fdfdfb', 
                         txtPreview: '#121212', 
@@ -1631,7 +1520,7 @@ const SettingsPage = () => {
                       },
                       { 
                         id: 'dark', 
-                        label: 'Modern Slate', 
+                        label: 'Light Dark', 
                         icon: <FiMoon />, 
                         bgPreview: '#1f1f1f', 
                         txtPreview: '#f5f5f5', 
@@ -1639,7 +1528,7 @@ const SettingsPage = () => {
                       },
                       { 
                         id: 'black', 
-                        label: 'OLED Eclipse', 
+                        label: 'Pure Dark', 
                         icon: <IoContrast />, 
                         bgPreview: '#000000', 
                         txtPreview: '#ffffff', 
@@ -1685,56 +1574,25 @@ const SettingsPage = () => {
                   </div>
                 </div>
 
-                {/* Section 3: Theme Engine / Spread Accent */}
-                <div style={{ marginTop: '8px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                    <span className="settings-label" style={{ margin: 0 }}>3. Theme Engine & Color Integration</span>
-                    <span style={{ fontSize: '11px', background: 'var(--accent-color)', color: '#fff', padding: '2px 8px', borderRadius: '12px', fontWeight: 800 }}>
-                      Material 3
-                    </span>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '14px', marginTop: '10px' }}>
-                    {/* Option 1: Default */}
-                    <div 
-                      className={`theme-card ${themeEngine === 'default' ? 'active' : ''}`}
-                      onClick={() => setThemeEngine('default')}
-                      style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px', cursor: 'pointer', textAlign: 'left' }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(120,120,120,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <FiLayers size={16} color="var(--color-black)" />
+                <div>
+                  <span className="settings-label">2. Platform Styling Framework</span>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px', marginTop: '8px' }}>
+                    {[
+                      { id: 'modern', label: 'Modern Executive System', desc: 'Sleek glassmorphic cards, modern fluid typography, elegant data presentation' },
+                    ].map(item => {
+                      const isActive = styleMode === item.id;
+                      return (
+                        <div
+                          key={item.id}
+                          className={`theme-card ${isActive ? 'active' : ''}`}
+                          style={{ alignItems: 'flex-start', textAlign: 'left', padding: '24px' }}
+                          onClick={() => setStyleMode(item.id)}
+                        >
+                          <span className="theme-card-label" style={{ fontSize: '14px', marginBottom: '4px', textTransform: 'uppercase' }}>{item.label}</span>
+                          <span style={{ fontSize: '11.5px', opacity: isActive ? 0.9 : 0.6, lineHeight: 1.4 }}>{item.desc}</span>
                         </div>
-                        <div>
-                          <strong style={{ fontSize: '14px', color: 'var(--color-black)' }}>Option 1: Default Engine</strong>
-                          <div style={{ fontSize: '11px', color: 'var(--color-gray-500)' }}>Current standard clean theme</div>
-                        </div>
-                        {themeEngine === 'default' && <FiCheckCircle size={18} color="var(--accent-color)" style={{ marginLeft: 'auto' }} />}
-                      </div>
-                      <p style={{ fontSize: '11.5px', color: 'var(--color-gray-600)', margin: '4px 0 0 0', lineHeight: 1.4 }}>
-                        Classic newspaper layout with neutral backgrounds and isolated accent highlights on primary buttons.
-                      </p>
-                    </div>
-
-                    {/* Option 2: Spread Accent */}
-                    <div 
-                      className={`theme-card ${themeEngine === 'expressive' ? 'active' : ''}`}
-                      onClick={() => setThemeEngine('expressive')}
-                      style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px', cursor: 'pointer', textAlign: 'left' }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'var(--accent-color)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <FiZap size={16} />
-                        </div>
-                        <div>
-                          <strong style={{ fontSize: '14px', color: 'var(--color-black)' }}>Option 2: Spread Accent</strong>
-                          <div style={{ fontSize: '11px', color: 'var(--accent-color)', fontWeight: 700 }}>Material 3 Expressive System-Wide</div>
-                        </div>
-                        {themeEngine === 'expressive' && <FiCheckCircle size={18} color="var(--accent-color)" style={{ marginLeft: 'auto' }} />}
-                      </div>
-                      <p style={{ fontSize: '11.5px', color: 'var(--color-gray-600)', margin: '4px 0 0 0', lineHeight: 1.4 }}>
-                        Material You dynamic color integration: spreads the chosen accent hue throughout backgrounds, cards, slides, menus, and controls.
-                      </p>
-                    </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -2562,7 +2420,7 @@ const SettingsPage = () => {
                             </div>
                           </div>
 
-                          <div className="settings-toggle-row" style={{ background: '#fff', marginBottom: '12px' }}>
+                          <div className="settings-toggle-row" style={{ marginBottom: '12px' }}>
                             <div className="toggle-info">
                               <span className="toggle-title">Strict Indian Mobile Phone Validation (+91)</span>
                               <span className="toggle-desc">Require 10-digit Indian Mobile Numbers starting with 6-9 for registration & OTP.</span>
@@ -2574,7 +2432,7 @@ const SettingsPage = () => {
                             />
                           </div>
 
-                          <div className="settings-toggle-row" style={{ background: '#fff', marginBottom: '16px' }}>
+                          <div className="settings-toggle-row" style={{  marginBottom: '16px' }}>
                             <div className="toggle-info">
                               <span className="toggle-title">Restrict Registration strictly to Default University</span>
                               <span className="toggle-desc">When enabled, students can only register under {adminDefaultUniv}.</span>

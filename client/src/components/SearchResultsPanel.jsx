@@ -24,11 +24,19 @@ const SearchResultsPanel = ({
   const navigate = useNavigate();
 
   const handleTagClick = (tag) => {
+    const rawName = typeof tag === 'string' ? tag : (tag?.tag || '');
+    let cleanName = rawName;
+    try {
+      cleanName = decodeURIComponent(rawName).trim();
+    } catch (e) {
+      cleanName = rawName.trim();
+    }
+    const cleanTag = cleanName.replace(/^#/, '');
     if (onTagClick) {
-      onTagClick(tag);
+      onTagClick(cleanTag);
     } else {
       onClose();
-      navigate(`/tag/${tag}`);
+      navigate(`/tag/${encodeURIComponent(cleanTag)}`);
     }
   };
 

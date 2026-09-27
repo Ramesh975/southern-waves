@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import { articleAPI, commentAPI, authAPI, filterAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useChat } from '../context/ChatContext';
@@ -8,217 +8,11 @@ import { getImageUrl, getCategoryLabel, getCategoryPath } from '../components/Ar
 import ShareRail from '../components/ShareRail';
 import toast from 'react-hot-toast';
 import io from 'socket.io-client';
-import { FiHeart, FiMessageCircle, FiCornerUpLeft, FiBookmark, FiThumbsDown, FiLock, FiSlash, FiUnlock, FiTrash2, FiEdit2, FiExternalLink } from 'react-icons/fi';
+import { FiHeart, FiMessageCircle, FiCornerUpLeft, FiBookmark, FiThumbsDown, FiLock, FiSlash, FiUnlock, FiTrash2, FiEdit2, FiExternalLink, FiMoreVertical, FiChevronDown, FiChevronUp } from 'react-icons/fi';
 import ImageLightbox from '../components/ImageLightbox';
 import { getDisplayName } from '../utils/userUtils';
 
-const SOCKET_URL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5000';
-
-const MAX_DEPTH = 3;
-
-const CommentNode = ({ comment, allComments, user, onReply, onEdit, onDelete, isBlocked, depth = 0 }) => {
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  const [showReplyForm, setShowReplyForm] = useState(false);
-  const [replyText, setReplyText] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-
-  // Edit state
-  const [isEditing, setIsEditing] = useState(false);
-  const [editText, setEditText] = useState(comment.text);
-  const [savingEdit, setSavingEdit] = useState(false);
-
-  const replies = allComments.filter(c => c.parentComment === comment._id);
-
-  const handleReplySubmit = async (e) => {
-    e.preventDefault();
-    if (!replyText.trim()) return;
-    setSubmitting(true);
-    try {
-      await onReply(comment._id, replyText);
-      setReplyText('');
-      setShowReplyForm(false);
-    } catch (err) { /* handled by parent */ }
-    finally { setSubmitting(false); }
-  };
-
-  const handleEditSubmit = async (e) => {
-    e.preventDefault();
-    if (!editText.trim()) return;
-    setSavingEdit(true);
-    try {
-      await onEdit(comment._id, editText);
-      setIsEditing(false);
-    } catch (err) { /* handled by parent */ }
-    finally { setSavingEdit(false); }
-  };
-
-  const isAuthor = user && (comment.author?._id === user._id || comment.author === user._id);
-  const showDelete = isAuthor || (user && ['admin', 'editor', 'moderator'].includes(user.role));
-
-  if (isCollapsed) {
-    return (
-      <div className="cn-collapsed" onClick={() => setIsCollapsed(false)}>
-        <div className="cn-collapsed-avatar">
-          {comment.author?.avatar
-            ? <img src={getImageUrl(comment.author.avatar)} alt={comment.author.name} />
-            : comment.author?.name?.[0]?.toUpperCase()}
-        </div>
-        <span className="cn-collapsed-name">{comment.author?.name}</span>
-        <span className="cn-collapsed-badge">
-          {replies.length > 0
-            ? `${replies.length} repl${replies.length === 1 ? 'y' : 'ies'} hidden`
-            : 'collapsed'}
-        </span>
-        <span className="cn-collapsed-expand">↓ expand</span>
-      </div>
-    );
-  }
-
-  return (
-    <div className="cn-root">
-      {/* ── Header ─────────────────────────────────────── */}
-      <div className="cn-header">
-        <button className="cn-collapse-btn" onClick={() => setIsCollapsed(true)} title="Collapse thread">
-          <span>−</span>
-        </button>
-        <div className="cn-avatar">
-          {comment.author?.avatar
-            ? <img src={getImageUrl(comment.author.avatar)} alt={comment.author.name} />
-            : comment.author?.name?.[0]?.toUpperCase()}
-        </div>
-        <div className="cn-meta">
-          <span className="cn-author">{getDisplayName(comment.author, user)}</span>
-          <span className="cn-dot">·</span>
-          <span className="cn-time">{format(new Date(comment.createdAt), 'MMM d · h:mm a')}</span>
-        </div>
-      </div>
-
-      {/* ── Body ───────────────────────────────────────── */}
-      <div className="cn-body">
-        {/* Vertical thread line — only when there are replies */}
-        {(replies.length > 0 || showReplyForm) && (
-          <div className="cn-guide" onClick={() => setIsCollapsed(true)} title="Collapse" />
-        )}
-
-        <div className="cn-content">
-          {isEditing ? (
-            <form onSubmit={handleEditSubmit} style={{ marginBottom: '10px' }}>
-              <textarea
-                value={editText}
-                onChange={e => setEditText(e.target.value)}
-                style={{
-                  width: '100%', padding: '8px 12px', borderRadius: '6px',
-                  border: '1.5px solid var(--accent-color, #c8102e)',
-                  background: 'var(--color-white, #fff)', color: 'var(--color-black, #000)',
-                  fontSize: '13px', lineHeight: 1.5, boxSizing: 'border-box'
-                }}
-                rows={2}
-                required
-              />
-              <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
-                <button
-                  type="button"
-                  onClick={() => setIsEditing(false)}
-                  style={{ padding: '4px 10px', fontSize: '11px', borderRadius: '4px', border: '1px solid #ccc', background: 'none', cursor: 'pointer' }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={savingEdit || !editText.trim()}
-                  style={{ padding: '4px 12px', fontSize: '11px', borderRadius: '4px', border: 'none', background: 'var(--accent-color, #c8102e)', color: '#fff', fontWeight: 700, cursor: 'pointer' }}
-                >
-                  {savingEdit ? 'Saving...' : 'Save Edit'}
-                </button>
-              </div>
-            </form>
-          ) : (
-            <p className="cn-text">
-              {comment.text}
-              {comment.isEdited && (
-                <span style={{ fontSize: '10.5px', color: 'var(--color-gray-500)', marginLeft: '6px', fontStyle: 'italic' }}>
-                  (edited)
-                </span>
-              )}
-            </p>
-          )}
-
-          {/* ── Action Bar ─────────────────────────────── */}
-          <div className="cn-actions">
-            {user && !isBlocked && (
-              <button
-                className={`cn-action-btn reply-btn${showReplyForm ? ' active' : ''}`}
-                onClick={() => setShowReplyForm(v => !v)}
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <polyline points="9 17 4 12 9 7"/>
-                  <path d="M20 18v-2a4 4 0 0 0-4-4H4"/>
-                </svg>
-                {showReplyForm ? 'Cancel' : 'Reply'}
-              </button>
-            )}
-            {isAuthor && (
-              <button className="cn-action-btn" onClick={() => { setIsEditing(true); setEditText(comment.text); }}>
-                <FiEdit2 size={11} />
-                Edit
-              </button>
-            )}
-            {showDelete && (
-              <button className="cn-action-btn delete-btn" onClick={() => onDelete(comment._id)}>
-                <FiTrash2 size={11} />
-                Delete
-              </button>
-            )}
-          </div>
-
-          {/* ── Inline Reply Form ──────────────────────── */}
-          {showReplyForm && (
-            <form onSubmit={handleReplySubmit} className="cn-reply-form">
-              <p className="cn-reply-label">↳ Replying to <strong>{comment.author?.name}</strong></p>
-              <textarea
-                autoFocus
-                placeholder="Write your reply…"
-                rows={3}
-                value={replyText}
-                onChange={e => setReplyText(e.target.value)}
-                className="cn-reply-textarea"
-                required
-              />
-              <div className="cn-reply-form-actions">
-                <button type="button" className="cn-reply-cancel" onClick={() => setShowReplyForm(false)}>
-                  Cancel
-                </button>
-                <button type="submit" className="cn-reply-submit" disabled={submitting || !replyText.trim()}>
-                  {submitting ? 'Posting…' : 'Post Reply'}
-                </button>
-              </div>
-            </form>
-          )}
-
-          {/* ── Nested Replies ─────────────────────────── */}
-          {replies.length > 0 && (
-            <div className={`cn-replies${depth >= MAX_DEPTH ? ' cn-replies--flat' : ''}`}>
-              {replies.map(reply => (
-                <CommentNode
-                  key={reply._id}
-                  comment={reply}
-                  allComments={allComments}
-                  user={user}
-                  onReply={onReply}
-                  onEdit={onEdit}
-                  onDelete={onDelete}
-                  isBlocked={isBlocked}
-                  depth={depth + 1}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
+import ArticleComments from '../components/ArticleComments';
 
 const ArticleDetailPage = () => {
   const { slug } = useParams();
@@ -228,8 +22,6 @@ const ArticleDetailPage = () => {
   const [related, setRelated] = useState([]);
   const [recommendations, setRecommendations] = useState([]);
   const [comments, setComments] = useState([]);
-  const [commentText, setCommentText] = useState('');
-  const [submittingComment, setSubmittingComment] = useState(false);
   const [loading, setLoading] = useState(true);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [fontScale, setFontScale] = useState(1);
@@ -353,65 +145,7 @@ const ArticleDetailPage = () => {
     window.scrollTo(0, 0);
   }, [slug]);
 
-  useEffect(() => {
-    if (!article?._id) return;
 
-    // Connect socket and join this article's room for real-time comments
-    const token = localStorage.getItem('sw_token');
-    const socket = io(SOCKET_URL, { 
-      withCredentials: true,
-      forceNew: true,
-      multiplex: false,
-      auth: token ? { token } : {}
-    });
-    socketRef.current = socket;
-
-    socket.on('connect', () => {
-      socket.emit('article:joinRoom', { articleId: article._id });
-      console.log(`ArticleDetailPage joined article room: article:${article._id}`);
-    });
-
-    socket.on('comment:new', (newComment) => {
-      setComments((prev) => {
-        if (prev.some((c) => c._id === newComment._id)) return prev;
-        return [...prev, newComment];
-      });
-    });
-
-    socket.on('comment:edited', (updatedComment) => {
-      setComments((prev) => prev.map(c => c._id === updatedComment._id ? { ...c, text: updatedComment.text, isEdited: true } : c));
-    });
-
-    socket.on('comment:deleted', (data) => {
-      const delId = data?.commentId || data;
-      setComments((prev) => prev.filter(c => c._id !== delId));
-    });
-
-    socket.on('connect_error', (err) => {
-      console.error('ArticleDetailPage socket connection error:', err);
-    });
-
-    return () => {
-      if (socketRef.current) {
-        socketRef.current.emit('article:leaveRoom', { articleId: article._id });
-        socketRef.current.disconnect();
-        socketRef.current = null;
-      }
-    };
-  }, [article?._id]);
-
-  const handleEditComment = async (commentId, newText) => {
-    try {
-      const res = await commentAPI.edit(commentId, { text: newText });
-      if (res.data?.success) {
-        setComments(prev => prev.map(c => c._id === commentId ? { ...c, text: newText, isEdited: true } : c));
-        toast.success('Comment updated');
-      }
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to edit comment');
-      throw err;
-    }
-  };
 
   useEffect(() => {
     const handleScroll = () => {
@@ -464,69 +198,7 @@ const ArticleDetailPage = () => {
     return () => clearTimeout(timer);
   }, [article]);
 
-  const handleComment = async (e) => {
-    e.preventDefault();
-    if (!commentText.trim()) return;
-    if ((isLocked || globalCommentLock) && !isModerator) {
-      return toast.error('Comments are temporarily locked.');
-    }
-    setSubmittingComment(true);
-    try {
-      const res = await commentAPI.add(article._id, { text: commentText });
-      if (res.data?.success) {
-        const postedComment = res.data.data;
-        setComments(prev => {
-          if (prev.some((c) => c._id === postedComment._id)) return prev;
-          return [...prev, postedComment];
-        });
-      }
-      setCommentText('');
-      setShowAllComments(true);
-      toast.success('Comment posted!');
-    } catch (err) {
-      if (err.response?.data?.blocked) {
-        toast.error('Your comment contained harmful content. Your account has been temporarily suspended.');
-      } else {
-        toast.error(err.response?.data?.message || 'Failed to post comment');
-      }
-    } finally {
-      setSubmittingComment(false);
-    }
-  };
 
-  const handleReplyComment = async (parentCommentId, text) => {
-    if ((isLocked || globalCommentLock) && !isModerator) {
-      return toast.error('Comments are temporarily locked.');
-    }
-    try {
-      const res = await commentAPI.add(article._id, { text, parentComment: parentCommentId });
-      if (res.data?.success) {
-        const newReply = res.data.data;
-        setComments(prev => {
-          if (prev.some((c) => c._id === newReply._id)) return prev;
-          return [...prev, newReply];
-        });
-        toast.success('Reply posted!');
-      }
-    } catch (err) {
-      if (err.response?.data?.blocked) {
-        toast.error('Your comment contained harmful content. Your account has been temporarily suspended.');
-      } else {
-        toast.error(err.response?.data?.message || 'Failed to post reply');
-      }
-    }
-  };
-
-  const handleDeleteComment = async (commentId) => {
-    if (!window.confirm('Delete this comment? This cannot be undone.')) return;
-    try {
-      await commentAPI.delete(commentId);
-      setComments(prev => prev.filter(c => c._id !== commentId));
-      toast.success('Comment deleted');
-    } catch (err) {
-      toast.error('Failed to delete comment');
-    }
-  };
 
   const handleLock = async () => {
     setModerating(true);
@@ -1072,101 +744,40 @@ const ArticleDetailPage = () => {
             {/* Tags row */}
             {article.tags?.length > 0 && (
               <div className="article-tags-row">
-                {article.tags.map((tag) => (
-                  <Link key={tag} to={`/tag/${tag}`} className="tag-pill-link">
-                    #{tag}
-                  </Link>
-                ))}
+                {article.tags.map((tag) => {
+                  const rawName = typeof tag === 'string' ? tag : (tag?.tag || '');
+                  let cleanName = rawName;
+                  try {
+                    cleanName = decodeURIComponent(rawName).trim();
+                  } catch (e) {
+                    cleanName = rawName.trim();
+                  }
+                  const displayTag = cleanName.replace(/^#/, '');
+                  if (!displayTag) return null;
+                  return (
+                    <Link key={rawName} to={`/tag/${encodeURIComponent(displayTag)}`} className="tag-pill-link">
+                      #{displayTag}
+                    </Link>
+                  );
+                })}
               </div>
             )}
 
             <div className="rule-thick" style={{ margin: '32px 0' }} />
 
               {/* Comments Section */}
-              <section className="comments-section" id="comments">
-                <h2 className="comments-title">Comments ({comments.length})</h2>
-
-                {(isLocked || globalCommentLock) && !isModerator ? (
-                  <div style={{
-                    padding: '14px 18px',
-                    background: '#fef2f2',
-                    border: '2.5px solid var(--color-black)',
-                    boxShadow: '4px 4px 0 var(--color-black)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 12,
-                    fontSize: 13,
-                    color: '#ef4444',
-                    fontWeight: 700,
-                    marginBottom: 20
-                  }}>
-                    <span style={{ fontSize: 18 }}>🔒</span>
-                    {globalCommentLock 
-                      ? "Comments have been temporarily disabled globally by the administrator."
-                      : "Comments have been disabled for this content."
-                    }
-                  </div>
-                ) : user && !isBlocked ? (
-                <form className="comment-form" onSubmit={handleComment}>
-                  <textarea
-                    placeholder="Share your thoughts..."
-                    value={commentText}
-                    onChange={(e) => setCommentText(e.target.value)}
-                    maxLength={1000}
-                    required
-                  />
-                  <br />
-                  <button type="submit" className="btn-submit" disabled={submittingComment}>
-                    {submittingComment ? 'Posting...' : 'Post Comment'}
-                  </button>
-                </form>
-              ) : user && isBlocked ? (
-                <div style={{
-                  padding: '14px 18px', borderRadius: 8, marginBottom: 20,
-                  background: 'rgba(239,68,68,0.05)',
-                  border: '1px solid rgba(239,68,68,0.2)',
-                  display: 'flex', alignItems: 'center', gap: 10, fontSize: 13,
-                  color: '#ef4444', fontWeight: 600,
-                }}>
-                  <span style={{ fontSize: 16 }}>🛑</span>
-                  Your account is currently suspended. You can read articles and like/save content, but cannot post comments until the suspension is lifted.
-                </div>
-              ) : (
-                <p style={{ fontSize: 14, color: 'var(--color-gray-600)', marginBottom: 24 }}>
-                  <Link to="/login" style={{ color: 'var(--color-red)', fontWeight: 600 }}>Login</Link> to post a comment.
-                </p>
-              )}
-
-              <div style={{ marginTop: 24, position: 'relative' }}>
-                {comments.length === 0 ? (
-                  <p style={{ fontSize: 14, color: 'var(--color-gray-500)' }}>No comments yet. Be the first!</p>
-                ) : (
-                  <div className={`comments-list-wrapper ${!showAllComments && comments.length > 6 ? 'collapsed' : ''}`}>
-                    <div className="comments-list-inner">
-                      {comments.filter(c => !c.parentComment).map((c) => (
-                        <CommentNode
-                          key={c._id}
-                          comment={c}
-                          allComments={comments}
-                          user={user}
-                          onReply={handleReplyComment}
-                          onEdit={handleEditComment}
-                          onDelete={handleDeleteComment}
-                          isBlocked={isBlocked}
-                        />
-                      ))}
-                    </div>
-                    {!showAllComments && comments.length > 6 && (
-                      <div className="comments-fog-overlay">
-                        <button type="button" className="btn-read-more" onClick={() => setShowAllComments(true)}>
-                          Read More Comments ({comments.length - 6} more)
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </section>
+              <ArticleComments
+                articleId={article._id}
+                articleAuthorId={article.author?._id || article.author}
+                initialComments={comments}
+                isLocked={isLocked || commentsDisabled || globalCommentLock}
+                commentsDisabled={commentsDisabled}
+                globalCommentLock={globalCommentLock}
+                isBlocked={isBlocked}
+                isModerator={isModerator}
+                isPopup={false}
+                onCommentsUpdate={setComments}
+              />
 
             <div className="rule-thick" style={{ margin: '48px 0 32px' }} />
 
@@ -1239,9 +850,22 @@ const ArticleDetailPage = () => {
                           <Link to={`/article/${art.slug}`}>{art.title}</Link>
                         </h4>
                         <div className="tag-recommend-tags">
-                          {art.tags?.slice(0, 3).map(t => (
-                            <Link key={t} to={`/tag/${t}`} className="tag-recommend-tag">#{t}</Link>
-                          ))}
+                          {art.tags?.slice(0, 3).map(t => {
+                            const rawName = typeof t === 'string' ? t : (t?.tag || '');
+                            let cleanName = rawName;
+                            try {
+                              cleanName = decodeURIComponent(rawName).trim();
+                            } catch (e) {
+                              cleanName = rawName.trim();
+                            }
+                            const displayTag = cleanName.replace(/^#/, '');
+                            if (!displayTag) return null;
+                            return (
+                              <Link key={rawName} to={`/tag/${encodeURIComponent(displayTag)}`} className="tag-recommend-tag">
+                                #{displayTag}
+                              </Link>
+                            );
+                          })}
                         </div>
                       </div>
                     </div>

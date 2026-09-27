@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -6,11 +6,12 @@ import { useTheme } from '../context/ThemeContext';
 import { useChat } from '../context/ChatContext';
 import { articleAPI, authAPI } from '../services/api';
 import { formatDistanceToNow } from 'date-fns';
-import { FiArrowLeft, FiChevronDown, FiChevronRight, FiBell, FiSun, FiMoon, FiUser, FiMenu, FiX, FiSearch, FiArrowRight, FiMessageSquare, FiBookmark, FiLogOut, FiLayout, FiSettings, FiUpload, FiLayers, FiZap, FiCheck, FiCheckCircle, FiExternalLink, FiCompass } from 'react-icons/fi';
+import { FiArrowLeft, FiChevronDown, FiChevronRight, FiBell, FiSun, FiMoon, FiUser, FiMenu, FiX, FiSearch, FiArrowRight, FiMessageSquare, FiBookmark, FiLogOut, FiLayout, FiSettings, FiUpload, FiLayers, FiZap, FiCheck, FiCheckCircle, FiExternalLink, FiCompass, FiGlobe, FiFeather, FiCoffee, FiEdit3, FiCamera, FiClock, FiAward } from 'react-icons/fi';
 import { IoContrast } from 'react-icons/io5';
 import './NavbarModern.css';
 import AccountSettingsModal from './AccountSettingsModal';
 import { getImageUrl } from './ArticleComponents';
+import NotificationDrawer from './NotificationDrawer';
 
 const ROUTE_NAMES = {
   '/': 'Home',
@@ -28,10 +29,177 @@ const ROUTE_NAMES = {
   '/admin': 'Dashboard'
 };
 
+const HOME_NAV_ITEMS = [
+  { path: '/news', label: 'News' },
+  { path: '/editorial', label: 'Editorial' },
+  { path: '/features', label: 'Features' },
+  { path: '/pictures-speak', label: "Picture's Speak" },
+  { path: '/tea-shop', label: 'Tea Shop' },
+  { path: '/university-row', label: 'University Row' },
+  { path: '/know-your-past', label: 'Know Your Past' },
+  { path: '/stories', label: 'Fast Stories' },
+  { path: '/about', label: 'About Us' },
+];
+
+const DynamicHomeNav = () => {
+  const containerRef = useRef(null);
+  const measureRef = useRef(null);
+  const dropdownRef = useRef(null);
+  const [visibleCount, setVisibleCount] = useState(HOME_NAV_ITEMS.length);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, []);
+
+  const calculateVisible = useCallback(() => {
+    if (!containerRef.current || !measureRef.current) return;
+    const containerWidth = containerRef.current.offsetWidth;
+    if (containerWidth <= 0) return;
+
+    const measureEls = Array.from(measureRef.current.children);
+    if (!measureEls.length) return;
+
+    const moreBtnEl = measureEls[measureEls.length - 1];
+    const moreBtnWidth = moreBtnEl ? moreBtnEl.offsetWidth + 16 : 56;
+
+    let totalAll = 0;
+    const widths = [];
+    for (let i = 0; i < HOME_NAV_ITEMS.length; i++) {
+      const el = measureEls[i];
+      const w = el ? el.offsetWidth + 18 : 95;
+      widths.push(w);
+      totalAll += w;
+    }
+
+    if (totalAll <= containerWidth) {
+      setVisibleCount(HOME_NAV_ITEMS.length);
+      return;
+    }
+
+    const available = containerWidth - moreBtnWidth;
+    let accumulated = 0;
+    let count = 0;
+
+    for (let i = 0; i < widths.length; i++) {
+      if (accumulated + widths[i] <= available) {
+        accumulated += widths[i];
+        count++;
+      } else {
+        break;
+      }
+    }
+
+    setVisibleCount(Math.max(1, count));
+  }, []);
+
+  useEffect(() => {
+    calculateVisible();
+    const handleResize = () => calculateVisible();
+    window.addEventListener('resize', handleResize);
+
+    let observer;
+    if (containerRef.current && typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(() => calculateVisible());
+      observer.observe(containerRef.current);
+    }
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      if (observer) observer.disconnect();
+    };
+  }, [calculateVisible]);
+
+  const visibleItems = HOME_NAV_ITEMS.slice(0, visibleCount);
+  const overflowItems = HOME_NAV_ITEMS.slice(visibleCount);
+
+  return (
+    <div className="navbar-secondary-bar">
+      {/* Hidden off-screen measurement elements to dynamically compute exact widths */}
+      <div 
+        ref={measureRef}
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          visibility: 'hidden',
+          pointerEvents: 'none',
+          top: '-9999px',
+          left: '-9999px',
+          display: 'flex',
+          gap: '18px',
+          whiteSpace: 'nowrap'
+        }}
+      >
+        {HOME_NAV_ITEMS.map((item) => (
+          <span key={item.path} className="sec-nav-link" style={{ display: 'inline-block' }}>
+            {item.label}
+          </span>
+        ))}
+        <span className="sec-nav-more-btn" style={{ display: 'inline-flex' }}>
+          <span className="sec-more-dots">•••</span>
+        </span>
+      </div>
+
+      <div className="navbar-secondary-bar-inner dynamic-bar-inner" ref={containerRef}>
+        {visibleItems.map((item) => (
+          <NavLink 
+            key={item.path} 
+            to={item.path} 
+            className={({ isActive }) => `sec-nav-link ${isActive ? 'active' : ''}`}
+          >
+            {item.label}
+          </NavLink>
+        ))}
+
+        {overflowItems.length > 0 && (
+          <div className="sec-nav-dropdown-wrapper" ref={dropdownRef}>
+            <button 
+              type="button"
+              className={`sec-nav-more-btn ${dropdownOpen ? 'active' : ''}`}
+              onClick={() => setDropdownOpen((prev) => !prev)}
+              title="More sections"
+              aria-label="More navigation links"
+              aria-expanded={dropdownOpen}
+            >
+              <span className="sec-more-dots">•••</span>
+            </button>
+
+            {dropdownOpen && (
+              <div className="sec-nav-dropdown-menu">
+                {overflowItems.map((item) => (
+                  <NavLink 
+                    key={item.path} 
+                    to={item.path} 
+                    className={({ isActive }) => `sec-dropdown-link ${isActive ? 'active' : ''}`}
+                    onClick={() => setDropdownOpen(false)}
+                  >
+                    <span className="sec-dropdown-bullet">&gt;</span>
+                    <span>{item.label}</span>
+                  </NavLink>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const Navbar = () => {
   const { user, logout, refreshUser, impersonating, revertToAdmin } = useAuth();
-  const { theme, setTheme, toggleTheme, styleMode, setStyleMode, themeEngine, setThemeEngine, accent, setAccent, ACCENT_COLORS } = useTheme();
-  const { isOpen, setIsOpen, openRoom, setActiveRoom, setActiveTab, replies, totalUnread, notifications, unreadNotificationsCount, markNotificationRead, markAllNotificationsRead, fetchNotifications } = useChat();
+  const { theme, setTheme, toggleTheme, styleMode } = useTheme();
+  const { isOpen, setIsOpen, openRoom, setActiveRoom, setActiveTab, replies, totalUnread, notifications, unreadNotificationsCount, markNotificationRead, markAllNotificationsRead, dismissNotification, fetchNotifications } = useChat();
   const [customizerOpen, setCustomizerOpen] = useState(false);
   const [signOutConfirm, setSignOutConfirm] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
@@ -63,8 +231,16 @@ const Navbar = () => {
     if (ROUTE_NAMES[path]) return ROUTE_NAMES[path];
     
     if (path.startsWith('/tag/')) {
-      const tag = path.split('/')[2];
-      return tag ? tag.charAt(0).toUpperCase() + tag.slice(1) : 'Tag';
+      const rawTag = path.split('/')[2];
+      if (!rawTag) return 'Tag';
+      try {
+        const decoded = decodeURIComponent(rawTag).trim();
+        const clean = decoded.replace(/^#/, '').trim();
+        return clean ? `# ${clean}` : 'Tag';
+      } catch (e) {
+        const clean = rawTag.replace(/^#/, '').trim();
+        return clean ? `# ${clean}` : 'Tag';
+      }
     }
     
     if (path.startsWith('/article/')) {
@@ -310,7 +486,7 @@ const Navbar = () => {
               {searchOpen ? <FiX size={20} /> : <FiSearch size={20} />}
             </button>
 
-            {/* Accent Customizer Button */}
+            {/* Theme Mode Toggle & Popover */}
             <div className="nav-customizer-wrapper">
               <button 
                 className={`nav-icon-btn ${customizerOpen ? 'active' : ''}`}
@@ -325,76 +501,24 @@ const Navbar = () => {
                   justifyContent: 'center',
                   position: 'relative'
                 }}
-                title="Change Accent Color & Themes"
-                aria-label="Customize Appearance"
+                title="Theme Mode (Light, Light Dark, Pure Dark)"
+                aria-label="Theme Mode"
               >
-                <div style={{
-                  width: '20px',
-                  height: '20px',
-                  borderRadius: '50%',
-                  backgroundColor: 'var(--accent-color)',
-                  border: '2px solid var(--color-white)',
-                  boxShadow: styleMode === 'modern' ? '0 2px 6px rgba(0,0,0,0.15)' : '0 0 0 2px var(--color-black)',
-                  transition: 'transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                  transform: customizerOpen ? 'scale(1.2)' : 'scale(1)'
-                }} />
+                {theme === 'light' ? <FiSun size={18} /> : theme === 'dark' ? <FiMoon size={18} /> : <IoContrast size={18} />}
               </button>
 
               {customizerOpen && (
-                <div className="appearance-popover">
+                <div className="appearance-popover" style={{ minWidth: '220px' }}>
                   <div className="popover-header">
-                    <h3>Appearance</h3>
+                    <h3>Theme Mode</h3>
                   </div>
 
                   <div className="popover-section">
-                    <span className="section-label">Accent Color</span>
-                    <div className="accent-color-row">
-                      {Object.keys(ACCENT_COLORS).map((colorKey) => {
-                        const colorInfo = ACCENT_COLORS[colorKey];
-                        const isSelected = accent === colorKey;
-                        return (
-                          <button
-                            key={colorKey}
-                            className={`accent-color-option ${isSelected ? 'selected' : ''}`}
-                            onClick={() => setAccent(colorKey)}
-                            style={{
-                              width: '24px',
-                              height: '24px',
-                              borderRadius: '50%',
-                              backgroundColor: colorInfo.primary,
-                              border: isSelected ? '2px solid var(--color-black)' : '1px solid rgba(0,0,0,0.1)',
-                              boxShadow: isSelected ? '0 0 0 2px var(--accent-color)' : 'none',
-                              cursor: 'pointer',
-                              position: 'relative',
-                              padding: 0
-                            }}
-                            title={colorInfo.name}
-                          >
-                            {isSelected && (
-                              <span style={{
-                                position: 'absolute',
-                                inset: 0,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                color: '#fff',
-                                fontSize: '10px',
-                                fontWeight: 'bold'
-                              }}>✓</span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div className="popover-section">
-                    <span className="section-label">Theme Mode</span>
                     <div className="theme-toggle-row">
                       {[
                         { id: 'light', label: 'Light', icon: <FiSun size={14} /> },
-                        { id: 'dark', label: 'Dark', icon: <FiMoon size={14} /> },
-                        { id: 'black', label: 'Black', icon: <IoContrast size={14} /> }
+                        { id: 'dark', label: 'Light Dark', icon: <FiMoon size={14} /> },
+                        { id: 'black', label: 'Pure Dark', icon: <IoContrast size={14} /> }
                       ].map((mode) => {
                         const isSelected = theme === mode.id;
                         return (
@@ -409,34 +533,6 @@ const Navbar = () => {
                           </button>
                         );
                       })}
-                    </div>
-                  </div>
-
-                  {/* Material 3 Expressive / Spread Accent Engine */}
-                  <div className="popover-section" style={{ borderTop: '1px solid var(--color-gray-200)', paddingTop: '10px' }}>
-                    <span className="section-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span>Theme Engine</span>
-                      <span style={{ fontSize: '10px', color: 'var(--accent-color)', fontWeight: 800 }}>M3</span>
-                    </span>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-                      <button
-                        className={`theme-mode-btn ${themeEngine === 'default' ? 'selected' : ''}`}
-                        onClick={() => setThemeEngine('default')}
-                        style={{ padding: '6px 8px', fontSize: '11px' }}
-                        title="Option 1: Classic Current Theme"
-                      >
-                        <FiLayers size={13} />
-                        <span>Default</span>
-                      </button>
-                      <button
-                        className={`theme-mode-btn ${themeEngine === 'expressive' ? 'selected' : ''}`}
-                        onClick={() => setThemeEngine('expressive')}
-                        style={{ padding: '6px 8px', fontSize: '11px' }}
-                        title="Option 2: Material 3 Expressive Spread Accent"
-                      >
-                        <FiZap size={13} />
-                        <span>Spread Accent</span>
-                      </button>
                     </div>
                   </div>
                 </div>
@@ -494,6 +590,7 @@ const Navbar = () => {
                         notifications={notifications}
                         markNotificationRead={markNotificationRead}
                         markAllNotificationsRead={markAllNotificationsRead}
+                        dismissNotification={dismissNotification}
                         setNotificationsOpen={setNotificationsOpen}
                         fetchNotifications={fetchNotifications}
                         currentUser={user}
@@ -509,6 +606,7 @@ const Navbar = () => {
                     notifications={notifications}
                     markNotificationRead={markNotificationRead}
                     markAllNotificationsRead={markAllNotificationsRead}
+                    dismissNotification={dismissNotification}
                     setNotificationsOpen={setNotificationsOpen}
                     fetchNotifications={fetchNotifications}
                     currentUser={user}
@@ -805,11 +903,14 @@ const Navbar = () => {
                           <div className="navbar-suggestions-section">
                             <span className="navbar-suggestions-label" style={{ display: 'block', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--color-gray-400)', marginBottom: '8px' }}>🔥 Trending Tags</span>
                             <div className="navbar-tags-flex" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                              {trendingTags.slice(0, 5).map(tag => (
-                                <button key={tag} className="navbar-tag-pill" onClick={() => handleQuickLinkClick(`/tag/${tag}`)} style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 12px', background: 'var(--color-gray-100)', border: 'none', borderRadius: '20px', fontSize: '12px', fontWeight: 600, color: 'var(--color-gray-600)', cursor: 'pointer', transition: 'all 0.2s' }}>
-                                  #{tag}
-                                </button>
-                              ))}
+                              {trendingTags.slice(0, 5).map(tag => {
+                                const cleanTag = typeof tag === 'string' ? tag.replace(/^#/, '') : '';
+                                return (
+                                  <button key={cleanTag} className="navbar-tag-pill" onClick={() => handleQuickLinkClick(`/tag/${encodeURIComponent(cleanTag)}`)} style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 12px', background: 'var(--color-gray-100)', border: 'none', borderRadius: '20px', fontSize: '12px', fontWeight: 600, color: 'var(--color-gray-600)', cursor: 'pointer', transition: 'all 0.2s' }}>
+                                    #{cleanTag}
+                                  </button>
+                                );
+                              })}
                             </div>
                           </div>
                         )}
@@ -818,11 +919,14 @@ const Navbar = () => {
                           <div className="navbar-suggestions-section" style={{ marginTop: 12 }}>
                             <span className="navbar-suggestions-label" style={{ display: 'block', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--color-gray-400)', marginBottom: '8px' }}>✨ Recommended Tags</span>
                             <div className="navbar-tags-flex" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                              {recommendedTags.slice(0, 5).map(tag => (
-                                <button key={tag} className="navbar-tag-pill" onClick={() => handleQuickLinkClick(`/tag/${tag}`)} style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 12px', background: 'var(--color-gray-100)', border: 'none', borderRadius: '20px', fontSize: '12px', fontWeight: 600, color: 'var(--color-gray-600)', cursor: 'pointer', transition: 'all 0.2s' }}>
-                                  #{tag}
-                                </button>
-                              ))}
+                              {recommendedTags.slice(0, 5).map(tag => {
+                                const cleanTag = typeof tag === 'string' ? tag.replace(/^#/, '') : '';
+                                return (
+                                  <button key={cleanTag} className="navbar-tag-pill" onClick={() => handleQuickLinkClick(`/tag/${encodeURIComponent(cleanTag)}`)} style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 12px', background: 'var(--color-gray-100)', border: 'none', borderRadius: '20px', fontSize: '12px', fontWeight: 600, color: 'var(--color-gray-600)', cursor: 'pointer', transition: 'all 0.2s' }}>
+                                    #{cleanTag}
+                                  </button>
+                                );
+                              })}
                             </div>
                           </div>
                         )}
@@ -882,21 +986,7 @@ const Navbar = () => {
             </div>
           </div>
         </div>
-        {currentPath === '/' && (
-          <div className="navbar-secondary-bar">
-            <div className="navbar-secondary-bar-inner">
-              <NavLink to="/news" className={({ isActive }) => `sec-nav-link ${isActive ? 'active' : ''}`}>News</NavLink>
-              <NavLink to="/editorial" className={({ isActive }) => `sec-nav-link ${isActive ? 'active' : ''}`}>Editorial</NavLink>
-              <NavLink to="/features" className={({ isActive }) => `sec-nav-link ${isActive ? 'active' : ''}`}>Features</NavLink>
-              <NavLink to="/university-row" className={({ isActive }) => `sec-nav-link ${isActive ? 'active' : ''}`}>University Row</NavLink>
-              <NavLink to="/pictures-speak" className={({ isActive }) => `sec-nav-link ${isActive ? 'active' : ''}`}>Picture's Speak</NavLink>
-              <NavLink to="/tea-shop" className={({ isActive }) => `sec-nav-link ${isActive ? 'active' : ''}`}>Tea Shop</NavLink>
-              <NavLink to="/know-your-past" className={({ isActive }) => `sec-nav-link ${isActive ? 'active' : ''}`}>Know Your Past</NavLink>
-              <NavLink to="/stories" className={({ isActive }) => `sec-nav-link ${isActive ? 'active' : ''}`}>Fast Stories</NavLink>
-              <NavLink to="/about" className={({ isActive }) => `sec-nav-link ${isActive ? 'active' : ''}`}>About Us</NavLink>
-            </div>
-          </div>
-        )}
+        {currentPath === '/' && <DynamicHomeNav />}
       </header>
 
       {/* Mobile Popup Overlay */}
@@ -941,122 +1031,121 @@ const Navbar = () => {
           <div className="mobile-popup-links">
             <button
               type="button"
-              className="mobile-link"
+              className="mobile-link search-link"
               onClick={() => {
                 setMobileMenuOpen(false);
                 navigate('/search');
               }}
-              style={{ cursor: 'pointer', textAlign: 'left', width: '100%', marginBottom: '4px' }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <FiSearch size={17} style={{ color: 'var(--accent-color)' }} />
-                <span>Search Articles</span>
+              <div className="mobile-link-left">
+                <span className="mobile-link-icon search-icon"><FiSearch size={16} /></span>
+                <span className="mobile-link-text">Search Articles</span>
               </div>
-              <FiChevronRight size={16} style={{ color: 'var(--color-gray-400)' }} />
+              <FiChevronRight size={15} className="mobile-link-arrow" />
             </button>
             <NavLink to="/news" className="mobile-link" onClick={() => setMobileMenuOpen(false)}>
-              News
+              <div className="mobile-link-left">
+                <span className="mobile-link-icon"><FiGlobe size={16} /></span>
+                <span className="mobile-link-text">News</span>
+              </div>
+              <FiChevronRight size={15} className="mobile-link-arrow" />
             </NavLink>
             <NavLink to="/features" className="mobile-link" onClick={() => setMobileMenuOpen(false)}>
-              Features
+              <div className="mobile-link-left">
+                <span className="mobile-link-icon"><FiFeather size={16} /></span>
+                <span className="mobile-link-text">Features</span>
+              </div>
+              <FiChevronRight size={15} className="mobile-link-arrow" />
             </NavLink>
             <NavLink to="/university-row" className="mobile-link" onClick={() => setMobileMenuOpen(false)}>
-              🏛️ University Row
+              <div className="mobile-link-left">
+                <span className="mobile-link-icon"><FiAward size={16} /></span>
+                <span className="mobile-link-text">University Row</span>
+              </div>
+              <FiChevronRight size={15} className="mobile-link-arrow" />
             </NavLink>
             <NavLink to="/tea-shop" className="mobile-link" onClick={() => setMobileMenuOpen(false)}>
-              Tea Shop
+              <div className="mobile-link-left">
+                <span className="mobile-link-icon"><FiCoffee size={16} /></span>
+                <span className="mobile-link-text">Tea Shop</span>
+              </div>
+              <FiChevronRight size={15} className="mobile-link-arrow" />
             </NavLink>
             <NavLink to="/editorial" className="mobile-link" onClick={() => setMobileMenuOpen(false)}>
-              Editorial
+              <div className="mobile-link-left">
+                <span className="mobile-link-icon"><FiEdit3 size={16} /></span>
+                <span className="mobile-link-text">Editorial</span>
+              </div>
+              <FiChevronRight size={15} className="mobile-link-arrow" />
             </NavLink>
             <NavLink to="/pictures-speak" className="mobile-link" onClick={() => setMobileMenuOpen(false)}>
-              Pictures Speak
+              <div className="mobile-link-left">
+                <span className="mobile-link-icon"><FiCamera size={16} /></span>
+                <span className="mobile-link-text">Pictures Speak</span>
+              </div>
+              <FiChevronRight size={15} className="mobile-link-arrow" />
             </NavLink>
             <NavLink to="/know-your-past" className="mobile-link" onClick={() => setMobileMenuOpen(false)}>
-              Know Your Past
+              <div className="mobile-link-left">
+                <span className="mobile-link-icon"><FiClock size={16} /></span>
+                <span className="mobile-link-text">Know Your Past</span>
+              </div>
+              <FiChevronRight size={15} className="mobile-link-arrow" />
             </NavLink>
             <NavLink to="/stories" className="mobile-link" onClick={() => setMobileMenuOpen(false)}>
-              Fast Stories
+              <div className="mobile-link-left">
+                <span className="mobile-link-icon story-icon"><FiZap size={16} /></span>
+                <span className="mobile-link-text">Fast Stories</span>
+              </div>
+              <FiChevronRight size={15} className="mobile-link-arrow" />
             </NavLink>
           </div>
 
           <hr className="mobile-divider" />
 
           <div className="mobile-popup-actions">
-            {/* Side-by-Side Pill Buttons for Messages and Alerts */}
-            <div className="mobile-popup-pills" style={{ display: 'flex', gap: '10px', marginBottom: '8px' }}>
+            {/* Side-by-Side Modern Action Cards for Messages and Alerts */}
+            <div className="mobile-popup-pills">
               {user && (
                 <button 
-                  className="mobile-pill-btn" 
+                  type="button"
+                  className="mobile-action-card" 
                   onClick={() => {
                     setActiveRoom(null);
                     setIsOpen(true);
                     setActiveTab('all');
                     setMobileMenuOpen(false);
                   }}
-                  style={{
-                    flex: 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                    padding: '10px 14px',
-                    borderRadius: '24px',
-                    border: '2px solid var(--color-black)',
-                    background: 'var(--color-white)',
-                    color: 'var(--color-black)',
-                    fontWeight: 700,
-                    fontSize: '12px',
-                    textTransform: 'uppercase',
-                    cursor: 'pointer',
-                    position: 'relative'
-                  }}
                 >
-                  <FiMessageSquare size={16} />
-                  <span>Messages</span>
+                  <div className="mobile-action-left">
+                    <div className="mobile-action-icon msg-icon">
+                      <FiMessageSquare size={16} />
+                    </div>
+                    <span className="mobile-action-label">Messages</span>
+                  </div>
                   {totalUnread > 0 && (
-                    <span className="notification-badge" style={{
-                      position: 'static',
-                      marginLeft: '6px',
-                      animation: 'none'
-                    }}>{totalUnread}</span>
+                    <span className="mobile-action-badge">{totalUnread > 99 ? '99+' : totalUnread}</span>
                   )}
                 </button>
               )}
 
               <button 
-                className="mobile-pill-btn" 
+                type="button"
+                className="mobile-action-card" 
                 onClick={() => {
                   setIsOpen(true);
                   setActiveTab('board_alerts');
                   setMobileMenuOpen(false);
                 }}
-                style={{
-                  flex: 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  padding: '10px 14px',
-                  borderRadius: '24px',
-                  border: '2px solid var(--color-black)',
-                  background: 'var(--color-white)',
-                  color: 'var(--color-black)',
-                  fontWeight: 700,
-                  fontSize: '12px',
-                  textTransform: 'uppercase',
-                  cursor: 'pointer',
-                  position: 'relative'
-                }}
               >
-                <FiBell size={16} />
-                <span>Alerts</span>
+                <div className="mobile-action-left">
+                  <div className="mobile-action-icon alert-icon">
+                    <FiBell size={16} />
+                  </div>
+                  <span className="mobile-action-label">Alerts</span>
+                </div>
                 {unreadNotificationsCount > 0 && (
-                  <span className="notification-badge" style={{
-                    position: 'static',
-                    marginLeft: '6px',
-                    animation: 'none'
-                  }}>{unreadNotificationsCount}</span>
+                  <span className="mobile-action-badge alert-badge">{unreadNotificationsCount > 99 ? '99+' : unreadNotificationsCount}</span>
                 )}
               </button>
             </div>
@@ -1081,56 +1170,14 @@ const Navbar = () => {
 
               {mobileAppearanceExpanded && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', animation: 'fadeInOverlay 0.2s ease' }}>
-                  {/* Accent Color Selection */}
-                  <div>
-                    <span className="section-label" style={{ display: 'block', marginBottom: '6px' }}>Accent Color</span>
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                      {Object.keys(ACCENT_COLORS).map((colorKey) => {
-                        const colorInfo = ACCENT_COLORS[colorKey];
-                        const isSelected = accent === colorKey;
-                        return (
-                          <button
-                            key={colorKey}
-                            onClick={() => setAccent(colorKey)}
-                            style={{
-                              width: '28px',
-                              height: '28px',
-                              borderRadius: '50%',
-                              backgroundColor: colorInfo.primary,
-                              border: isSelected ? '2px solid var(--color-black)' : '1px solid rgba(0,0,0,0.15)',
-                              boxShadow: isSelected ? '0 0 0 2px var(--accent-color)' : 'none',
-                              cursor: 'pointer',
-                              position: 'relative',
-                              padding: 0
-                            }}
-                            title={colorInfo.name}
-                          >
-                            {isSelected && (
-                              <span style={{
-                                position: 'absolute',
-                                inset: 0,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                color: '#fff',
-                                fontSize: '11px',
-                                fontWeight: 'bold'
-                              }}>✓</span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
                   {/* Theme Mode */}
                   <div>
                     <span className="section-label" style={{ display: 'block', marginBottom: '6px' }}>Theme Mode</span>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
                       {[
                         { id: 'light', label: 'Light', icon: <FiSun size={14} /> },
-                        { id: 'dark', label: 'Dark', icon: <FiMoon size={14} /> },
-                        { id: 'black', label: 'Black', icon: <IoContrast size={14} /> }
+                        { id: 'dark', label: 'Light Dark', icon: <FiMoon size={14} /> },
+                        { id: 'black', label: 'Pure Dark', icon: <IoContrast size={14} /> }
                       ].map((mode) => {
                         const isSelected = theme === mode.id;
                         return (
@@ -1161,59 +1208,6 @@ const Navbar = () => {
                       })}
                     </div>
                   </div>
-
-                  {/* Design Engine: Default vs Spread Accent */}
-                  <div>
-                    <span className="section-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                      <span>Design Engine</span>
-                      <span style={{ fontSize: '10px', color: 'var(--accent-color)', fontWeight: 800 }}>M3</span>
-                    </span>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                      <button
-                        onClick={() => setThemeEngine('default')}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '6px',
-                          padding: '10px 8px',
-                          borderRadius: '10px',
-                          border: themeEngine === 'default' ? '2px solid var(--accent-color)' : '1.5px solid rgba(0,0,0,0.12)',
-                          background: themeEngine === 'default' ? 'color-mix(in srgb, var(--accent-color) 16%, var(--color-white))' : 'var(--color-white)',
-                          color: themeEngine === 'default' ? 'var(--accent-color)' : 'var(--color-black)',
-                          fontSize: '12px',
-                          fontWeight: 800,
-                          cursor: 'pointer',
-                          transition: 'all 0.2s ease'
-                        }}
-                      >
-                        <FiLayers size={14} />
-                        <span>Default</span>
-                      </button>
-                      <button
-                        onClick={() => setThemeEngine('expressive')}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '6px',
-                          padding: '10px 8px',
-                          borderRadius: '10px',
-                          border: themeEngine === 'expressive' ? '2px solid var(--accent-color)' : '1.5px solid rgba(0,0,0,0.12)',
-                          background: themeEngine === 'expressive' ? 'color-mix(in srgb, var(--accent-color) 16%, var(--color-white))' : 'var(--color-white)',
-                          color: themeEngine === 'expressive' ? 'var(--accent-color)' : 'var(--color-black)',
-                          fontSize: '12px',
-                          fontWeight: 800,
-                          cursor: 'pointer',
-                          transition: 'all 0.2s ease'
-                        }}
-                      >
-                        <FiZap size={14} />
-                        <span>Spread Accent</span>
-                      </button>
-                    </div>
-                  </div>
-
                 </div>
               )}
             </div>
@@ -1548,7 +1542,9 @@ const SwipableNotifItem = ({ n, onMarkRead, onDelete, children }) => {
   );
 };
 
-const NotificationsPopover = ({ 
+const NotificationsPopover = (props) => <NotificationDrawer {...props} />;
+
+const _LegacyNotificationsPopover = ({ 
   notifications, 
   markNotificationRead, 
   markAllNotificationsRead, 

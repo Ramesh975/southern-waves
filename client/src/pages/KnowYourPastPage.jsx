@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useChat } from '../context/ChatContext';
 import { articleAPI, commentAPI } from '../services/api';
@@ -310,6 +310,10 @@ const KnowYourPastPage = () => {
           background: var(--color-gray-200);
           z-index: 1;
         }
+        .row-cols-4[data-count="1"]::before { display: none; }
+        .row-cols-4[data-count="2"]::before { right: 62.5%; }
+        .row-cols-4[data-count="3"]::before { right: 37.5%; }
+        .row-cols-4[data-count="4"]::before { right: 12.5%; }
         .row-cols-4.row-even .vertical-connector-right {
           position: absolute;
           top: 48px;
@@ -343,6 +347,8 @@ const KnowYourPastPage = () => {
           background: var(--color-gray-200);
           z-index: 1;
         }
+        .row-cols-2[data-count="1"]::before { display: none; }
+        .row-cols-2[data-count="2"]::before { right: 25%; }
         .row-cols-2.row-even .vertical-connector-right {
           position: absolute;
           top: 48px;
@@ -900,9 +906,9 @@ const KnowYourPastPage = () => {
         {/* Main Header */}
         <div className="kyp-header">
           <h1 className="kyp-title">Know Your Past Timeline</h1>
-          <a href="/about" className="explore-link">
+          <Link to="/explore-history" className="explore-link">
             EXPLORE HISTORY →
-          </a>
+          </Link>
         </div>
 
         <div className={`timeline-outer-wrap ${searchActive ? 'search-active' : ''} ${previewOpen ? 'preview-open' : ''}`}>
@@ -933,7 +939,7 @@ const KnowYourPastPage = () => {
               const rowClass = `serpentine-row row-cols-${itemsPerRow} ${rowIndex % 2 === 0 ? 'row-even' : 'row-odd'}`;
 
               return (
-                <div key={rowIndex} className={rowClass}>
+                <div key={rowIndex} className={rowClass} data-count={rowEvents.length}>
                   {/* Vertical connect line down on the right (for even rows) */}
                   {!isLastRow && itemsPerRow === 4 && rowIndex % 2 === 0 && (
                     <div className="vertical-connector-right" />

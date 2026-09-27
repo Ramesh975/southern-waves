@@ -7,6 +7,7 @@ const rateLimit = require('express-rate-limit');
 const http = require('http');
 const socketio = require('socket.io');
 const jwt = require('jsonwebtoken');
+const compression = require('compression');
 require('dotenv').config();
 
 const { getAllowedOrigins, validateRuntimeConfig } = require('./config/runtime');
@@ -62,7 +63,8 @@ const loginLimiter = rateLimit({
 });
 const registrationLimiter = rateLimit(authRateLimitOptions);
 
-// Body parser
+// Compression & Body parser
+app.use(compression());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());

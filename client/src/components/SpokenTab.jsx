@@ -49,9 +49,22 @@ const SpokenCard = ({ art, onReply, onComment }) => {
           <span className="ts-spoken-time">{timeAgo(art.publishedAt)}</span>
         </div>
         <div className="ts-spoken-tags-inline">
-          {art.tags?.slice(0, 2).map(tag => (
-            <Link key={tag} to={`/tag/${tag}`} className="ts-spoken-tag">#{tag}</Link>
-          ))}
+          {art.tags?.slice(0, 2).map(tag => {
+            const rawName = typeof tag === 'string' ? tag : (tag?.tag || '');
+            let cleanName = rawName;
+            try {
+              cleanName = decodeURIComponent(rawName).trim();
+            } catch (e) {
+              cleanName = rawName.trim();
+            }
+            const displayTag = cleanName.replace(/^#/, '');
+            if (!displayTag) return null;
+            return (
+              <Link key={rawName} to={`/tag/${encodeURIComponent(displayTag)}`} className="ts-spoken-tag">
+                #{displayTag}
+              </Link>
+            );
+          })}
         </div>
       </div>
 
@@ -219,15 +232,26 @@ const SpokenTab = ({ articles = [], trendingTags = [], highlightId, onReply, onC
             <span>Trending Tags</span>
           </div>
           <div className="ts-tags-cloud">
-            {(trendingTags || []).slice(0, 10).map(({ tag, count }) => (
-              <button
-                key={tag}
-                className="ts-cloud-tag"
-                onClick={() => navigate(`/tag/${tag}`)}
-              >
-                #{tag}
-              </button>
-            ))}
+            {(trendingTags || []).slice(0, 10).map(({ tag }) => {
+              const rawName = typeof tag === 'string' ? tag : '';
+              let cleanName = rawName;
+              try {
+                cleanName = decodeURIComponent(rawName).trim();
+              } catch (e) {
+                cleanName = rawName.trim();
+              }
+              const displayTag = cleanName.replace(/^#/, '');
+              if (!displayTag) return null;
+              return (
+                <button
+                  key={rawName}
+                  className="ts-cloud-tag"
+                  onClick={() => navigate(`/tag/${encodeURIComponent(displayTag)}`)}
+                >
+                  #{displayTag}
+                </button>
+              );
+            })}
           </div>
         </div>
 

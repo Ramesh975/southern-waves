@@ -6,7 +6,7 @@ import {
 } from 'react-icons/fi';
 import { IoContrast, IoSparkles } from 'react-icons/io5';
 import { useAuth } from '../context/AuthContext';
-import { useTheme, ACCENT_COLORS } from '../context/ThemeContext';
+import { useTheme } from '../context/ThemeContext';
 import { authAPI } from '../services/api';
 import { toast } from 'react-hot-toast';
 import { getImageUrl } from './ArticleComponents';
@@ -27,7 +27,7 @@ const TOPICS = [
 
 const OnboardingWizardModal = ({ isOpen, onClose, onComplete }) => {
   const { user, setUser } = useAuth();
-  const { theme, setTheme, themeEngine, setThemeEngine, accent, setAccent } = useTheme();
+  const { theme, setTheme } = useTheme();
 
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
@@ -48,8 +48,6 @@ const OnboardingWizardModal = ({ isOpen, onClose, onComplete }) => {
 
   // Step 3: Appearance State (Synced with ThemeContext)
   const [selectedTheme, setSelectedTheme] = useState(theme || 'dark');
-  const [selectedEngine, setSelectedEngine] = useState(themeEngine || 'default');
-  const [selectedAccent, setSelectedAccent] = useState(accent || 'blue');
 
   // Step 4: Tutorial Tab State
   const [tutorialIndex, setTutorialIndex] = useState(0);
@@ -67,10 +65,8 @@ const OnboardingWizardModal = ({ isOpen, onClose, onComplete }) => {
       if (user.recommendationSettings?.preferredCategories?.length > 0) {
         setSelectedTopics(user.recommendationSettings.preferredCategories);
       }
-      if (user.appearanceSettings) {
-        if (user.appearanceSettings.theme) setSelectedTheme(user.appearanceSettings.theme);
-        if (user.appearanceSettings.themeEngine) setSelectedEngine(user.appearanceSettings.themeEngine);
-        if (user.appearanceSettings.accentColor) setSelectedAccent(user.appearanceSettings.accentColor);
+      if (user.appearanceSettings?.theme) {
+        setSelectedTheme(user.appearanceSettings.theme);
       }
     }
   }, [user]);
@@ -108,16 +104,6 @@ const OnboardingWizardModal = ({ isOpen, onClose, onComplete }) => {
     setTheme(mode);
   };
 
-  const handleEngineChange = (eng) => {
-    setSelectedEngine(eng);
-    setThemeEngine(eng);
-  };
-
-  const handleAccentChange = (acc) => {
-    setSelectedAccent(acc);
-    setAccent(acc);
-  };
-
   // Final submission and completion
   const handleCompleteSetup = async () => {
     setSaving(true);
@@ -138,8 +124,8 @@ const OnboardingWizardModal = ({ isOpen, onClose, onComplete }) => {
         }));
         formData.append('appearanceSettings', JSON.stringify({
           theme: selectedTheme,
-          themeEngine: selectedEngine,
-          accentColor: selectedAccent
+          themeEngine: 'default',
+          accentColor: 'blue'
         }));
 
         const res = await authAPI.updateProfile(formData);
@@ -161,8 +147,8 @@ const OnboardingWizardModal = ({ isOpen, onClose, onComplete }) => {
           },
           appearanceSettings: {
             theme: selectedTheme,
-            themeEngine: selectedEngine,
-            accentColor: selectedAccent
+            themeEngine: 'default',
+            accentColor: 'blue'
           }
         };
 
@@ -375,13 +361,13 @@ const OnboardingWizardModal = ({ isOpen, onClose, onComplete }) => {
             </div>
           )}
 
-          {/* STEP 3: Appearance & Theme Engine */}
+          {/* STEP 3: Appearance & Theme Mode */}
           {step === 3 && (
             <div className="onboarding-step-content">
               <div className="onboarding-step-heading">
-                <h3 className="onboarding-title">Personalize your Reading Look</h3>
+                <h3 className="onboarding-title">Personalize Theme Mode</h3>
                 <p className="onboarding-subtitle">
-                  Choose your surface theme mode, accent color, and theme engine with instant live preview.
+                  Choose your surface theme mode (Light, Light Dark, Pure Dark) with instant live preview.
                 </p>
               </div>
 
@@ -405,7 +391,7 @@ const OnboardingWizardModal = ({ isOpen, onClose, onComplete }) => {
                     className={`onboarding-mode-btn ${selectedTheme === 'dark' ? 'active' : ''}`}
                   >
                     <FiMoon size={18} />
-                    <span className="onboarding-mode-title">Dark</span>
+                    <span className="onboarding-mode-title">Light Dark</span>
                     <span className="onboarding-mode-desc">Classic slate</span>
                   </button>
 
@@ -415,64 +401,9 @@ const OnboardingWizardModal = ({ isOpen, onClose, onComplete }) => {
                     className={`onboarding-mode-btn ${selectedTheme === 'black' ? 'active' : ''}`}
                   >
                     <IoContrast size={18} />
-                    <span className="onboarding-mode-title">Black</span>
+                    <span className="onboarding-mode-title">Pure Dark</span>
                     <span className="onboarding-mode-desc">OLED contrast</span>
                   </button>
-                </div>
-              </div>
-
-              {/* Theme Engine Selector */}
-              <div className="onboarding-section-block">
-                <label className="onboarding-label">Theme Engine</label>
-                <div className="onboarding-engine-grid">
-                  <button 
-                    type="button" 
-                    onClick={() => handleEngineChange('default')}
-                    className={`onboarding-engine-card ${selectedEngine === 'default' ? 'active' : ''}`}
-                  >
-                    <div className="onboarding-engine-card-header">
-                      <FiLayers size={16} color="var(--accent-color)" />
-                      <span className="onboarding-engine-name">Default Engine</span>
-                      {selectedEngine === 'default' && <FiCheckCircle size={16} color="var(--accent-color)" />}
-                    </div>
-                    <p className="onboarding-engine-desc">
-                      Classic, timeless newspaper typography with balanced contrast and crisp newspaper grids.
-                    </p>
-                  </button>
-
-                  <button 
-                    type="button" 
-                    onClick={() => handleEngineChange('expressive')}
-                    className={`onboarding-engine-card ${selectedEngine === 'expressive' ? 'active' : ''}`}
-                  >
-                    <div className="onboarding-engine-card-header">
-                      <IoSparkles size={16} color="var(--accent-color)" />
-                      <span className="onboarding-engine-name">Spread Accent (M3 Expressive)</span>
-                      {selectedEngine === 'expressive' && <FiCheckCircle size={16} color="var(--accent-color)" />}
-                    </div>
-                    <p className="onboarding-engine-desc">
-                      Material 3 Expressive aesthetic with dynamic accent blooms, fluid tonal surfaces, and pill elevations.
-                    </p>
-                  </button>
-                </div>
-              </div>
-
-              {/* Accent Color Palette */}
-              <div className="onboarding-section-block">
-                <label className="onboarding-label">Accent Color</label>
-                <div className="onboarding-accent-palette">
-                  {Object.entries(ACCENT_COLORS).map(([key, col]) => (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => handleAccentChange(key)}
-                      className={`onboarding-accent-chip ${selectedAccent === key ? 'active' : ''}`}
-                      style={{ '--chip-color': col.primary }}
-                    >
-                      <span className="onboarding-accent-dot" style={{ background: col.primary }} />
-                      <span className="onboarding-accent-name">{col.name}</span>
-                    </button>
-                  ))}
                 </div>
               </div>
 

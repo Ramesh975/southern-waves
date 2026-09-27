@@ -51,4 +51,6 @@ const ChatMessageSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+ChatMessageSchema.index({ category: 1, createdAt: -1 });
+
 module.exports = mongoose.model('ChatMessage', ChatMessageSchema);
