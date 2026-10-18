@@ -199,7 +199,7 @@ io.on('connection', (socket) => {
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ success: true, message: 'Southern Waves API is running 🌊', time: new Date() });
+  res.json({ success: true, message: 'Southern Waves API is running 🌊', time: new Date(), version: 'ed2ad89' });
 });
 
 // 404 handler
