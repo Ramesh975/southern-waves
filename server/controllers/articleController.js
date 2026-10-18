@@ -176,6 +176,11 @@ exports.getHomeFeed = async (req, res, next) => {
   try {
     res.set('Cache-Control', 'public, max-age=15, stale-while-revalidate=30');
 
+    const safeQuery = (promise, fallback = []) => promise.catch(err => {
+      console.warn('Homefeed subquery warning:', err.message);
+      return fallback;
+    });
+
     const [
       allArticles,
       editorialArticles,
@@ -190,31 +195,37 @@ exports.getHomeFeed = async (req, res, next) => {
       pushedArticles,
       newsArticles
     ] = await Promise.all([
-      Article.find({ status: 'published', category: { $ne: 'tea-shop' } }).select('-body -annotations').populate('author', 'name username showRealNamePublicly avatar role').sort({ publishedAt: -1 }).limit(12).lean(),
-      Article.find({ status: 'published', category: 'editorial' }).select('-body -annotations').populate('author', 'name username showRealNamePublicly avatar role').sort({ publishedAt: -1 }).limit(6).lean(),
-      Article.find({ status: 'published', category: 'features' }).select('-body -annotations').populate('author', 'name username showRealNamePublicly avatar role').sort({ publishedAt: -1 }).limit(6).lean(),
-      Article.find({ status: 'published', category: 'kyp' }).select('-body -annotations').populate('author', 'name username showRealNamePublicly avatar role').sort({ publishedAt: -1 }).limit(6).lean(),
-      Article.find({ status: 'published', category: 'tea-shop' }).select('-body -annotations').populate('author', 'name username showRealNamePublicly avatar role').sort({ publishedAt: -1 }).limit(3).lean(),
-      Article.find({ status: 'published', category: 'pictures-speak' }).select('-body -annotations').populate('author', 'name username showRealNamePublicly avatar role').sort({ publishedAt: -1 }).limit(6).lean(),
-      Article.find({ status: 'published' }).select('-body -annotations').populate('author', 'name username showRealNamePublicly avatar role').sort({ isTrending: -1, views: -1, publishedAt: -1 }).limit(6).lean(),
-      Article.aggregate([
+      safeQuery(Article.find({ status: 'published', category: { $ne: 'tea-shop' } }).select('-body -annotations').populate('author', 'name username showRealNamePublicly avatar role').sort({ publishedAt: -1 }).limit(12).lean()),
+      safeQuery(Article.find({ status: 'published', category: 'editorial' }).select('-body -annotations').populate('author', 'name username showRealNamePublicly avatar role').sort({ publishedAt: -1 }).limit(6).lean()),
+      safeQuery(Article.find({ status: 'published', category: 'features' }).select('-body -annotations').populate('author', 'name username showRealNamePublicly avatar role').sort({ publishedAt: -1 }).limit(6).lean()),
+      safeQuery(Article.find({ status: 'published', category: 'kyp' }).select('-body -annotations').populate('author', 'name username showRealNamePublicly avatar role').sort({ publishedAt: -1 }).limit(6).lean()),
+      safeQuery(Article.find({ status: 'published', category: 'tea-shop' }).select('-body -annotations').populate('author', 'name username showRealNamePublicly avatar role').sort({ publishedAt: -1 }).limit(3).lean()),
+      safeQuery(Article.find({ status: 'published', category: 'pictures-speak' }).select('-body -annotations').populate('author', 'name username showRealNamePublicly avatar role').sort({ publishedAt: -1 }).limit(6).lean()),
+      safeQuery(Article.find({ status: 'published' }).select('-body -annotations').populate('author', 'name username showRealNamePublicly avatar role').sort({ isTrending: -1, views: -1, publishedAt: -1 }).limit(6).lean()),
+      safeQuery(Article.aggregate([
         { $match: { status: 'published' } },
         { $unwind: '$tags' },
         { $group: { _id: '$tags', count: { $sum: 1 } } },
         { $sort: { count: -1 } },
         { $limit: 10 },
         { $project: { tag: '$_id', count: 1, _id: 0 } }
-      ]),
-      Article.find({ status: 'published' }).select('-body -annotations').populate('author', 'name username showRealNamePublicly avatar role').sort({ views: -1 }).limit(8).lean(),
-      Article.aggregate([
-        { $match: { status: 'published', category: { $ne: 'tea-shop' } } },
-        { $project: { body: 0, annotations: 0 } },
-        { $addFields: { likesCount: { $size: { $ifNull: ['$likes', []] } } } },
-        { $sort: { likesCount: -1, views: -1, publishedAt: -1 } },
-        { $limit: 8 }
-      ]).then(docs => Article.populate(docs, { path: 'author', select: 'name username showRealNamePublicly avatar role' })),
-      Article.find({ status: 'published', isPushedToHome: true }).select('-body -annotations').populate('author', 'name username showRealNamePublicly avatar role').sort({ publishedAt: -1 }).limit(5).lean(),
-      Article.find({ status: 'published', category: 'news' }).select('-body -annotations').populate('author', 'name username avatar role').sort({ publishedAt: -1 }).limit(8).lean()
+      ])),
+      safeQuery(Article.find({ status: 'published' }).select('-body -annotations').populate('author', 'name username showRealNamePublicly avatar role').sort({ views: -1 }).limit(8).lean()),
+      safeQuery(
+        Article.find({ status: 'published', category: { $ne: 'tea-shop' } })
+          .select('-body -annotations')
+          .populate('author', 'name username showRealNamePublicly avatar role')
+          .sort({ views: -1, publishedAt: -1 })
+          .limit(16)
+          .lean()
+          .then(docs => {
+            const list = Array.isArray(docs) ? [...docs] : [];
+            list.sort((a, b) => ((Array.isArray(b.likes) ? b.likes.length : 0) - (Array.isArray(a.likes) ? a.likes.length : 0)));
+            return list.slice(0, 8);
+          })
+      ),
+      safeQuery(Article.find({ status: 'published', isPushedToHome: true }).select('-body -annotations').populate('author', 'name username showRealNamePublicly avatar role').sort({ publishedAt: -1 }).limit(5).lean()),
+      safeQuery(Article.find({ status: 'published', category: 'news' }).select('-body -annotations').populate('author', 'name username avatar role').sort({ publishedAt: -1 }).limit(8).lean())
     ]);
 
     res.status(200).json({
@@ -733,18 +744,22 @@ exports.getTrending = async (req, res, next) => {
       .populate('author', 'name username showRealNamePublicly avatar role')
       .lean();
 
-    const candidateIds = articles.map(a => a._id);
-
-    // Aggregate comment counts ONLY for candidate articles
-    const Comment = require('../models/Comment');
-    const commentCounts = await Comment.aggregate([
-      { $match: { article: { $in: candidateIds } } },
-      { $group: { _id: '$article', count: { $sum: 1 } } }
-    ]);
     const commentCountsMap = {};
-    commentCounts.forEach(c => {
-      commentCountsMap[c._id.toString()] = c.count;
-    });
+    try {
+      const candidateIds = (articles || []).map(a => a._id).filter(Boolean);
+      if (candidateIds.length > 0) {
+        const Comment = require('../models/Comment');
+        const commentCounts = await Comment.aggregate([
+          { $match: { article: { $in: candidateIds } } },
+          { $group: { _id: '$article', count: { $sum: 1 } } }
+        ]);
+        (commentCounts || []).forEach(c => {
+          if (c && c._id) commentCountsMap[c._id.toString()] = c.count;
+        });
+      }
+    } catch (commentErr) {
+      console.warn('Comment aggregation in trending failed:', commentErr.message);
+    }
 
     const now = new Date();
 
@@ -1604,29 +1619,30 @@ exports.getMostLiked = async (req, res, next) => {
     const limit = req.query.limit ? parseInt(req.query.limit, 10) : 6;
     const category = req.query.category;
     
-    const match = { status: 'published' };
+    const query = { status: 'published' };
     if (category) {
-      match.category = category;
+      query.category = category;
     } else {
-      match.category = { $ne: 'tea-shop' };
+      query.category = { $ne: 'tea-shop' };
     }
 
-    const articles = await Article.aggregate([
-      { $match: match },
-      { $addFields: { likesCount: { $size: '$likes' } } },
-      { $sort: { likesCount: -1, publishedAt: -1 } },
-      { $limit: limit }
-    ]);
+    const articles = await Article.find(query)
+      .select('-body -annotations')
+      .populate('author', 'name username showRealNamePublicly avatar role')
+      .sort({ views: -1, publishedAt: -1 })
+      .limit(limit * 3)
+      .lean();
 
-    const populatedArticles = await Article.populate(articles, {
-      path: 'author',
-      select: 'name avatar role'
+    const sorted = [...articles].sort((a, b) => {
+      const aLikes = Array.isArray(a.likes) ? a.likes.length : 0;
+      const bLikes = Array.isArray(b.likes) ? b.likes.length : 0;
+      return bLikes - aLikes;
     });
 
     res.status(200).json({
       success: true,
-      count: populatedArticles.length,
-      data: populatedArticles
+      count: Math.min(sorted.length, limit),
+      data: sorted.slice(0, limit)
     });
   } catch (err) {
     next(err);

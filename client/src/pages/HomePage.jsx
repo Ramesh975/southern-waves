@@ -77,7 +77,27 @@ const HomePage = () => {
         setNewsArticles(d.news || []);
       })
       .catch((err) => {
-        console.error('Failed to load homepage feed:', err);
+        console.warn('Failed to load consolidated home feed, falling back to direct published articles API:', err);
+        return articleAPI.getArticles({ limit: 25 })
+          .then((fallbackRes) => {
+            const list = fallbackRes.data?.data || [];
+            const edList = list.filter(a => a.category === 'editorial');
+            setArticles(list);
+            setEditorialSpotlight(edList[0] || list[0] || null);
+            setEditorialArticles(edList);
+            setFeaturesArticles(list.filter(a => a.category === 'features'));
+            setKypArticles(list.filter(a => a.category === 'kyp'));
+            setTeaShopArticles(list.filter(a => a.category === 'tea-shop'));
+            setPicsArticles(list.filter(a => a.category === 'pictures-speak'));
+            setNewsArticles(list.filter(a => a.category === 'news'));
+            setTrendingArticles(list.slice(0, 6));
+            setMostLikedArticles([...list].sort((a, b) => (b.likes?.length || 0) - (a.likes?.length || 0)).slice(0, 6));
+            setMostViewedArticles([...list].sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 6));
+            setPushedArticles(list.filter(a => a.isPushedToHome));
+          })
+          .catch((fallbackErr) => {
+            console.error('Fallback load also failed:', fallbackErr);
+          });
       })
       .finally(() => setLoading(false));
   }, []);

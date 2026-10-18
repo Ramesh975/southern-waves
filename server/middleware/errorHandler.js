@@ -2,10 +2,12 @@ const errorHandler = (err, req, res, next) => {
   let error = { ...err };
   error.message = err.message;
 
+  console.error(`[Error Handler] ${req.method} ${req.originalUrl || req.url} - ${err.name}: ${err.message}`);
+
   // Mongoose bad ObjectId
   if (err.name === 'CastError') {
     error.message = 'Resource not found';
-    return res.status(404).json({ success: false, message: error.message, requestId: req.requestId });
+    return res.status(404).json({ success: false, message: error.message, detail: err.message, requestId: req.requestId });
   }
 
   // Mongoose duplicate key
