@@ -984,7 +984,7 @@ const ArticleDetailPage = () => {
               left: 0;
               width: 40px;
               height: 1.5px;
-              background: var(--accent-color, #0055a4);
+              background: var(--accent-color, #c8102e);
             }
 
             .reference-card {
@@ -1005,7 +1005,7 @@ const ArticleDetailPage = () => {
             }
             .reference-card:hover {
               transform: translateY(-3px);
-              border-color: var(--accent-color, #0055a4);
+              border-color: var(--accent-color, #c8102e);
               box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
             }
             [data-theme="dark"] .reference-card:hover,
@@ -1019,7 +1019,7 @@ const ArticleDetailPage = () => {
               text-transform: uppercase;
               padding: 3px 8px;
               background: rgba(0, 85, 164, 0.06);
-              color: var(--accent-color, #0055a4);
+              color: var(--accent-color, #c8102e);
               border-radius: 100px;
               align-self: flex-start;
               letter-spacing: 0.5px;
@@ -1036,7 +1036,7 @@ const ArticleDetailPage = () => {
               transition: color 0.2s;
             }
             .reference-title-link:hover {
-              color: var(--accent-color, #0055a4);
+              color: var(--accent-color, #c8102e);
               text-decoration: none !important;
             }
 
@@ -1044,7 +1044,7 @@ const ArticleDetailPage = () => {
               font-size: 11.5px;
               color: var(--color-gray-600, #4b5563);
               background: rgba(0, 0, 0, 0.02);
-              border-left: 3px solid var(--accent-color, #0055a4);
+              border-left: 3px solid var(--accent-color, #c8102e);
               padding: 8px 12px;
               border-radius: 4px;
               margin-top: 4px;

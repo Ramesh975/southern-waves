@@ -203,7 +203,7 @@ const WordEditor = ({
           transition: border-color 0.2s;
         }
         .we-wrapper:focus-within {
-          border-color: var(--accent-color, #0055a4);
+          border-color: var(--accent-color, #c8102e);
           box-shadow: 0 0 0 3px rgba(0,85,164,0.08);
         }
         [data-theme="dark"] .we-wrapper,
@@ -316,7 +316,7 @@ const WordEditor = ({
           margin: 20px 0 6px;
         }
         .we-canvas blockquote {
-          border-left: 3px solid var(--accent-color, #0055a4);
+          border-left: 3px solid var(--accent-color, #c8102e);
           margin: 16px 0;
           padding: 8px 20px;
           color: var(--color-gray-600, #4b5563);
@@ -339,7 +339,7 @@ const WordEditor = ({
           border-top: 2px solid var(--color-gray-200, #e5e7eb);
           margin: 24px 0;
         }
-        .we-canvas a { color: var(--accent-color, #0055a4); text-decoration: underline; }
+        .we-canvas a { color: var(--accent-color, #c8102e); text-decoration: underline; }
         .we-canvas code {
           background: var(--color-gray-100, #f3f4f6);
           padding: 2px 6px;

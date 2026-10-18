@@ -36,8 +36,8 @@ export const ThemeProvider = ({ children }) => {
 
   const [styleMode] = useState('modern');
 
-  // Accent is locked to Primary Blue
-  const accent = 'blue';
+  // Accent is locked to Primary Crimson Red
+  const accent = 'red';
 
   useEffect(() => {
     // Set data-theme attribute on <html> element
@@ -60,8 +60,8 @@ export const ThemeProvider = ({ children }) => {
   }, []);
 
   useEffect(() => {
-    // Dynamically update Ocean Blue primary colors in root CSS variables
-    const selected = ACCENT_COLORS.blue;
+    // Dynamically update Crimson Red primary colors in root CSS variables
+    const selected = ACCENT_COLORS.red;
     const isDark = theme === 'dark' || theme === 'black';
     const primary = isDark ? selected.darkPrimary : selected.primary;
     const hover = isDark ? selected.darkHover : selected.hover;

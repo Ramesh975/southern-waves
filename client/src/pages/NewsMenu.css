@@ -6,7 +6,7 @@
 
 /* ── Variables ─────────────────────────────────────────────── */
 :root {
-  --nm-accent: var(--accent-color, var(--color-ocean, #0055a4));
+  --nm-accent: var(--accent-color, var(--color-red, #c8102e));
   --nm-accent-2: var(--accent-color-hover, #ef4444);
   --nm-accent-glow: var(--accent-color-light, var(--nm-accent-30));
   --nm-accent-02: color-mix(in srgb, var(--nm-accent) 2%, transparent);

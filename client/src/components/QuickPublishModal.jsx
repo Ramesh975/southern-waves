@@ -804,7 +804,7 @@ const QuickPublishModal = ({
           font-size:13px; font-weight:600; color:var(--color-gray-500,#6b7280);
           border-bottom:2px solid transparent; transition:all 0.15s;
         }
-        .qpm-mobile-tab-btn.active { color:var(--accent-color,#0055a4); border-bottom-color:var(--accent-color,#0055a4); }
+        .qpm-mobile-tab-btn.active { color:var(--accent-color,#c8102e); border-bottom-color:var(--accent-color,#c8102e); }
 
         /* Main workspace */
         .qpm-workspace {
@@ -876,7 +876,7 @@ const QuickPublishModal = ({
           background-color:var(--color-white); border-color:var(--color-gray-200); color:var(--color-black);
         }
         .qpm-meta-select:focus, .qpm-meta-input:focus {
-          border-color:var(--accent-color,#0055a4);
+          border-color:var(--accent-color,#c8102e);
           box-shadow:0 0 0 3px rgba(0,85,164,0.1);
         }
 
@@ -902,7 +902,7 @@ const QuickPublishModal = ({
         [data-theme="dark"] .qpm-lead-textarea, [data-theme="black"] .qpm-lead-textarea { background:var(--color-white); border-color:var(--color-gray-200); color:var(--color-black); }
         .qpm-lead-textarea::placeholder { color:var(--color-gray-400,#9ca3af); font-style:italic; }
         .qpm-lead-textarea:focus {
-          border-color:var(--accent-color,#0055a4);
+          border-color:var(--accent-color,#c8102e);
           box-shadow:0 0 0 3px rgba(0,85,164,0.1);
           background:#fff;
         }
@@ -966,8 +966,8 @@ const QuickPublishModal = ({
         }
         [data-theme="dark"] .qpm-cover-dropzone, [data-theme="black"] .qpm-cover-dropzone { background:var(--color-gray-50); border-color:var(--color-gray-200); }
         .qpm-cover-dropzone:hover {
-          border-color:var(--accent-color,#0055a4);
-          background:color-mix(in srgb,var(--accent-color,#0055a4) 5%, transparent);
+          border-color:var(--accent-color,#c8102e);
+          background:color-mix(in srgb,var(--accent-color,#c8102e) 5%, transparent);
         }
         .qpm-cover-dropzone span { font-size:12px; font-weight:600; }
         .qpm-cover-dropzone small { font-size:10px; opacity:0.6; }
@@ -996,7 +996,7 @@ const QuickPublishModal = ({
           transition:border-color 0.15s, box-shadow 0.15s;
         }
         [data-theme="dark"] .qpm-img-card, [data-theme="black"] .qpm-img-card { border-color:var(--color-gray-200); background:var(--color-white); }
-        .qpm-img-card:hover { border-color:var(--accent-color,#0055a4); }
+        .qpm-img-card:hover { border-color:var(--accent-color,#c8102e); }
         .qpm-img-thumb-wrap {
           position:relative; aspect-ratio:4/3; overflow:hidden; background:#000;
         }
@@ -1016,14 +1016,14 @@ const QuickPublishModal = ({
         .qpm-img-card-body { padding:6px 7px 8px; }
         .qpm-tag-pill {
           display:flex; align-items:center; gap:4px; padding:3px 7px;
-          background:color-mix(in srgb,var(--accent-color,#0055a4) 10%,transparent);
-          color:var(--accent-color,#0055a4);
+          background:color-mix(in srgb,var(--accent-color,#c8102e) 10%,transparent);
+          color:var(--accent-color,#c8102e);
           border-radius:5px; font-size:10px; font-weight:700;
           cursor:grab; user-select:none; margin-bottom:5px;
-          border:1px dashed color-mix(in srgb,var(--accent-color,#0055a4) 35%,transparent);
+          border:1px dashed color-mix(in srgb,var(--accent-color,#c8102e) 35%,transparent);
           transition:background 0.15s; width:100%; box-sizing:border-box; justify-content:center;
         }
-        .qpm-tag-pill:hover { background:color-mix(in srgb,var(--accent-color,#0055a4) 18%,transparent); }
+        .qpm-tag-pill:hover { background:color-mix(in srgb,var(--accent-color,#c8102e) 18%,transparent); }
         .qpm-tag-pill:active { cursor:grabbing; }
         .qpm-caption-input-small {
           width:100%; border:1px solid var(--color-gray-200,#e5e7eb);
@@ -1070,7 +1070,7 @@ const QuickPublishModal = ({
           background: var(--color-white);
         }
         .qpm-picture-card:focus-within {
-          border-color: var(--accent-color, #0055a4);
+          border-color: var(--accent-color, #c8102e);
           box-shadow: 0 0 0 3px rgba(0, 85, 164, 0.08);
         }
         .qpm-picture-card.is-cover {
@@ -1145,8 +1145,8 @@ const QuickPublishModal = ({
           color: var(--color-black);
         }
         .qpm-picture-action-btn:hover:not(:disabled) {
-          border-color: var(--accent-color, #0055a4);
-          color: var(--accent-color, #0055a4);
+          border-color: var(--accent-color, #c8102e);
+          color: var(--accent-color, #c8102e);
         }
         .qpm-picture-action-btn:disabled {
           opacity: 0.4;
@@ -1207,7 +1207,7 @@ const QuickPublishModal = ({
           color: var(--color-black);
         }
         .qpm-picture-textarea:focus {
-          border-color: var(--accent-color, #0055a4);
+          border-color: var(--accent-color, #c8102e);
         }
         .qpm-picture-textarea::placeholder {
           color: var(--color-gray-400, #9ca3af);
@@ -1224,9 +1224,9 @@ const QuickPublishModal = ({
           border-radius: 4px;
           font-size: 11px;
           font-weight: 600;
-          background: color-mix(in srgb, var(--accent-color, #0055a4) 8%, transparent);
-          color: var(--accent-color, #0055a4);
-          border: 1px solid color-mix(in srgb, var(--accent-color, #0055a4) 25%, transparent);
+          background: color-mix(in srgb, var(--accent-color, #c8102e) 8%, transparent);
+          color: var(--accent-color, #c8102e);
+          border: 1px solid color-mix(in srgb, var(--accent-color, #c8102e) 25%, transparent);
           cursor: pointer;
           display: inline-flex;
           align-items: center;
@@ -1234,7 +1234,7 @@ const QuickPublishModal = ({
           transition: background 0.15s;
         }
         .qpm-tool-chip:hover {
-          background: color-mix(in srgb, var(--accent-color, #0055a4) 16%, transparent);
+          background: color-mix(in srgb, var(--accent-color, #c8102e) 16%, transparent);
         }
 
         /* Add images button */
@@ -1247,8 +1247,8 @@ const QuickPublishModal = ({
         }
         [data-theme="dark"] .qpm-add-images-zone { border-color:rgba(255,255,255,0.08); }
         .qpm-add-images-zone:hover {
-          border-color:var(--accent-color,#0055a4);
-          background:color-mix(in srgb,var(--accent-color,#0055a4) 5%,transparent);
+          border-color:var(--accent-color,#c8102e);
+          background:color-mix(in srgb,var(--accent-color,#c8102e) 5%,transparent);
         }
         .qpm-add-images-zone span { font-size:12px; font-weight:600; color:var(--color-gray-600,#4b5563); }
         [data-theme="dark"] .qpm-add-images-zone span { color:rgba(255,255,255,0.6); }
@@ -1264,7 +1264,7 @@ const QuickPublishModal = ({
         }
         [data-theme="dark"] .qpm-tags-input-wrap, [data-theme="black"] .qpm-tags-input-wrap { background:var(--color-white); border-color:var(--color-gray-200); }
         .qpm-tags-input-wrap:focus-within {
-          border-color:var(--accent-color,#0055a4);
+          border-color:var(--accent-color,#c8102e);
           box-shadow:0 0 0 3px rgba(0,85,164,0.1);
         }
         .qpm-tags-icon { color:var(--color-gray-400,#9ca3af); flex-shrink:0; }
@@ -1299,7 +1299,7 @@ const QuickPublishModal = ({
           text-transform:uppercase; letter-spacing:0.1em; gap:8px;
           transition:color 0.15s;
         }
-        .qpm-sidebar-collapse-strip:hover { color:var(--accent-color,#0055a4); }
+        .qpm-sidebar-collapse-strip:hover { color:var(--accent-color,#c8102e); }
 
         /* Sidebar collapsible sections */
         .qpm-section {
@@ -1326,7 +1326,7 @@ const QuickPublishModal = ({
 
         /* Count badge */
         .qpm-count-badge {
-          background:var(--accent-color,#0055a4); color:#fff;
+          background:var(--accent-color,#c8102e); color:#fff;
           font-size:9px; font-weight:800; padding:1px 5px; border-radius:10px;
           margin-left:4px;
         }
@@ -1391,7 +1391,7 @@ const QuickPublishModal = ({
           transition:border-color 0.15s;
         }
         [data-theme="dark"] .qpm-ref-search-input, [data-theme="black"] .qpm-ref-search-input { background:var(--color-white); border-color:var(--color-gray-200); color:var(--color-black); }
-        .qpm-ref-search-input:focus { border-color:var(--accent-color,#0055a4); background:#fff; }
+        .qpm-ref-search-input:focus { border-color:var(--accent-color,#c8102e); background:#fff; }
         [data-theme="dark"] .qpm-ref-search-input:focus, [data-theme="black"] .qpm-ref-search-input:focus { background:var(--color-white); }
         .qpm-ref-dropdown {
           position:absolute; top:100%; left:0; right:0; z-index:50;
@@ -1411,7 +1411,7 @@ const QuickPublishModal = ({
         [data-theme="dark"] .qpm-ref-dropdown-item:hover { background:rgba(255,255,255,0.04); }
         .qpm-ref-dropdown-cat {
           font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:0.07em;
-          color:var(--accent-color,#0055a4); opacity:0.8;
+          color:var(--accent-color,#c8102e); opacity:0.8;
         }
         .qpm-ref-dropdown-empty { padding:12px; font-size:12px; color:var(--color-gray-400,#9ca3af); text-align:center; }
         .qpm-ref-empty {
@@ -1429,7 +1429,7 @@ const QuickPublishModal = ({
         .qpm-ref-card-info { flex:1; min-width:0; }
         .qpm-ref-card-cat {
           font-size:9px; font-weight:700; text-transform:uppercase;
-          letter-spacing:0.07em; color:var(--accent-color,#0055a4); display:block; margin-bottom:2px;
+          letter-spacing:0.07em; color:var(--accent-color,#c8102e); display:block; margin-bottom:2px;
         }
         .qpm-ref-card-title { font-size:11px; font-weight:600; color:var(--color-black,#0d0d0d); line-height:1.4; }
         [data-theme="dark"] .qpm-ref-card-title, [data-theme="black"] .qpm-ref-card-title { color:var(--color-black); }
@@ -1447,7 +1447,7 @@ const QuickPublishModal = ({
           box-sizing:border-box; transition:border-color 0.15s;
         }
         [data-theme="dark"] .qpm-ref-card-note, [data-theme="black"] .qpm-ref-card-note { background:var(--color-gray-50); border-color:var(--color-gray-200); color:var(--color-black); }
-        .qpm-ref-card-note:focus { border-color:var(--accent-color,#0055a4); }
+        .qpm-ref-card-note:focus { border-color:var(--accent-color,#c8102e); }
 
         /* AI / History placeholder */
         .qpm-placeholder-section {
@@ -1483,15 +1483,15 @@ const QuickPublishModal = ({
 
         .qpm-btn-primary {
           padding:9px 20px; border:none; border-radius:9px;
-          background:var(--btn-color, #0055a4); color:#fff;
+          background:var(--btn-color, #c8102e); color:#fff;
           cursor:pointer; font-size:13px; font-weight:700; font-family:inherit;
           display:flex; align-items:center; gap:7px; transition:all 0.18s;
-          box-shadow:0 2px 8px color-mix(in srgb,var(--btn-color,#0055a4) 35%,transparent);
+          box-shadow:0 2px 8px color-mix(in srgb,var(--btn-color,#c8102e) 35%,transparent);
           white-space:nowrap; letter-spacing:0.01em;
         }
         .qpm-btn-primary:hover {
           filter:brightness(1.1); transform:translateY(-1px);
-          box-shadow:0 4px 16px color-mix(in srgb,var(--btn-color,#0055a4) 40%,transparent);
+          box-shadow:0 4px 16px color-mix(in srgb,var(--btn-color,#c8102e) 40%,transparent);
         }
         .qpm-btn-primary:active { transform:translateY(0); }
         .qpm-btn-primary:disabled { opacity:0.6; cursor:not-allowed; transform:none; }
@@ -1728,13 +1728,13 @@ const QuickPublishModal = ({
                                     onClick={() => handleToggleCategory(cat.value)}
                                     style={{
                                       background: isSelected
-                                        ? (isPrimary ? (selectedType?.color || 'var(--color-primary, #0055a4)') : 'rgba(0, 85, 164, 0.12)')
+                                        ? (isPrimary ? (selectedType?.color || 'var(--color-primary, #c8102e)') : 'rgba(200, 16, 46, 0.12)')
                                         : 'var(--color-gray-100, #f1f5f9)',
                                       border: isSelected
-                                        ? `1.5px solid ${isPrimary ? (selectedType?.color || 'var(--color-primary, #0055a4)') : 'rgba(0, 85, 164, 0.4)'}`
+                                        ? `1.5px solid ${isPrimary ? (selectedType?.color || 'var(--color-primary, #c8102e)') : 'rgba(200, 16, 46, 0.4)'}`
                                         : '1px solid var(--color-gray-300, #cbd5e1)',
                                       color: isSelected
-                                        ? (isPrimary ? '#ffffff' : (selectedType?.color || 'var(--color-primary, #0055a4)'))
+                                        ? (isPrimary ? '#ffffff' : (selectedType?.color || 'var(--color-primary, #c8102e)'))
                                         : 'var(--color-black, #0f172a)',
                                       padding: '5px 12px',
                                       borderRadius: 8,
@@ -1828,7 +1828,7 @@ const QuickPublishModal = ({
                       {activeFields.includes('image') && (
                         <div className="qpm-story-images">
                           <div className="qpm-story-images-header">
-                            <FiImage size={14} style={{ color:'var(--accent-color,#0055a4)' }} />
+                            <FiImage size={14} style={{ color:'var(--accent-color,#c8102e)' }} />
                             <h5>Story Images ({multipleImages.length})</h5>
                             {activeFields.includes('body') && (
                               <span className="qpm-story-images-hint">
@@ -2005,7 +2005,7 @@ const QuickPublishModal = ({
                                 )}
 
                                 <label className="qpm-add-images-zone">
-                                  <FiUpload size={20} style={{ color:'var(--accent-color,#0055a4)' }} />
+                                  <FiUpload size={20} style={{ color:'var(--accent-color,#c8102e)' }} />
                                   <span>+ {multipleImages.length > 0 ? 'Add More Photos to Story' : 'Upload Photos for Picture’s Speak'}</span>
                                   <small>Select multiple images · Supported: JPEG, PNG, GIF, WebP, SVG · Max 10MB each</small>
                                   <input type="file" accept="image/*" multiple style={{ display:'none' }} onChange={handlePictureImageChange} />
@@ -2057,7 +2057,7 @@ const QuickPublishModal = ({
                                   </div>
                                 )}
                                 <label className="qpm-add-images-zone" style={{ marginTop: multipleImages.length > 0 ? 10 : 0 }}>
-                                  <FiUpload size={18} style={{ color:'var(--accent-color,#0055a4)' }} />
+                                  <FiUpload size={18} style={{ color:'var(--accent-color,#c8102e)' }} />
                                   <span>+ Add Story Images</span>
                                   <small>Supported: JPEG, PNG, GIF, WebP, SVG · Max 10MB each</small>
                                   <input type="file" accept="image/*" multiple style={{ display:'none' }} onChange={handleStoryImagesAdd} />
@@ -2321,7 +2321,7 @@ const QuickPublishModal = ({
                     form={formId}
                     disabled={loading}
                     className="qpm-btn-primary"
-                    style={{ '--btn-color': selectedType?.color || 'var(--color-primary, #0055a4)' }}
+                    style={{ '--btn-color': selectedType?.color || 'var(--color-primary, #c8102e)' }}
                   >
                     {loading ? 'Saving…' : (
                       <>

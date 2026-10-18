@@ -211,7 +211,7 @@ const AdminLayout = () => {
   }).filter(group => group.items.length > 0);
 
   const roleLabel = isAdmin ? 'Admin' : isModerator ? 'Moderator' : 'Editor';
-  const roleColor = isAdmin ? '#0055a4' : isModerator ? '#dc2626' : '#2563eb';
+  const roleColor = isAdmin ? 'var(--accent-color, #c8102e)' : isModerator ? '#dc2626' : '#2563eb';
 
   if (authLoading) {
     return (

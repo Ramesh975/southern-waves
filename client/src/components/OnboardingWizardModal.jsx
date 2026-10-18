@@ -125,7 +125,7 @@ const OnboardingWizardModal = ({ isOpen, onClose, onComplete }) => {
         formData.append('appearanceSettings', JSON.stringify({
           theme: selectedTheme,
           themeEngine: 'default',
-          accentColor: 'blue'
+          accentColor: 'red'
         }));
 
         const res = await authAPI.updateProfile(formData);
@@ -148,7 +148,7 @@ const OnboardingWizardModal = ({ isOpen, onClose, onComplete }) => {
           appearanceSettings: {
             theme: selectedTheme,
             themeEngine: 'default',
-            accentColor: 'blue'
+            accentColor: 'red'
           }
         };
 

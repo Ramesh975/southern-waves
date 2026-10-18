@@ -84,9 +84,9 @@
   --color-ocean-light: #3377cc;
 
   /* Accent Color System */
-  --accent-color: var(--color-ocean);
-  --accent-color-hover: var(--color-ocean-dark);
-  --accent-color-light: var(--color-ocean-light);
+  --accent-color: var(--color-red);
+  --accent-color-hover: var(--color-red-dark);
+  --accent-color-light: var(--color-red-light);
   --color-text-on-accent: #ffffff;
   --color-pure-white: #ffffff;
   --color-pure-black: #000000;
@@ -154,9 +154,9 @@
   --color-ocean-light: #7dd3fc;
 
   /* Accent Color System */
-  --accent-color: var(--color-ocean);
-  --accent-color-hover: var(--color-ocean-dark);
-  --accent-color-light: var(--color-ocean-light);
+  --accent-color: var(--color-red);
+  --accent-color-hover: var(--color-red-dark);
+  --accent-color-light: var(--color-red-light);
   --color-text-on-accent: #ffffff;
   --color-pure-white: #ffffff;
   --color-pure-black: #000000;
@@ -192,9 +192,9 @@
   --color-ocean-light: #7dd3fc;
 
   /* Accent Color System */
-  --accent-color: var(--color-ocean);
-  --accent-color-hover: var(--color-ocean-dark);
-  --accent-color-light: var(--color-ocean-light);
+  --accent-color: var(--color-red);
+  --accent-color-hover: var(--color-red-dark);
+  --accent-color-light: var(--color-red-light);
   --color-text-on-accent: #ffffff;
   --color-pure-white: #ffffff;
   --color-pure-black: #000000;
