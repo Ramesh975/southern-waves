@@ -253,9 +253,10 @@ const HomePage = () => {
                 ) : null}
               </div>
 
-              {/* Right Column: Live Screen (Latest Trend, Most Liked Posts & Notifications) */}
+              {/* Right Column: Live Screen (Mixed News Stream with Tags) */}
               <div className="home-first-row-stories-col home-first-row-live-col">
                 <HomeLiveScreenWidget 
+                  articles={articles}
                   trendingArticles={trendingArticles} 
                   mostLikedArticles={mostLikedArticles} 
                 />

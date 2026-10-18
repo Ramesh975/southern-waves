@@ -12,7 +12,8 @@ import {
   FiArrowRight, 
   FiClock, 
   FiChevronRight,
-  FiEye
+  FiEye,
+  FiTag
 } from 'react-icons/fi';
 import { FaFire } from 'react-icons/fa';
 import './HomeLiveScreenWidget.css';
@@ -42,8 +43,7 @@ const formatTimeAgo = (dateStr) => {
   return past.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 };
 
-const HomeLiveScreenWidget = ({ trendingArticles = [], mostLikedArticles = [] }) => {
-  const [activeTab, setActiveTab] = useState('trends'); // 'trends' | 'liked' | 'notifications'
+const HomeLiveScreenWidget = ({ articles = [], trendingArticles = [], mostLikedArticles = [] }) => {
   const { user } = useAuth();
   const { notifications: chatNotifications, markNotificationRead } = useChat();
   const [publicNotifs, setPublicNotifs] = useState([]);
@@ -55,7 +55,7 @@ const HomeLiveScreenWidget = ({ trendingArticles = [], mostLikedArticles = [] })
     let isMounted = true;
     if (!user || !chatNotifications || chatNotifications.length === 0) {
       setNotifsLoading(true);
-      notificationAPI.getPublic({ limit: 8 })
+      notificationAPI.getPublic({ limit: 6 })
         .then(res => {
           if (isMounted) {
             setPublicNotifs(res.data?.data || []);
@@ -76,15 +76,10 @@ const HomeLiveScreenWidget = ({ trendingArticles = [], mostLikedArticles = [] })
     if (user && chatNotifications && chatNotifications.length > 0) {
       return chatNotifications
         .filter(n => n.type !== 'appeal' && !n.isDismissed)
-        .slice(0, 8);
+        .slice(0, 6);
     }
-    return publicNotifs.slice(0, 8);
+    return publicNotifs.slice(0, 6);
   }, [user, chatNotifications, publicNotifs]);
-
-  const unreadNotifCount = useMemo(() => {
-    if (!user || !chatNotifications) return 0;
-    return chatNotifications.filter(n => !n.isRead && !n.isDismissed).length;
-  }, [user, chatNotifications]);
 
   const handleNotifClick = (notif) => {
     if (user && !notif.isRead && markNotificationRead) {
@@ -102,17 +97,109 @@ const HomeLiveScreenWidget = ({ trendingArticles = [], mostLikedArticles = [] })
     }
   };
 
-  const trendingList = useMemo(() => {
-    return (trendingArticles || []).slice(0, 6);
-  }, [trendingArticles]);
+  // ── Unified Mixed Stream Construction (Non-categorical, Interleaved with Tags) ──
+  const mixedFeed = useMemo(() => {
+    const feed = [];
+    const seenArticleIds = new Set();
 
-  const likedList = useMemo(() => {
-    return (mostLikedArticles || []).slice(0, 6);
-  }, [mostLikedArticles]);
+    const trends = (trendingArticles || []).slice(0, 6);
+    const liked = (mostLikedArticles || []).slice(0, 6);
+    const notifs = notifList.slice(0, 4);
+    const news = (articles || []).slice(0, 6);
+
+    const maxLen = Math.max(trends.length, liked.length, notifs.length, news.length);
+
+    for (let i = 0; i < maxLen; i++) {
+      // 1. Trending Article
+      if (trends[i] && !seenArticleIds.has(trends[i]._id)) {
+        seenArticleIds.add(trends[i]._id);
+        const art = trends[i];
+        const topicTag = Array.isArray(art.tags) && art.tags.length > 0 ? art.tags[0] : art.category;
+        feed.push({
+          id: `trend-${art._id || i}`,
+          kind: 'article',
+          itemType: 'trend',
+          mainTag: '#TRENDING',
+          topicTag: topicTag ? `#${topicTag.replace(/^#/, '')}` : null,
+          title: art.title,
+          slug: art.slug,
+          coverImage: art.coverImage,
+          author: art.author?.name || 'Staff',
+          date: art.publishedAt || art.createdAt,
+          views: art.views,
+          raw: art
+        });
+      }
+
+      // 2. Most Liked Article
+      if (liked[i] && !seenArticleIds.has(liked[i]._id)) {
+        seenArticleIds.add(liked[i]._id);
+        const art = liked[i];
+        const likesCount = art.likesCount ?? (Array.isArray(art.likes) ? art.likes.length : 0);
+        const topicTag = Array.isArray(art.tags) && art.tags.length > 0 ? art.tags[0] : art.category;
+        feed.push({
+          id: `liked-${art._id || i}`,
+          kind: 'article',
+          itemType: 'liked',
+          mainTag: '#MOST LIKED',
+          topicTag: topicTag ? `#${topicTag.replace(/^#/, '')}` : null,
+          likesCount: likesCount,
+          title: art.title,
+          slug: art.slug,
+          coverImage: art.coverImage,
+          author: art.author?.name || 'Staff',
+          date: art.publishedAt || art.createdAt,
+          raw: art
+        });
+      }
+
+      // 3. Live Campus Notification / Alert
+      if (notifs[i]) {
+        const notif = notifs[i];
+        const typeCfg = NOTIF_ICONS[notif.type] || NOTIF_ICONS.announcement;
+        feed.push({
+          id: `notif-${notif._id || i}`,
+          kind: 'notification',
+          itemType: 'notification',
+          mainTag: `#${(typeCfg.label || 'ALERT').toUpperCase()}`,
+          isPinned: notif.priority === 'pinned' || notif.priority === 'urgent',
+          isUnread: user && !notif.isRead,
+          title: notif.title,
+          message: notif.message,
+          icon: typeCfg.icon,
+          tagColor: typeCfg.color,
+          date: notif.createdAt,
+          raw: notif
+        });
+      }
+
+      // 4. Latest Campus News
+      if (news[i] && !seenArticleIds.has(news[i]._id)) {
+        seenArticleIds.add(news[i]._id);
+        const art = news[i];
+        const topicTag = Array.isArray(art.tags) && art.tags.length > 0 ? art.tags[0] : art.category;
+        feed.push({
+          id: `news-${art._id || i}`,
+          kind: 'article',
+          itemType: 'news',
+          mainTag: art.category ? `#${art.category.toUpperCase()}` : '#LATEST',
+          topicTag: topicTag ? `#${topicTag.replace(/^#/, '')}` : null,
+          title: art.title,
+          slug: art.slug,
+          coverImage: art.coverImage,
+          author: art.author?.name || 'Staff',
+          date: art.publishedAt || art.createdAt,
+          raw: art
+        });
+      }
+    }
+
+    return feed;
+  }, [trendingArticles, mostLikedArticles, notifList, articles, user]);
 
   return (
     <div className="home-live-screen-widget">
-      {/* ── Widget Header ── */}
+      {/* ── Widget Header: Non-categorical, Pure Live Screen ── */}
       <div className="home-live-header">
         <div className="home-live-title-wrap">
           <div className="home-live-indicator-icon">
@@ -124,234 +211,160 @@ const HomeLiveScreenWidget = ({ trendingArticles = [], mostLikedArticles = [] })
           </span>
         </div>
 
-        {/* Dynamic header link based on active tab */}
-        <Link 
-          to={activeTab === 'notifications' ? '/notifications' : activeTab === 'liked' ? '/news?tab=liked' : '/news?tab=trending'} 
-          className="home-live-explore-btn"
-          title={`Explore all ${activeTab}`}
-        >
-          Explore <FiArrowRight size={13} />
-        </Link>
+        <div className="home-live-header-right">
+          <span className="home-live-mixed-badge">
+            <FiTag size={11} style={{ marginRight: 3 }} /> Mixed Feed
+          </span>
+          <Link to="/news" className="home-live-explore-btn" title="Explore all campus news">
+            Explore <FiArrowRight size={13} />
+          </Link>
+        </div>
       </div>
 
-      {/* ── Switcher Navigation Tabs ── */}
-      <div className="home-live-tabs" role="tablist" aria-label="Live Screen Categories">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'trends'}
-          className={`home-live-tab-btn ${activeTab === 'trends' ? 'active' : ''}`}
-          onClick={() => setActiveTab('trends')}
-        >
-          <FaFire size={14} className="tab-icon tab-icon-flame" />
-          <span>Latest Trend</span>
-          {trendingList.length > 0 && (
-            <span className="tab-count-badge">{trendingList.length}</span>
-          )}
-        </button>
-
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'liked'}
-          className={`home-live-tab-btn ${activeTab === 'liked' ? 'active' : ''}`}
-          onClick={() => setActiveTab('liked')}
-        >
-          <FiHeart size={14} className="tab-icon tab-icon-heart" />
-          <span>Most Liked</span>
-          {likedList.length > 0 && (
-            <span className="tab-count-badge">{likedList.length}</span>
-          )}
-        </button>
-
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'notifications'}
-          className={`home-live-tab-btn ${activeTab === 'notifications' ? 'active' : ''}`}
-          onClick={() => setActiveTab('notifications')}
-        >
-          <FiBell size={14} className="tab-icon tab-icon-bell" />
-          <span>Notifications</span>
-          {unreadNotifCount > 0 ? (
-            <span className="tab-unread-pill">{unreadNotifCount}</span>
-          ) : notifList.length > 0 ? (
-            <span className="tab-count-badge">{notifList.length}</span>
-          ) : null}
-        </button>
-      </div>
-
-      {/* ── Scrollable Tab Panels ── */}
+      {/* ── Mixed News Feed with Distinct Tags ── */}
       <div className="home-live-body">
-        {/* TAB 1: LATEST TREND */}
-        {activeTab === 'trends' && (
-          <div className="home-live-panel" role="tabpanel">
-            {trendingList.length > 0 ? (
-              <div className="home-live-feed-list">
-                {trendingList.map((art, idx) => (
-                  <div key={art._id || idx} className="home-live-trend-card">
-                    <span className="home-live-rank">#{idx + 1}</span>
-                    <Link to={`/article/${art.slug}`} className="home-live-thumb-link">
-                      {art.coverImage ? (
+        {mixedFeed.length > 0 ? (
+          <div className="home-live-mixed-list">
+            {mixedFeed.map((item) => {
+              // Notification Card
+              if (item.kind === 'notification') {
+                return (
+                  <div 
+                    key={item.id}
+                    className={`home-live-mixed-card is-notif ${item.isUnread ? 'is-unread' : ''}`}
+                    onClick={() => handleNotifClick(item.raw)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleNotifClick(item.raw); }}
+                  >
+                    <div className="home-live-card-thumb-col">
+                      <div className="home-live-notif-avatar" style={{ borderColor: item.tagColor || 'var(--accent-color)' }}>
+                        <span>{item.icon || '📢'}</span>
+                      </div>
+                    </div>
+
+                    <div className="home-live-card-body-col">
+                      <div className="home-live-tag-header">
+                        <span className="home-live-tag-badge notif-tag" style={{ color: item.tagColor }}>
+                          {item.mainTag}
+                        </span>
+                        {item.isPinned && <span className="home-live-pinned-pill">PINNED</span>}
+                        <span className="home-live-time">
+                          <FiClock size={10} style={{ marginRight: 3, verticalAlign: 'middle' }} />
+                          {formatTimeAgo(item.date)}
+                        </span>
+                      </div>
+
+                      <h4 className="home-live-item-title">
+                        {item.title}
+                      </h4>
+
+                      {item.message && (
+                        <p className="home-live-item-excerpt">{item.message}</p>
+                      )}
+                    </div>
+
+                    <div className="home-live-card-end-col">
+                      {item.isUnread && <span className="home-live-unread-dot" title="Unread" />}
+                      <FiChevronRight size={14} className="home-live-arrow" />
+                    </div>
+                  </div>
+                );
+              }
+
+              // Article Card (Trending, Most Liked, or Latest News)
+              return (
+                <div 
+                  key={item.id}
+                  className={`home-live-mixed-card ${item.itemType === 'trend' ? 'is-trend' : item.itemType === 'liked' ? 'is-liked' : ''}`}
+                >
+                  <div className="home-live-card-thumb-col">
+                    <Link to={`/article/${item.slug}`} className="home-live-mixed-thumb-link">
+                      {item.coverImage ? (
                         <img 
-                          src={getImageUrl(art.coverImage)} 
-                          alt={art.title} 
-                          className="home-live-thumb-img" 
+                          src={getImageUrl(item.coverImage)} 
+                          alt={item.title} 
+                          className="home-live-mixed-thumb-img" 
                           loading="lazy" 
                         />
                       ) : (
-                        <div className="home-live-thumb-placeholder">
-                          <FiTrendingUp size={16} />
+                        <div className={`home-live-thumb-ph ${item.itemType === 'liked' ? 'liked-ph' : item.itemType === 'trend' ? 'trend-ph' : ''}`}>
+                          {item.itemType === 'liked' ? <FiHeart size={16} /> : <FaFire size={15} />}
                         </div>
                       )}
                     </Link>
-                    <div className="home-live-trend-info">
-                      <div className="home-live-meta-row">
-                        <span className="home-live-cat-tag">
-                          {art.category?.toUpperCase() || 'NEWS'}
+                  </div>
+
+                  <div className="home-live-card-body-col">
+                    <div className="home-live-tag-header">
+                      {/* Main Dynamic Tag */}
+                      {item.itemType === 'trend' && (
+                        <span className="home-live-tag-badge trend-tag">
+                          <FaFire size={10} className="tag-icon" /> {item.mainTag}
                         </span>
-                        <span className="home-live-time">
-                          <FiClock size={10} style={{ marginRight: 3, verticalAlign: 'middle' }} />
-                          {formatTimeAgo(art.publishedAt || art.createdAt)}
+                      )}
+                      {item.itemType === 'liked' && (
+                        <span className="home-live-tag-badge liked-tag">
+                          <FiHeart size={10} className="tag-icon heart-filled" /> {item.mainTag}
                         </span>
-                      </div>
-                      <h4 className="home-live-card-title">
-                        <Link to={`/article/${art.slug}`}>{art.title}</Link>
-                      </h4>
-                      <div className="home-live-submeta">
-                        <span>By {art.author?.name || 'Staff'}</span>
-                        {art.views > 0 && (
-                          <>
-                            <span className="dot-divider">•</span>
-                            <span className="views-stat"><FiEye size={11} style={{ marginRight: 3 }} /> {art.views} reads</span>
-                          </>
-                        )}
-                      </div>
+                      )}
+                      {item.itemType === 'news' && (
+                        <span className="home-live-tag-badge news-tag">
+                          {item.mainTag}
+                        </span>
+                      )}
+
+                      {/* Secondary Topic Tag */}
+                      {item.topicTag && (
+                        <span className="home-live-topic-tag">
+                          {item.topicTag}
+                        </span>
+                      )}
+
+                      <span className="home-live-time">
+                        <FiClock size={10} style={{ marginRight: 3, verticalAlign: 'middle' }} />
+                        {formatTimeAgo(item.date)}
+                      </span>
+                    </div>
+
+                    <h4 className="home-live-item-title">
+                      <Link to={`/article/${item.slug}`}>{item.title}</Link>
+                    </h4>
+
+                    <div className="home-live-item-submeta">
+                      <span className="author-name">By {item.author}</span>
+                      {item.likesCount !== undefined && item.likesCount > 0 && (
+                        <>
+                          <span className="dot-divider">•</span>
+                          <span className="liked-stat">
+                            <FiHeart size={10} className="heart-filled" /> {item.likesCount} {item.likesCount === 1 ? 'like' : 'likes'}
+                          </span>
+                        </>
+                      )}
+                      {item.views > 0 && (
+                        <>
+                          <span className="dot-divider">•</span>
+                          <span className="views-stat">
+                            <FiEye size={10} /> {item.views} reads
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="home-live-empty-state">
-                <FaFire size={28} className="empty-state-icon flame-icon" />
-                <p>No trending posts yet today. Fresh trends will update automatically as campus readership spikes!</p>
-              </div>
-            )}
+
+                  <div className="home-live-card-end-col">
+                    <Link to={`/article/${item.slug}`} className="home-live-arrow-link" title="Read story">
+                      <FiChevronRight size={14} className="home-live-arrow" />
+                    </Link>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        )}
-
-        {/* TAB 2: MOST LIKED POSTS */}
-        {activeTab === 'liked' && (
-          <div className="home-live-panel" role="tabpanel">
-            {likedList.length > 0 ? (
-              <div className="home-live-feed-list">
-                {likedList.map((art, idx) => {
-                  const likesCount = art.likesCount ?? (Array.isArray(art.likes) ? art.likes.length : 0);
-                  return (
-                    <div key={art._id || idx} className="home-live-liked-card">
-                      <Link to={`/article/${art.slug}`} className="home-live-thumb-link">
-                        {art.coverImage ? (
-                          <img 
-                            src={getImageUrl(art.coverImage)} 
-                            alt={art.title} 
-                            className="home-live-thumb-img" 
-                            loading="lazy" 
-                          />
-                        ) : (
-                          <div className="home-live-thumb-placeholder liked-ph">
-                            <FiHeart size={16} />
-                          </div>
-                        )}
-                      </Link>
-                      <div className="home-live-trend-info">
-                        <div className="home-live-meta-row">
-                          <span className="home-live-like-badge">
-                            <FiHeart size={11} className="heart-filled" /> {likesCount} {likesCount === 1 ? 'Like' : 'Likes'}
-                          </span>
-                          <span className="home-live-time">
-                            <FiClock size={10} style={{ marginRight: 3, verticalAlign: 'middle' }} />
-                            {formatTimeAgo(art.publishedAt || art.createdAt)}
-                          </span>
-                        </div>
-                        <h4 className="home-live-card-title">
-                          <Link to={`/article/${art.slug}`}>{art.title}</Link>
-                        </h4>
-                        <div className="home-live-submeta">
-                          <span>By {art.author?.name || 'Staff'}</span>
-                          <span className="dot-divider">•</span>
-                          <span className="top-choice-tag">Campus Favorite</span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="home-live-empty-state">
-                <FiHeart size={28} className="empty-state-icon heart-icon" />
-                <p>No posts with user likes yet. Articles with the most reader reactions and student appreciation will appear here!</p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* TAB 3: NOTIFICATIONS */}
-        {activeTab === 'notifications' && (
-          <div className="home-live-panel" role="tabpanel">
-            {notifsLoading && notifList.length === 0 ? (
-              <div className="home-live-empty-state">
-                <div className="home-live-spinner" />
-                <p>Connecting to campus alert feeds...</p>
-              </div>
-            ) : notifList.length > 0 ? (
-              <div className="home-live-feed-list">
-                {notifList.map((notif, idx) => {
-                  const typeCfg = NOTIF_ICONS[notif.type] || NOTIF_ICONS.announcement;
-                  const isUnread = user && !notif.isRead;
-                  const isPinned = notif.priority === 'pinned' || notif.priority === 'urgent';
-
-                  return (
-                    <div 
-                      key={notif._id || idx}
-                      className={`home-live-notif-card ${isUnread ? 'is-unread' : ''}`}
-                      onClick={() => handleNotifClick(notif)}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => { if (e.key === 'Enter') handleNotifClick(notif); }}
-                    >
-                      <div className="home-live-notif-icon-col">
-                        <span className="home-live-type-emoji">{typeCfg.icon}</span>
-                      </div>
-                      <div className="home-live-notif-content-col">
-                        <div className="home-live-meta-row">
-                          <span className="home-live-cat-tag" style={{ color: typeCfg.color }}>
-                            {typeCfg.label}
-                          </span>
-                          {isPinned && <span className="home-live-pinned-tag">PINNED</span>}
-                          <span className="home-live-time">
-                            <FiClock size={10} style={{ marginRight: 3, verticalAlign: 'middle' }} />
-                            {formatTimeAgo(notif.createdAt)}
-                          </span>
-                        </div>
-                        <h4 className="home-live-notif-title">{notif.title}</h4>
-                        {notif.message && (
-                          <p className="home-live-notif-message">{notif.message}</p>
-                        )}
-                      </div>
-                      <div className="home-live-notif-action-col">
-                        {isUnread && <span className="home-live-unread-dot" title="Unread" />}
-                        <FiChevronRight size={14} className="home-live-arrow" />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="home-live-empty-state">
-                <FiBell size={28} className="empty-state-icon bell-icon" />
-                <p>No active alerts right now. High-priority announcements and live bulletins will appear here.</p>
-              </div>
-            )}
+        ) : (
+          <div className="home-live-empty-state">
+            <FaFire size={28} className="empty-state-icon flame-icon" />
+            <p>Loading campus live updates and trending stories...</p>
           </div>
         )}
       </div>
@@ -359,17 +372,10 @@ const HomeLiveScreenWidget = ({ trendingArticles = [], mostLikedArticles = [] })
       {/* ── Widget Footer ── */}
       <div className="home-live-footer">
         <span className="home-live-footer-summary">
-          {activeTab === 'trends' 
-            ? `${trendingList.length} live trending post${trendingList.length === 1 ? '' : 's'}`
-            : activeTab === 'liked'
-            ? `${likedList.length} top student favorite${likedList.length === 1 ? '' : 's'}`
-            : `${notifList.length} recent campus alert${notifList.length === 1 ? '' : 's'}`}
+          {mixedFeed.length} live campus updates streaming
         </span>
-        <Link 
-          to={activeTab === 'notifications' ? '/notifications' : activeTab === 'liked' ? '/news?tab=liked' : '/news?tab=trending'} 
-          className="home-live-footer-link"
-        >
-          {activeTab === 'trends' ? 'Explore Trends →' : activeTab === 'liked' ? 'Explore Most Liked →' : 'Campus Alert Center →'}
+        <Link to="/news" className="home-live-footer-link">
+          Explore All Campus News →
         </Link>
       </div>
     </div>
