@@ -98,14 +98,14 @@ const STATIC_SYSTEM_ACTIONS = [
     path: '/admin/security',
     adminOnly: true,
   },
-  {
-    id: 'act-stories',
-    title: 'Fast Stories Hub',
-    subtitle: 'Browse 24-hour visual interactive student stories',
-    category: 'actions',
-    icon: FiEye,
-    path: '/stories',
-  },
+  // {
+  //   id: 'act-stories',
+  //   title: 'Fast Stories Hub',
+  //   subtitle: 'Browse 24-hour visual interactive student stories',
+  //   category: 'actions',
+  //   icon: FiEye,
+  //   path: '/stories',
+  // },
   {
     id: 'act-news',
     title: 'Campus News Section',

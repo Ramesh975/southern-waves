@@ -8,11 +8,15 @@ const {
   dismissNotification,
   deleteNotification,
   clearReadNotifications,
+  getPublicNotifications,
 } = require('../controllers/notificationController');
 
 const router = express.Router();
 
-// All notification routes are protected
+// Public stream route for homepage / unauthenticated visitors
+router.get('/public', getPublicNotifications);
+
+// All subsequent notification routes are protected
 router.use(protect);
 
 router.route('/')

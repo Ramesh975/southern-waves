@@ -22,7 +22,7 @@ const ROUTE_NAMES = {
   '/tea-shop': 'Tea Shop',
   '/pictures-speak': "Pictures Speak",
   '/know-your-past': 'Know Your Past',
-  '/stories': 'Fast Stories',
+  // '/stories': 'Fast Stories',
   '/about': 'About Us',
   '/login': 'Student Login',
   '/register': 'Sign Up',
@@ -37,7 +37,7 @@ const HOME_NAV_ITEMS = [
   { path: '/tea-shop', label: 'Tea Shop' },
   { path: '/university-row', label: 'University Row' },
   { path: '/know-your-past', label: 'Know Your Past' },
-  { path: '/stories', label: 'Fast Stories' },
+  // { path: '/stories', label: 'Fast Stories' },
   { path: '/about', label: 'About Us' },
 ];
 
@@ -808,12 +808,12 @@ const Navbar = () => {
                 </div>
               </div>
 
-              {/* Column 3: Tea Shop, Know Your Past, Fast Stories & About Us */}
+              {/* Column 3: Tea Shop, Know Your Past & About Us */}
               <div className="mega-column">
                 <div className="mega-column-links">
                   {renderNavLink('/tea-shop', 'Tea Shop')}
                   {renderNavLink('/know-your-past', 'Know Your Past')}
-                  {renderNavLink('/stories', 'Fast Stories')}
+                  {/* {renderNavLink('/stories', 'Fast Stories')} */}
                   {renderNavLink('/about', 'About Us')}
                 </div>
               </div>
@@ -1098,13 +1098,13 @@ const Navbar = () => {
               </div>
               <FiChevronRight size={15} className="mobile-link-arrow" />
             </NavLink>
-            <NavLink to="/stories" className="mobile-link" onClick={() => setMobileMenuOpen(false)}>
+            {/* <NavLink to="/stories" className="mobile-link" onClick={() => setMobileMenuOpen(false)}>
               <div className="mobile-link-left">
                 <span className="mobile-link-icon story-icon"><FiZap size={16} /></span>
                 <span className="mobile-link-text">Fast Stories</span>
               </div>
               <FiChevronRight size={15} className="mobile-link-arrow" />
-            </NavLink>
+            </NavLink> */}
           </div>
 
           <hr className="mobile-divider" />

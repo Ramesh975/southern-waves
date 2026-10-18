@@ -266,3 +266,36 @@ exports.deleteNotification = async (req, res, next) => {
     next(err);
   }
 };
+
+// @desc    Get public notifications/announcements for homepage stream
+// @route   GET /api/notifications/public
+// @access  Public
+exports.getPublicNotifications = async (req, res, next) => {
+  try {
+    const { limit = 10 } = req.query;
+    const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 30);
+
+    const query = {
+      $and: [
+        {
+          $or: [
+            { targetRoles: { $exists: false } },
+            { targetRoles: null },
+            { targetRoles: { $size: 0 } },
+          ],
+        },
+        { type: { $nin: ['appeal', 'sensitivity'] } }
+      ],
+    };
+
+    const notifications = await Notification.find(query)
+      .populate('sender', 'name avatar role username')
+      .sort({ createdAt: -1 })
+      .limit(safeLimit)
+      .lean();
+
+    res.status(200).json({ success: true, data: notifications });
+  } catch (err) {
+    next(err);
+  }
+};

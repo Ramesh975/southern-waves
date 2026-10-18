@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { Toaster, resolveValue } from 'react-hot-toast';
 import LiquidGlassToast from './components/LiquidGlassToast/LiquidGlassToast';
 import { useEffect, useState } from 'react';
@@ -188,7 +188,8 @@ const AppInner = () => {
           <Route path="/tea-shop" element={<NewsMenuPage defaultCategory="tea-shop" />} />
           <Route path="/tea-shop/:slug" element={<ArticleDetailPage />} />
           <Route path="/pictures-speak" element={<PicturesSpeakPage />} />
-          <Route path="/stories" element={<StoriesPage />} />
+          {/* Temporarily hidden Web Stories page - redirects home */}
+          <Route path="/stories" element={<Navigate to="/" replace />} />
           <Route path="/author/:identifier" element={<AuthorProfilePage />} />
           <Route path="/author" element={<AuthorProfilePage />} />
           <Route path="/search" element={<SearchPage />} />

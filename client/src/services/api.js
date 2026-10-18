@@ -148,6 +148,7 @@ export const chatAPI = {
 // --- Notifications ---
 export const notificationAPI = {
   getAll: (params) => API.get('/notifications', { params }),
+  getPublic: (params) => API.get('/notifications/public', { params }),
   create: (data) => API.post('/notifications', data),
   markRead: (id) => API.put(`/notifications/${id}/read`),
   markAllRead: () => API.put('/notifications/read-all'),

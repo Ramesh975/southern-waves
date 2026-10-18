@@ -3,8 +3,10 @@ import { Link } from 'react-router-dom';
 import API, { articleAPI } from '../services/api';
 import { getImageUrl } from '../components/ArticleComponents';
 import PictureSpeakModal from '../components/PictureSpeakModal';
-import WebStoriesSection from '../components/WebStoriesSection';
-import WebStoryModal from '../components/WebStoryModal';
+// Temporarily hidden: WebStoriesSection & WebStoryModal
+// import WebStoriesSection from '../components/WebStoriesSection';
+// import WebStoryModal from '../components/WebStoryModal';
+import HomeNotificationsWidget from '../components/HomeNotificationsWidget';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
@@ -251,16 +253,9 @@ const HomePage = () => {
                 ) : null}
               </div>
 
-              {/* Right Column: Web Stories Horizontal Card Feed */}
-              <div className="home-first-row-stories-col">
-                <WebStoriesSection 
-                  articles={webStories} 
-                  onSelectStory={(index) => setSelectedStoryIndex(index)}
-                  hasMore={hasMoreStories}
-                  loadingMore={loadingMoreStories}
-                  onLoadMore={loadMoreStories}
-                  initialLoading={storiesLoading}
-                />
+              {/* Right Column: Recent Campus Notifications & Live Alerts Stream (Replaces Web Stories) */}
+              <div className="home-first-row-stories-col home-first-row-notifications-col">
+                <HomeNotificationsWidget />
               </div>
             </div>
 
@@ -722,8 +717,8 @@ const HomePage = () => {
         />
       )}
 
-      {/* Center of Screen Interactive Web Story Modal */}
-      {selectedStoryIndex !== null && (
+      {/* Web Story Modal temporarily hidden */}
+      {/* {selectedStoryIndex !== null && (
         <WebStoryModal 
           stories={webStories} 
           initialIndex={selectedStoryIndex} 
@@ -732,7 +727,7 @@ const HomePage = () => {
           loadingMore={loadingMoreStories}
           onLoadMore={loadMoreStories}
         />
-      )}
+      )} */}
     </main>
   );
 };
