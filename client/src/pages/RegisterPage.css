@@ -71,6 +71,20 @@
   margin-bottom: 28px;
 }
 
+.register-logo-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.register-logo-img {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.12));
+}
+
 .register-brand {
   font-family: var(--font-display, "Outfit", sans-serif);
   font-size: 26px;

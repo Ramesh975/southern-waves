@@ -46,7 +46,10 @@ const LoginPage = () => {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <p className="auth-logo">Southern Waves</p>
+        <div className="auth-logo-wrap">
+          <img src="/logo.png" alt="Southern Waves Logo" className="auth-logo-img" />
+          <p className="auth-logo">Southern Waves</p>
+        </div>
         <p className="auth-subtitle">Sign in to your account</p>
         <form onSubmit={handleSubmit}>
           <div className="form-group">

@@ -61,7 +61,8 @@ const Footer = () => {
           
           {/* Brand Column */}
           <div className="footer-brand">
-            <Link to="/" style={{ textDecoration: 'none' }} onClick={scrollToTop}>
+            <Link to="/" style={{ textDecoration: 'none' }} onClick={scrollToTop} className="footer-brand-link">
+              <img src="/logo.png" alt="Southern Waves Logo" className="footer-logo-img" />
               <div className="footer-logo">Southern Waves</div>
             </Link>
             <p className="footer-desc">

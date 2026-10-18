@@ -303,6 +303,9 @@ const RegisterPage = () => {
         
         {/* Header */}
         <div className="register-header">
+          <div className="register-logo-wrap">
+            <img src="/logo.png" alt="Southern Waves Logo" className="register-logo-img" />
+          </div>
           <p className="register-brand">
             Southern Waves
           </p>

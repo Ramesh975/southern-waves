@@ -453,7 +453,10 @@ const Navbar = () => {
             )}
             {currentPath !== '/' && <div className="nav-accent-bar"></div>}
             <div className="nav-title-group">
-              <Link to="/" className={`nav-brand-label ${currentPath === '/' ? 'home-brand' : ''}`}>Southern Waves.</Link>
+              <Link to="/" className={`nav-brand-label ${currentPath === '/' ? 'home-brand' : ''}`}>
+                <img src="/logo.png" alt="Southern Waves Logo" className="nav-brand-logo" />
+                <span className="nav-brand-text">Southern Waves{currentPath === '/' ? '.' : ''}</span>
+              </Link>
               {currentPath !== '/' && <h1 className="nav-dynamic-title">{pageName}</h1>}
             </div>
           </div>
@@ -999,11 +1002,14 @@ const Navbar = () => {
           onClick={(e) => e.stopPropagation()}
         >
           <div className="mobile-popup-header">
-            <div>
-              <span className="brand-text">Southern Waves</span>
-              <div className="mobile-slide-accent-stripes" style={{ marginTop: '6px' }}>
-                <div className="mobile-accent-stripe long" />
-                <div className="mobile-accent-stripe short" />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <img src="/logo.png" alt="Southern Waves" className="mobile-popup-logo" />
+              <div>
+                <span className="brand-text">Southern Waves</span>
+                <div className="mobile-slide-accent-stripes" style={{ marginTop: '4px' }}>
+                  <div className="mobile-accent-stripe long" />
+                  <div className="mobile-accent-stripe short" />
+                </div>
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
