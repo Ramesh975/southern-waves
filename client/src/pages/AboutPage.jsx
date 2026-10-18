@@ -94,6 +94,19 @@ const AboutPage = () => {
         
         {/* Hero Section */}
         <section style={{ textAlign: 'center', marginBottom: 54 }}>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
+            <img 
+              src="/logo.png" 
+              alt="Southern Waves Emblem" 
+              style={{ 
+                width: 88, 
+                height: 88, 
+                borderRadius: '50%', 
+                objectFit: 'contain', 
+                boxShadow: '0 8px 30px rgba(0, 0, 0, 0.15)' 
+              }} 
+            />
+          </div>
           <h1 style={{ 
             fontFamily: 'var(--font-display, "Outfit", sans-serif)', 
             fontSize: 'calc(2.5rem + 1vw)', 

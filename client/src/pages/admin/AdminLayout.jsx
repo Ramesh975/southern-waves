@@ -236,20 +236,23 @@ const AdminLayout = () => {
 
       {/* ── Sidebar ── */}
       <aside className={`ad-sidebar ${mobileSidebarOpen ? 'mobile-open' : ''}`}>
-        {/* Brand Header without Logo */}
+        {/* Brand Header with Logo */}
         <div className="ad-sidebar-brand">
           {showLabels ? (
-            <div className="ad-brand-text">
-              <span className="ad-brand-name">SW Admin</span>
-              <span className="ad-brand-sub">Southern Waves</span>
-              <div className="mobile-slide-accent-stripes" style={{ marginTop: '4px' }}>
-                <div className="mobile-accent-stripe long" style={{ height: '2px', width: '40px' }} />
-                <div className="mobile-accent-stripe short" style={{ height: '2px', width: '22px' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <img src="/logo.png" alt="SW Logo" className="ad-brand-logo-img" />
+              <div className="ad-brand-text">
+                <span className="ad-brand-name">SW Admin</span>
+                <span className="ad-brand-sub">Southern Waves</span>
+                <div className="mobile-slide-accent-stripes" style={{ marginTop: '4px' }}>
+                  <div className="mobile-accent-stripe long" style={{ height: '2px', width: '40px' }} />
+                  <div className="mobile-accent-stripe short" style={{ height: '2px', width: '22px' }} />
+                </div>
               </div>
             </div>
           ) : (
             <div className="ad-brand-collapsed">
-              <span className="ad-brand-abbr">SW</span>
+              <img src="/logo.png" alt="SW Logo" className="ad-brand-logo-img collapsed" />
             </div>
           )}
           {!isMobile ? (
@@ -432,7 +435,10 @@ const AdminLayout = () => {
               <div className="nav-accent-bar"></div>
 
               <div className="nav-title-group">
-                <Link to="/" className="nav-brand-label ad-brand-label-desktop">Southern Waves.</Link>
+                <Link to="/" className="nav-brand-label ad-brand-label-desktop">
+                  <img src="/logo.png" alt="Southern Waves Logo" className="nav-brand-logo" />
+                  <span>Southern Waves.</span>
+                </Link>
                 <h1 className="nav-dynamic-title">
                   {location.pathname === '/admin' ? 'Dashboard'
                     : location.pathname.includes('articles') ? 'Articles'

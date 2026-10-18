@@ -419,11 +419,23 @@ const StoriesPage = () => {
             style={{
               display: 'inline-flex',
               alignItems: 'center',
+              gap: '8px',
               textDecoration: 'none',
               cursor: 'pointer'
             }}
             title="Return to Southern Waves Home"
           >
+            <img 
+              src="/logo.png" 
+              alt="Southern Waves" 
+              style={{ 
+                width: 26, 
+                height: 26, 
+                borderRadius: '50%', 
+                objectFit: 'contain', 
+                filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.15))' 
+              }} 
+            />
             <span style={{
               fontFamily: 'var(--font-display, "Playfair Display", serif)',
               fontSize: '20px',

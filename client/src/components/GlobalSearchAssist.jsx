@@ -630,8 +630,9 @@ export const GlobalSearchAssist = ({ isOpen, onClose }) => {
             </div>
           </div>
 
-          <div>
-            <span style={{ fontWeight: 700, color: 'var(--accent-color, #c8102e)' }}>Southern Waves</span> Search Assist
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <img src="/logo.png" alt="SW Logo" style={{ width: 15, height: 15, borderRadius: '50%', objectFit: 'contain' }} />
+            <span><strong style={{ color: 'var(--accent-color, #c8102e)' }}>Southern Waves</strong> Search Assist</span>
           </div>
         </div>
       </div>

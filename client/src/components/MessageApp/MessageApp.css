@@ -1557,6 +1557,16 @@
   text-decoration: none;
   display: flex;
   align-items: center;
+  gap: 10px;
+}
+
+.msg-nav-logo-img {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: contain;
+  flex-shrink: 0;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
 }
 
 .msg-logo-text {
@@ -1631,6 +1641,15 @@
 
 .msg-placeholder-logo-mark {
   font-size: 64px;
+  animation: float-logo 4s ease-in-out infinite;
+}
+
+.msg-placeholder-logo-img {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.25));
   animation: float-logo 4s ease-in-out infinite;
 }
 

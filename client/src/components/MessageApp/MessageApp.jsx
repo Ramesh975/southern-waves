@@ -1090,6 +1090,7 @@ const MessageApp = ({ isFullPage = false }) => {
               {isFullPage ? (
                 <div className="">
                   <Link to="/" className="msg-logo-link">
+                    <img src="/logo.png" alt="Southern Waves" className="msg-nav-logo-img" />
                     <span className="msg-logo-text">Southern Waves</span>
                   </Link>
                 </div>
@@ -2407,7 +2408,7 @@ const MessageApp = ({ isFullPage = false }) => {
               /* Greeting Placeholder for Full Page Mode when no room is selected */
               <div className="msg-no-active-room">
                 <div className="msg-no-active-inner">
-                  <span className="msg-placeholder-logo-mark">🌊</span>
+                  <img src="/logo.png" alt="Southern Waves" className="msg-placeholder-logo-img" />
                   <h2>Southern Waves Discussion Space</h2>
                   <p>Choose a category discussion group or a trending topic tag from the left sidebar to start chatting with other students!</p>
                 </div>
