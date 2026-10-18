@@ -6,7 +6,7 @@ import PictureSpeakModal from '../components/PictureSpeakModal';
 // Temporarily hidden: WebStoriesSection & WebStoryModal
 // import WebStoriesSection from '../components/WebStoriesSection';
 // import WebStoryModal from '../components/WebStoryModal';
-import HomeNotificationsWidget from '../components/HomeNotificationsWidget';
+import HomeLiveScreenWidget from '../components/HomeLiveScreenWidget';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
@@ -253,9 +253,12 @@ const HomePage = () => {
                 ) : null}
               </div>
 
-              {/* Right Column: Recent Campus Notifications & Live Alerts Stream (Replaces Web Stories) */}
-              <div className="home-first-row-stories-col home-first-row-notifications-col">
-                <HomeNotificationsWidget />
+              {/* Right Column: Live Screen (Latest Trend, Most Liked Posts & Notifications) */}
+              <div className="home-first-row-stories-col home-first-row-live-col">
+                <HomeLiveScreenWidget 
+                  trendingArticles={trendingArticles} 
+                  mostLikedArticles={mostLikedArticles} 
+                />
               </div>
             </div>
 

@@ -206,7 +206,13 @@ exports.getHomeFeed = async (req, res, next) => {
         { $project: { tag: '$_id', count: 1, _id: 0 } }
       ]),
       Article.find({ status: 'published' }).select('-body -annotations').populate('author', 'name username showRealNamePublicly avatar role').sort({ views: -1 }).limit(8).lean(),
-      Article.find({ status: 'published', category: { $ne: 'tea-shop' } }).select('-body -annotations').populate('author', 'name username showRealNamePublicly avatar role').sort({ views: -1, publishedAt: -1 }).limit(8).lean(),
+      Article.aggregate([
+        { $match: { status: 'published', category: { $ne: 'tea-shop' } } },
+        { $project: { body: 0, annotations: 0 } },
+        { $addFields: { likesCount: { $size: { $ifNull: ['$likes', []] } } } },
+        { $sort: { likesCount: -1, views: -1, publishedAt: -1 } },
+        { $limit: 8 }
+      ]).then(docs => Article.populate(docs, { path: 'author', select: 'name username showRealNamePublicly avatar role' })),
       Article.find({ status: 'published', isPushedToHome: true }).select('-body -annotations').populate('author', 'name username showRealNamePublicly avatar role').sort({ publishedAt: -1 }).limit(5).lean(),
       Article.find({ status: 'published', category: 'news' }).select('-body -annotations').populate('author', 'name username avatar role').sort({ publishedAt: -1 }).limit(8).lean()
     ]);
