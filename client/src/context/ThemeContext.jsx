@@ -4,7 +4,7 @@ const ThemeContext = createContext();
 
 export const useTheme = () => useContext(ThemeContext);
 
-// Primary Color: Crimson Red (matching Southern Waves logo)
+// Accent Colors: Crimson Red (default) + backwards-compatible keys
 export const ACCENT_COLORS = {
   red: {
     name: 'Crimson Red',
@@ -14,6 +14,15 @@ export const ACCENT_COLORS = {
     darkPrimary: '#ff5c77',
     darkHover: '#ff385c',
     darkLight: '#ff8097'
+  },
+  blue: {
+    name: 'Ocean Blue',
+    primary: '#0055a4',
+    hover: '#003f7f',
+    light: '#3377cc',
+    darkPrimary: '#38bdf8',
+    darkHover: '#0ea5e9',
+    darkLight: '#7dd3fc'
   }
 };
 
@@ -60,18 +69,18 @@ export const ThemeProvider = ({ children }) => {
   }, []);
 
   useEffect(() => {
-    // Dynamically update Crimson Red primary colors in root CSS variables
-    const selected = ACCENT_COLORS.red;
+    // Dynamically update primary colors in root CSS variables with bulletproof fallback
+    const selected = ACCENT_COLORS[accent] || ACCENT_COLORS.red || ACCENT_COLORS.blue;
     const isDark = theme === 'dark' || theme === 'black';
-    const primary = isDark ? selected.darkPrimary : selected.primary;
-    const hover = isDark ? selected.darkHover : selected.hover;
-    const light = isDark ? selected.darkLight : selected.light;
+    const primary = isDark ? (selected.darkPrimary || selected.primary) : selected.primary;
+    const hover = isDark ? (selected.darkHover || selected.hover) : selected.hover;
+    const light = isDark ? (selected.darkLight || selected.light) : selected.light;
 
     document.documentElement.style.setProperty('--accent-color', primary);
     document.documentElement.style.setProperty('--accent-color-hover', hover);
     document.documentElement.style.setProperty('--accent-color-light', light);
     document.documentElement.style.setProperty('--color-text-on-accent', '#ffffff');
-  }, [theme]);
+  }, [theme, accent]);
 
   // Cycle: Light -> Light Dark ('dark') -> Pure Dark ('black') -> Light ('light')
   const toggleTheme = () => {
