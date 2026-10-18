@@ -4,16 +4,16 @@ const ThemeContext = createContext();
 
 export const useTheme = () => useContext(ThemeContext);
 
-// Primary Color: Ocean Blue only
+// Primary Color: Crimson Red (matching Southern Waves logo)
 export const ACCENT_COLORS = {
-  blue: {
-    name: 'Ocean Blue',
-    primary: '#0055a4',
-    hover: '#003f7f',
-    light: '#3377cc',
-    darkPrimary: '#38bdf8',
-    darkHover: '#0ea5e9',
-    darkLight: '#7dd3fc'
+  red: {
+    name: 'Crimson Red',
+    primary: '#c8102e',
+    hover: '#9e0c23',
+    light: '#e8374f',
+    darkPrimary: '#ff5c77',
+    darkHover: '#ff385c',
+    darkLight: '#ff8097'
   }
 };
 
